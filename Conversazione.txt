@@ -436,3 +436,7 @@ Fatto: le gocce ignorano il layer 2 (giocatore e pezzi di carne).
 --- PROMPT 49 ---
 Utente: colpo AWP al cuore e il Kekko non e morto; sistemare la logica.
 Fatto: organi vitali controllati lungo il tragitto del proiettile (ingresso->uscita nello spazio del busto): CUORE (AWP/AK morte immediata; pistola collasso e morte in 3-8 s, getto 50 ml/s), COLONNA (paralisi: gambe a 0, a terra; AWP morte), POLMONI (dolore, morte in 40-90 s se non peggio). AWP al torso senza organi vitali: 75% morte immediata (era 40%), altrimenti a terra e morte in 3-8 s.
+
+--- PROMPT 50 ---
+Utente: fuga al riparo poco realistica; dietro un muro basso devono nascondersi del tutto accovacciati; comportamento piu umano; trascinamento e saltelli piu reali; strisciare a pancia in giu.
+Fatto: in fuga corrono bassi e curvi; dietro il riparo squat vero (bacino -46 cm, cosce 100 gradi, ginocchia 125) con la testa sotto il bordo del muro da 1,3 m, schiena al muro rivolti lontano dal tiratore, sbirciano poco e brevemente (meno se feriti). Saltelli: 2,2 al secondo, piu alti (11 cm), ginocchio che ammortizza l atterraggio, braccia aperte per l equilibrio, busto in avanti. Strisciare: pancia a terra (torque su busto e bacino verso il basso), testa alzata in avanti, gambe distese trascinate, braccia che si allungano alternate.

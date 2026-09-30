@@ -616,7 +616,7 @@ namespace VITS
                 else np = pos;
                 transform.position = np;
                 float moved = new Vector3(np.x - pos.x, 0, np.z - pos.z).magnitude;
-                phase += Hopping ? dt * 1.6f : moved / Stride();
+                phase += Hopping ? dt * 2.2f : moved / Stride();
             }
             Gravity(dt);
             vel = Vector3.ClampMagnitude((transform.position - lastPos) / dt, 2.5f); lastPos = transform.position;
@@ -707,10 +707,17 @@ namespace VITS
             if (state == S.Cover)
             {
                 peekT -= dt;
-                if (peekT <= 0) { peekT = peek > 0.5f ? Random.Range(3f, 7f) : Random.Range(1.2f, 2.2f); peek = peek > 0.5f ? 0f : 1f; }
+                // scared people stay down; they only risk a short look now and then (less the more they hurt)
+                if (peekT <= 0) { peekT = peek > 0.5f ? Random.Range(4f, 9f) * (1f + hurt) : Random.Range(0.8f, 1.5f); peek = peek > 0.5f || hurt > 0.7f ? 0f : 1f; }
+                // back to the wall side, facing away from the shooter
+                if (Game.I != null && Game.I.player != null)
+                {
+                    Vector3 away = transform.position - Game.I.player.transform.position; away.y = 0;
+                    if (away.sqrMagnitude > 0.01f) transform.rotation = Quaternion.RotateTowards(transform.rotation, Quaternion.LookRotation(away), dt * 120f);
+                }
             }
             else peek = 0f;
-            float crouch = cover * (1f - peek * 0.7f);
+            float crouch = cover * (1f - peek * 0.55f);
             if (peek > 0.5f && Game.I != null && Game.I.player != null)
             {
                 Vector3 to = Game.I.player.transform.position - transform.position; to.y = 0;
@@ -731,17 +738,21 @@ namespace VITS
                 // one bad leg: keep it off the ground and hop on the good one
                 bool badL = legFn[0] < legFn[1];
                 float hop = Mathf.Max(0f, Mathf.Sin(phase * Mathf.PI * 2f)); // airborne half of the hop
-                if (badL) { thL = -25f; kneeL = 75f; thR = -8f * hop; kneeR = 12f + 25f * (1f - hop); }
-                else { thR = -25f; kneeR = 75f; thL = -8f * hop; kneeL = 12f + 25f * (1f - hop); }
-                pelvisY = 0.9f + 0.07f * hop;
+                float land = 1f - hop;                                         // knee soaks up each landing
+                if (badL) { thL = -30f; kneeL = 85f; thR = -12f * hop - 18f * land; kneeR = 10f + 40f * land; }
+                else { thR = -30f; kneeR = 85f; thL = -12f * hop - 18f * land; kneeL = 10f + 40f * land; }
+                pelvisY = 0.86f + 0.11f * hop;
+                a = 0f;   // arms out for balance instead of swinging
             }
             // crouch in cover: knees bent, back fairly straight, hands resting forward
-            pelvisY -= crouch * 0.3f;
-            Set("thighL", Quaternion.Euler(thL - crouch * 55f, 0, -crouch * 6f), k); Set("thighR", Quaternion.Euler(thR - crouch * 55f, 0, crouch * 6f), k);
-            Set("shinL", Quaternion.Euler(kneeL + crouch * 85f, 0, 0), k); Set("shinR", Quaternion.Euler(kneeR + crouch * 85f, 0, 0), k);
-            Set("uarmL", Quaternion.Euler(s * a * 0.7f - crouch * 25f, 0, -4 - crouch * 4f), k); Set("uarmR", Quaternion.Euler(-s * a * 0.7f - crouch * 25f, 0, 4 + crouch * 4f), k);
+            // crouch in cover: a real squat, head below the top of a 1.3 m wall
+            pelvisY -= crouch * 0.46f;
+            Set("thighL", Quaternion.Euler(thL - crouch * 100f, 0, -crouch * 10f), k); Set("thighR", Quaternion.Euler(thR - crouch * 100f, 0, crouch * 10f), k);
+            Set("shinL", Quaternion.Euler(kneeL + crouch * 125f, 0, 0), k); Set("shinR", Quaternion.Euler(kneeR + crouch * 125f, 0, 0), k);
+            float armOut = Hopping ? 35f : 0f;
+            Set("uarmL", Quaternion.Euler(s * a * 0.7f - crouch * 40f, 0, -4 - crouch * 4f - armOut), k); Set("uarmR", Quaternion.Euler(-s * a * 0.7f - crouch * 40f, 0, 4 + crouch * 4f + armOut), k);
             Set("farmL", Quaternion.Euler(-10 - a * 0.3f - crouch * 35f, 0, 0), k); Set("farmR", Quaternion.Euler(-10 - a * 0.3f - crouch * 35f, 0, 0), k);
-            float lean = hurt * 14f + (state == S.Flee ? 8f : 0f) + crouch * 18f;
+            float lean = hurt * 14f + (state == S.Flee ? (provoked ? 16f : 8f) : 0f) + crouch * 30f + (Hopping ? 10f : 0f);   // running for cover: low and hunched
             float sway = s * a * 0.12f;
             lean += stumble * 20f;
             Set("pelvis", Quaternion.Euler(0, -s * a * 0.15f, sway * 0.5f), k);
@@ -935,6 +946,14 @@ namespace VITS
                 T("chest", 22f * c); T("head", 18f * c);
                 T("thighL", -60f * c); T("thighR", -55f * c); T("shinL", 100f * c); T("shinR", 95f * c);
                 T("uarmL", -40f * c, 20f * c); T("uarmR", -40f * c, -20f * c); T("farmL", -100f * c); T("farmR", -100f * c);
+                if (crawling)
+                {
+                    // commando crawl: body flat, head up looking ahead, legs trailing, arms reaching forward in turn
+                    float cyc = Mathf.Sin(crawlT * 3.5f);
+                    T("chest", 0f); T("head", -35f);
+                    T("thighL", -10f + 20f * cyc); T("thighR", -10f - 20f * cyc); T("shinL", 25f); T("shinR", 25f);
+                    T("uarmL", -150f + 40f * cyc, 15f); T("uarmR", -150f - 40f * cyc, -15f); T("farmL", -40f); T("farmR", -40f);
+                }
                 Tone(crawling ? 0.25f : conscious ? 0.35f : 0.08f);
                 if (conscious && !crawling) Writhe(dt * (1f + pain * 3f));
                 if (conscious && !crawling && strength > 0.15f && Time.time - lastHitTime > 0.25f && (Time.time > crawlRestT || Time.time - lastHitTime < 1f)) StartCrawl();   // down: straight away, drag yourself off
@@ -1072,6 +1091,9 @@ namespace VITS
                 ch.rb.AddForce(Vector3.up * totalMass * 6f + d * totalMass * 2f);
                 pel.rb.AddForce(Vector3.up * totalMass * 3f);
             }
+            // belly down: chest and pelvis face the floor while dragging
+            Upright(ch.rb, ch.transform.forward, Vector3.down, 90f, 10f);
+            Upright(pel.rb, pel.transform.forward, Vector3.down, 60f, 8f);
             // head first toward where you are going
             Vector3 hf = Flat(ch.transform.up); if (hf.sqrMagnitude < 0.01f) hf = Flat(ch.transform.forward);
             ch.rb.AddTorque(Vector3.up * Vector3.SignedAngle(hf, d, Vector3.up) * 0.4f);
