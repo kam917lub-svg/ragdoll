@@ -313,3 +313,10 @@ Fatto:
 - Sangue spalmato: griglia 25 cm di sangue fresco a terra + pozze; impronte di scarpa (giocatore e Carl) che si caricano e sbiadiscono (x0,8 a passo); parti del corpo che strisciano sul pavimento lasciano strisciate, e scie se sanguinano. 4 nuovi tipi di decal (strisciata forte/leggera, impronta forte/leggera).
 - Scale: alzata ~18 cm, pedata 30 cm (16 e 21 gradini). Cover 06 spostato fuori dalla scala.
 - Torri drop test sul muro sud: 5, 8, 10, 15 m, tacche ogni metro, scritta altezza, pedana ascensore (3 m/s) che si chiama da sotto/sopra. Muri esterni alti 20 m.
+
+--- PROMPT 28 ---
+Utente: slider volume nel menu Esc; sangue piu scuro e un po piu chiaro quando spalmato; servono diversi caricatori di colpi (pezzi di carne) per tagliare un Carl a meta.
+Fatto:
+- Menu Esc: VOLUME 0-100% (AudioListener.volume), salvato in PlayerPrefs insieme alle sensibilita.
+- Colori: sangue fresco (0,40 0,012 0,025), gocce (0,42..), colature muro (0,32..), ferite pelle (0,42..), pozze (0,27 0,006 0,016). Strisciate (0,60 0,07 0,08 a=0,6) e leggere (a=0,3), impronte (0,52.. a=0,75) e sbiadite (a=0,32): piu chiare e trasparenti.
+- Taglio a meta: waistDmg accumula per ogni colpo a torso/bacino in base alla distanza dalla vita (pieno entro 12 cm, zero oltre 32 cm): pistola 1, AK 1,3, AWP 8; soglia 55 (~4 caricatori pistola, ~2 AK, 7 AWP). Ogni colpo vicino alla vita scava un foro piu grande (2 -> 5 cm) e lancia 1-4 pezzi di carne; a meta "ABDOMEN SHREDDED"; alla soglia SplitInHalf: SeverJoint(chest) (ora permesso anche per il busto), monconi a vita con osso, getto aortico 60 ml/s, 16 pezzi, spruzzi, morte "CUT IN HALF".

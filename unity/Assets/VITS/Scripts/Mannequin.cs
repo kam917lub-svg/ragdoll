@@ -158,7 +158,7 @@ namespace VITS
         public float pain; int woundCount;
         float crawlRestT;
         float turnRate, headYaw, headYawT, lookT, peekT, peek, stateT, phase, speed, heart, writheT, hurt, crawlT, detourT, stuckT, bestDist, foldT, groundY, groundT, deathT, shock;
-        int torsoHits, headHits; bool headMashed;
+        int torsoHits, headHits; bool headMashed; float waistDmg;   // tissue shot away around the waist
         readonly int[] carvedBone = new int[BodyMesh.NB];
         Vector3 target, lastPos, vel, detour, anchor, lastDir = Vector3.forward;
         Part clutch; Vector3 clutchLocal;
@@ -1199,6 +1199,26 @@ namespace VITS
             {
                 torsoHits++;
                 injuries.Add((p.key == "chest" ? "CHEST" : "ABDOMEN") + "  GUNSHOT" + (exits ? "  THROUGH" : ""));
+                // cutting a Carl in half takes a lot: the belly has to be shot away all around the waist, magazine after
+                // magazine (about 4 pistol mags, 2 AK mags, 7 AWP rounds if they all land near the waist)
+                var chW = parts["chest"];
+                if (!chW.severed)
+                {
+                    float d = (pt - chW.transform.position).magnitude;
+                    float near = Mathf.Clamp01(1f - (d - 0.12f) / 0.2f);
+                    float before = waistDmg;
+                    waistDmg += near * (Player.AWP ? 8f : Player.AK ? 1.3f : 1f);
+                    if (before < WaistSplit * 0.5f && waistDmg >= WaistSplit * 0.5f) injuries.Add("ABDOMEN  SHREDDED");
+                    if (near > 0f)
+                    {
+                        // the more is gone, the bigger each new wound tears and the more meat flies
+                        float k = Mathf.Clamp01(waistDmg / WaistSplit);
+                        Carve(p, pt, 0.02f + 0.03f * k);
+                        for (int g = 0; g < 1 + (int)(k * 3f); g++)
+                            Gib.Spawn(pt - dir * 0.02f, (-dir * 0.6f + Random.insideUnitSphere) * Random.Range(1f, 3f) + Vector3.up, Random.Range(0.012f, 0.024f));
+                    }
+                    if (waistDmg >= WaistSplit) SplitInHalf(dir);
+                }
                 if (!dead)
                 {
                     clutch = p; clutchLocal = inL; shock = 0.35f;
@@ -1565,9 +1585,24 @@ namespace VITS
             FinishCut(p, np, new Vector3(0, -c, 0), dir);
         }
 
+        const float WaistSplit = 55f;
+
+        // the upper body comes away from the pelvis
+        void SplitInHalf(Vector3 dir)
+        {
+            var ch = parts["chest"]; if (ch.severed) return;
+            injuries.Add("CUT IN HALF");
+            SeverJoint(ch, dir);
+            Vector3 w = ch.transform.position;
+            for (int i = 0; i < 16; i++) Gib.Spawn(w + Random.insideUnitSphere * 0.08f, dir * Random.Range(1f, 3f) + Random.insideUnitSphere * 2f + Vector3.up * 1.2f, Random.Range(0.015f, 0.035f));
+            Blood.I.Spray(w, dir + Vector3.up * 0.3f, 300, 4.5f, 0.9f, 0.3f, 2.2f);
+            Blood.I.Spray(w, Vector3.down, 200, 1.5f, 0.8f, 0.8f, 3f);
+            Die("CUT IN HALF");
+        }
+
         public void SeverJoint(Part p, Vector3 dir)
         {
-            if (p.severed || p.isTorso || p.parentPart == null) return;
+            if (p.severed || p.parentPart == null) return;
             var par = p.parentPart;
             foreach (var a in par.GetComponents<Collider>()) foreach (var b in p.GetComponentsInChildren<Collider>()) Physics.IgnoreCollision(a, b, true);
             Vector3 baseVel = !par.rb.isKinematic ? par.rb.linearVelocity : vel;
@@ -1612,10 +1647,11 @@ namespace VITS
             Vector3 nUp = upper.isTorso ? upper.transform.TransformDirection((cutLocalUpper - new Vector3(0, 0.15f, 0)).normalized) : -upper.transform.up;
             float r = Mathf.Clamp(-upper.Sdf(cutLocalUpper), 0.02f, 0.09f);
             if (upper.isTorso) r = piece.isHead ? 0.05f : Mathf.Clamp(piece.radius, 0.04f, 0.09f);
+            if (piece.isTorso) { nUp = upper.transform.up; r = 0.12f; }   // waist: pelvis below, chest above
             Stump(upper.transform, cw, nUp, r);
             Stump(piece.transform, cw, -nUp, r * 0.95f);
             // a severed limb opens its big artery
-            float rate = piece.isHead ? 45f : piece.isLeg ? 30f : 15f;
+            float rate = piece.isTorso ? 60f : piece.isHead ? 45f : piece.isLeg ? 30f : 15f;   // torso: the aorta
             AddWound(upper, upper.transform.InverseTransformPoint(cw + nUp * 0.01f), upper.transform.InverseTransformDirection(nUp), rate, true, piece.isHead ? 14f : 25f, "SEVERED");
             AddWound(piece, piece.transform.InverseTransformPoint(cw - nUp * 0.01f), piece.transform.InverseTransformDirection(-nUp), 6f, false, 7f, "");
             for (int i = 0; i < 3; i++) Gib.Spawn(cw, dir * Random.Range(1f, 2.5f) + Random.insideUnitSphere * 1f + Vector3.up * 0.8f, Random.Range(0.012f, 0.025f));

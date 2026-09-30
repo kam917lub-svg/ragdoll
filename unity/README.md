@@ -27,11 +27,13 @@ Serve Unity 6 (testato come codice per 6000.x) con **URP**.
 | [ ] | rallenta / accelera il tempo |
 | P | pausa |
 | Backspace | ricomincia (anche pulsante RESET nel menu Esc) |
-| Esc | menu: scegli PISTOLA, AK-47 o AWP, SENSIBILITA mouse e SENSIBILITA ADS (default 0,7x, salvate), CARL BRAINS on/off (off = stanno fermi finché non vengono presi di mira), riprendi |
+| Esc | menu: scegli PISTOLA, AK-47 o AWP, SENSIBILITA mouse, SENSIBILITA ADS (default 0,7x) e VOLUME (salvati), RESET, CARL BRAINS on/off (off = stanno fermi finché non vengono presi di mira), riprendi |
 
 Sotto il mirino c'è scritto cosa stai puntando; una X rossa conferma che il colpo ha preso un corpo.
 
 ## Cosa fa
+- Tagliare un Carl a metà: bisogna distruggere la pancia tutto attorno alla vita, caricatore dopo caricatore (circa 4 caricatori di pistola, 2 di AK, 7 colpi di AWP se arrivano tutti vicino alla vita). Ogni colpo lì strappa fori sempre più grandi e fa volare più carne; a metà strada l'addome risulta "SHREDDED", alla fine il busto si stacca dal bacino.
+- Sangue scuro (rosso quasi bordeaux, pozze più scure); le strisciate e le impronte sono più chiare e trasparenti, come un velo sottile.
 - Colpi: ogni proiettile viene provato sulla pelle esattamente come è disegnata (skinning calcolato sulla CPU con le stesse ossa della GPU) e sulla forma solida del corpo; vince il più vicino, prima di muri e pavimento. Sotto il mirino LAST SHOT dice cosa hai colpito e a che distanza (oppure MISS e cosa c'era dietro).
 - Sangue che si sbava: camminando in una pozza lasci impronte sempre più deboli (anche i Carl); corpi trascinati, che strisciano o scivolano spalmano il sangue e, se sanguinano, lasciano la scia.
 - Torri per i drop test sul muro di fondo (dietro la partenza): 5, 8, 10 e 15 m, con tacche ogni metro. Sali sulla pedana arancione davanti: ti porta in cima (e giù); si chiama anche da sotto o da sopra. Con il tasto centrale puoi tirare su i Carl.

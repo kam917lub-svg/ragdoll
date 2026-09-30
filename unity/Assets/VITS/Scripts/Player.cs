@@ -13,8 +13,17 @@ namespace VITS
         public static bool AK => Weapon == 1;
         public static bool AWP => Weapon == 2;
         public static float Sens = 1f, AdsSens = 0.7f;   // saved between sessions
-        public static void LoadSens() { Sens = PlayerPrefs.GetFloat("vits_sens", 1f); AdsSens = PlayerPrefs.GetFloat("vits_ads", 0.7f); }
-        public static void SaveSens() { PlayerPrefs.SetFloat("vits_sens", Sens); PlayerPrefs.SetFloat("vits_ads", AdsSens); PlayerPrefs.Save(); }
+        public static float Volume = 1f;
+        public static void LoadSens()
+        {
+            Sens = PlayerPrefs.GetFloat("vits_sens", 1f); AdsSens = PlayerPrefs.GetFloat("vits_ads", 0.7f);
+            Volume = PlayerPrefs.GetFloat("vits_vol", 1f); AudioListener.volume = Volume;
+        }
+        public static void SaveSens()
+        {
+            PlayerPrefs.SetFloat("vits_sens", Sens); PlayerPrefs.SetFloat("vits_ads", AdsSens); PlayerPrefs.SetFloat("vits_vol", Volume); PlayerPrefs.Save();
+            AudioListener.volume = Volume;
+        }
         public static readonly string[] Names = { "PISTOL / 9MM", "AK-47 / 7.62", "AWP / .338 LAPUA" };
         static readonly int[] MAG = { 15, 30, 10 };
         public int ammo = 15; public int MaxAmmo => MAG[Weapon];
