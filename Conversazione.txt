@@ -473,3 +473,8 @@ Fatto: vSync off, limitatore FPS nel menu Esc (60/120/144/165/240/illimitato, sa
 --- PROMPT 58 ---
 Utente: con l AWP, sparando in ADS esce dallo scope e poi rientra; tenendo premuto deve restare sempre nello scope.
 Fatto: lo scope resta attivo anche durante il ciclo dell otturatore (tolta la condizione boltT <= 0,9); esce solo rilasciando il tasto destro o ricaricando.
+
+--- PROMPT 59 ---
+Utente: spinti correndo o col tasto centrale senza farsi male restano a terra con spasmi invece di rialzarsi come una persona normale.
+Causa: a terra partiva sempre lo strisciamento/contorcimento anche senza ferite, e chi striscia non si rialza mai.
+Fatto: Injured = dolore >0,25, gambe <60%, forze <50% o ferite aperte. Se non e ferito: niente strisciare ne contorcersi; appena a terra e fermo da ~1,2 s (non tenuto, non in volo) si rialza e riprende (GOT BACK UP). Il contorcimento solo con dolore reale.

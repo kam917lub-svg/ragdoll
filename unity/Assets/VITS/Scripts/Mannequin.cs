@@ -962,6 +962,9 @@ namespace VITS
         }
 
         // only get up from the floor: not in mid-air (thrown, falling, dropped from the grab), not while sliding
+        // knocked over but not really hurt: a normal person just gets back up and carries on
+        bool Injured => pain > 0.25f || legFn[0] < 0.6f || legFn[1] < 0.6f || strength < 0.5f || wounds.Count > 0;
+
         bool OnGround()
         {
             var pel = parts["pelvis"];
@@ -1028,8 +1031,8 @@ namespace VITS
                     T("uarmL", -150f + 40f * cyc, 15f); T("uarmR", -150f - 40f * cyc, -15f); T("farmL", -40f); T("farmR", -40f);
                 }
                 Tone(crawling ? 0.25f : conscious ? 0.35f : 0.08f);
-                if (conscious && !crawling) Writhe(dt * (1f + pain * 3f));
-                if (conscious && !crawling && strength > 0.15f && Time.time - lastHitTime > 0.25f && (Time.time > crawlRestT || Time.time - lastHitTime < 1f)) StartCrawl();   // down: straight away, drag yourself off
+                if (conscious && !crawling && pain > 0.25f) Writhe(dt * (1f + pain * 3f));   // only real pain makes them writhe
+                if (conscious && !crawling && Injured && strength > 0.15f && Time.time - lastHitTime > 0.25f && (Time.time > crawlRestT || Time.time - lastHitTime < 1f)) StartCrawl();   // down: straight away, drag yourself off
             }
             if (clutch != null && !clutch.severed && conscious)
             {
@@ -1040,6 +1043,12 @@ namespace VITS
                 }
             }
             // light wounds only, standing and steady for a while: walk (or hop) away
+            if (!Injured && !Held && Time.time - heldT > 1.2f && !crawling && Time.time - lastHitTime > 1.2f && Time.time - airT > 1.2f && OnGround())
+            {
+                injuries.Add("GOT BACK UP");
+                Recover();
+                return;
+            }
             // legs still work: get up and run (hand on the wound) as soon as the jolt is over - pain drives you away, it doesn't keep you sitting
             if (!Held && Time.time - heldT > 1.5f && !crawling && Mathf.Max(legFn[0], legFn[1]) > 0.6f && Mathf.Min(legFn[0], legFn[1]) > 0.3f && strength > 0.5f && Time.time - lastHitTime > 0.7f && shock < 0.3f && OnGround())
                 Recover();
