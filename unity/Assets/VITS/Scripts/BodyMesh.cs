@@ -109,6 +109,7 @@ namespace VITS
         public static BoneWeight[] Weights;
         public static Vector3[] BodyVerts;
         public static int[] BodyTris;
+        public static readonly int[] TrisPerBone = new int[NB];
         static readonly float[] sd = new float[NB];
 
         static void InitRest()
@@ -172,6 +173,7 @@ namespace VITS
                 Weights[v] = new BoneWeight { boneIndex0 = b0, weight0 = 1f / s, boneIndex1 = Mathf.Max(0, b1), weight1 = w1 / s };
             }
             BodyVerts = verts.ToArray(); BodyTris = tris.ToArray();
+            for (int t = 0; t < tris.Count; t += 3) TrisPerBone[Dom[tris[t]]]++;
             Body = new Mesh { name = "MannequinBody", indexFormat = IndexFormat.UInt32 };
             Body.SetVertices(verts); Body.normals = normals; Body.SetTriangles(tris, 0);
             Body.boneWeights = Weights; Body.bindposes = Bind; Body.RecalculateBounds();

@@ -23,6 +23,7 @@ namespace VITS
         public Vector3 sdfOff;          // local -> original segment space (for lower pieces of a cut limb)
         public float yMin = -9f, yMax = 9f;
         public int triTotal, carved;
+        public readonly List<Vector2> holes = new List<Vector2>(); // (height along the bone, angle around it) of every hole
 
         public float Sdf(Vector3 local) => BodyMesh.Sdf(idx, local + sdfOff);
         public Vector3 Normal(Vector3 local) => BodyMesh.Normal(idx, local + sdfOff);
@@ -126,7 +127,8 @@ namespace VITS
         enum S { Idle, Walk, Flee, Cover }
         S state = S.Idle;
         float turnRate, headYaw, headYawT, lookT, peekT, peek, stateT, phase, speed, heart, writheT, hurt, crawlT, detourT, stuckT, bestDist, foldT, groundY, groundT, deathT, shock;
-        int torsoHits, headHits;
+        int torsoHits, headHits; bool headMashed;
+        readonly int[] carvedBone = new int[BodyMesh.NB];
         Vector3 target, lastPos, vel, detour, anchor, lastDir = Vector3.forward;
         Part clutch; Vector3 clutchLocal;
         float totalMass;
@@ -981,6 +983,10 @@ namespace VITS
             B.SkinDecal(p.transform, inL, p.Normal(inL), 0.008f, 5);
             if (exits) B.SkinDecal(p.transform, outL, p.Normal(outL), Player.AK ? 0.02f : 0.014f, 5);
 
+            // flesh is torn away: a small piece at the entry, a bigger one at the exit, and it flies off
+            float rin = Player.AK ? 0.02f : 0.015f, rout = (Player.AK ? 0.034f : 0.025f) * (p.isHead ? 1.3f : 1f);
+            Carve(p, inW, rin);
+            if (exits) { Carve(p, outW, rout); Gib.Spawn(outW + outN * 0.02f, dir * Random.Range(2f, 4.5f) + Random.insideUnitSphere + Vector3.up * 0.6f, rout * Random.Range(0.8f, 1.2f)); }
             B.Spray(inW + inN * 0.01f, (-dir + inN) * 0.5f, 16, 1.5f, 0.45f, 0.05f, 0.4f);
             if (exits) B.Spray(outW + outN * 0.01f, dir, p.isHead ? 130 : 70, p.isHead ? 5.5f : 4f, 0.4f, 0.15f, 1.2f);
             if (exits && (p.isHead || Random.value < 0.35f)) Gib.Spawn(outW, dir * Random.Range(1.5f, 3.5f) + Random.insideUnitSphere + Vector3.up * 0.8f, Random.Range(0.01f, 0.02f));
@@ -1006,7 +1012,7 @@ namespace VITS
                 headHits++;
                 injuries.Add("HEAD  GUNSHOT  FATAL");
                 Die("HEADSHOT");
-                if (headHits >= 3) SeverJoint(p, dir);
+                if (headHits >= 7 && !headMashed) SeverJoint(p, dir);
             }
             else if (p.isTorso)
             {
@@ -1024,9 +1030,10 @@ namespace VITS
                 injuries.Add(p.key.ToUpper() + "  GUNSHOT");
                 if (!p.severed && !dead) { clutch = p; clutchLocal = inL; }
                 if (p.isLeg && !p.severed) legFn[p.key.EndsWith("R") ? 1 : 0] -= 0.45f;
-                // a limb only comes off after a lot of damage in the same place: pistol 5-6 hits, AK 3-4
-                bool cut = Player.AK ? (p.hits >= 4 || (p.hits >= 3 && Random.value < 0.4f)) : (p.hits >= 6 || (p.hits >= 5 && Random.value < 0.35f));
-                if (cut) SeverAt(p, -inL.y, dir);
+                // the limb comes off where a line of holes goes right across it
+                p.holes.Add(new Vector2(-inL.y, Mathf.Atan2(inL.x, inL.z) * Mathf.Rad2Deg));
+                bool cut = CutLine(p, out float cy);
+                if (cut) { SeverAt(p, cy, dir); p.holes.Clear(); }
                 else if (p.isLeg && !dead && !p.severed)
                 {
                     bool bothBad = legFn[0] < 0.6f && legFn[1] < 0.6f, gone = Mathf.Min(legFn[0], legFn[1]) < 0.15f;
@@ -1052,6 +1059,68 @@ namespace VITS
         }
 
         // what does a bullet along this ray really hit? (the visible skin, not the rough colliders)
+        // enough holes at about the same height, spread around the limb? (pistol needs more than the AK)
+        static bool CutLine(Part p, out float cy)
+        {
+            cy = 0; int need = Player.AK ? 3 : 5;
+            foreach (var h in p.holes)
+            {
+                int n = 0; float lo = 999, hi = -999, sum = 0;
+                var angs = new List<float>();
+                foreach (var o in p.holes) if (Mathf.Abs(o.x - h.x) < 0.05f) { n++; sum += o.x; angs.Add(o.y); }
+                if (n < need) continue;
+                angs.Sort(); float gap = 0;
+                for (int i = 0; i < angs.Count; i++) { float g = (i + 1 < angs.Count ? angs[i + 1] : angs[0] + 360f) - angs[i]; if (g > gap) gap = g; }
+                float cover = 360f - gap; _ = lo; _ = hi;
+                if (cover >= 90f || n >= need + 2) { cy = sum / n; return true; }
+            }
+            return false;
+        }
+
+        // tear the skin away around a world point: the flesh inside shows, the piece flies off
+        void Carve(Part p, Vector3 world, float r)
+        {
+            var sk = p.skin; if (sk == null) return;
+            int bi = System.Array.IndexOf(sk.bones, p.transform); if (bi < 0) return;
+            Vector3 rest = sk.bind[bi].inverse.MultiplyPoint3x4(p.transform.InverseTransformPoint(world));
+            var V = BodyMesh.BodyVerts; var D = BodyMesh.Dom; float r2 = r * r;
+            var keep = new List<int>(sk.tris.Count); int removed = 0;
+            for (int t = 0; t < sk.tris.Count; t += 3)
+            {
+                int a = sk.tris[t], b = sk.tris[t + 1], c = sk.tris[t + 2];
+                if (((V[a] + V[b] + V[c]) / 3f - rest).sqrMagnitude < r2) { removed++; carvedBone[D[a]]++; continue; }
+                keep.Add(a); keep.Add(b); keep.Add(c);
+            }
+            if (removed == 0) return;
+            sk.tris = keep; sk.mesh.SetTriangles(keep, 0);
+            if (p.isHead && !headMashed && carvedBone[BodyMesh.HEA] > BodyMesh.TrisPerBone[BodyMesh.HEA] * 0.3f) MashHead(p);
+        }
+
+        // too much of the head is gone: it bursts
+        void MashHead(Part p)
+        {
+            headMashed = true;
+            var sk = p.skin; var D = BodyMesh.Dom; var V = BodyMesh.BodyVerts;
+            var keep = new List<int>(sk.tris.Count);
+            for (int t = 0; t < sk.tris.Count; t += 3)
+            {
+                int a = sk.tris[t];
+                // keep the neck, remove the skull
+                if (D[a] == BodyMesh.HEA && V[a].y > BodyMesh.Rest[BodyMesh.HEA].m13 + 0.06f) continue;
+                keep.Add(a); keep.Add(sk.tris[t + 1]); keep.Add(sk.tris[t + 2]);
+            }
+            sk.tris = keep; sk.mesh.SetTriangles(keep, 0);
+            foreach (Transform c in p.transform) if (c.name != "stump") c.gameObject.SetActive(false); // visor, brain...
+            foreach (var col in p.GetComponents<Collider>()) col.enabled = false;
+            Vector3 hc = p.transform.TransformPoint(new Vector3(0, 0.17f, 0));
+            for (int i = 0; i < 14; i++) Gib.Spawn(hc + Random.insideUnitSphere * 0.06f, lastDir * Random.Range(1f, 4f) + Random.insideUnitSphere * 2.5f + Vector3.up * 1.5f, Random.Range(0.02f, 0.045f));
+            Blood.I.Spray(hc, lastDir + Vector3.up * 0.5f, 160, 5f, 0.9f, 0.2f, 1.4f);
+            Stump(p.transform, p.transform.TransformPoint(new Vector3(0, 0.06f, 0)), p.transform.up, 0.05f);
+            AddWound(p, new Vector3(0, 0.07f, 0), Vector3.up, 45f, true, 12f, "HEAD DESTROYED");
+            injuries.Add("HEAD  DESTROYED");
+            Die("HEAD DESTROYED");
+        }
+
         // nearest body part to a world point (any Carl, alive, down, dead, or a cut piece)
         public static Part Nearest(Vector3 w, float maxDist)
         {
@@ -1325,10 +1394,14 @@ namespace VITS
             root.SetParent(t, false);
             root.position = world;
             root.rotation = Quaternion.FromToRotation(Vector3.up, n);
-            Mats.Vis(PrimitiveType.Sphere, root, Vector3.zero, new Vector3(r * 2.0f, r * 0.6f, r * 2.0f), stumpMat);
-            for (int i = 0; i < 3; i++)
-                Mats.Vis(PrimitiveType.Sphere, root, new Vector3(Random.Range(-r, r) * 0.5f, r * 0.1f, Random.Range(-r, r) * 0.5f), Vector3.one * r * Random.Range(0.35f, 0.6f), stumpMat);
-            Mats.Vis(PrimitiveType.Cylinder, root, new Vector3(0, r * 0.25f, 0), new Vector3(r * 0.45f, r * 0.35f, r * 0.45f), boneMat);
+            // torn meat: irregular lumps inside the opening, and the bone sticking out
+            for (int i = 0; i < 6; i++)
+            {
+                var g = Mats.Vis(PrimitiveType.Sphere, root, new Vector3(Random.Range(-0.6f, 0.6f) * r, Random.Range(-0.5f, 0.1f) * r, Random.Range(-0.6f, 0.6f) * r),
+                    new Vector3(Random.Range(0.4f, 0.8f), Random.Range(0.25f, 0.6f), Random.Range(0.4f, 0.8f)) * r, stumpMat);
+                g.transform.localRotation = Random.rotation;
+            }
+            Mats.Vis(PrimitiveType.Cylinder, root, new Vector3(Random.Range(-0.1f, 0.1f) * r, r * 0.35f, 0), new Vector3(r * 0.4f, r * 0.45f, r * 0.4f), boneMat).transform.localRotation = Quaternion.Euler(Random.Range(-15f, 15f), 0, Random.Range(-15f, 15f));
         }
     }
 }

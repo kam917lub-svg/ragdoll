@@ -253,3 +253,7 @@ Fatto: passo legato alla distanza percorsa (ciclo = 2 passi con lunghezza gamba 
 --- PROMPT 19 ---
 Utente: servono molti piu colpi per staccare un arto (pistola piu dell AK); dopo i primi colpi da vicino non li colpisce piu e vede cerchi grigi.
 Fatto: taglio arto pistola 5-6 colpi, AK 3-4. I cerchi grigi = segno di colpo su superficie non riconosciuta come Carl: ora qualunque colpo entro 15 cm dalla pelle di un Carl (vivo, a terra, morto, pezzo) conta come colpo su di lui; errori del colpo mostrati come HIT ERROR nell HUD.
+
+--- PROMPT 20 ---
+Utente: sembra fatto di dischi; vuole staccare pezzi di carne sparando, tagliare un arto facendo una linea di colpi, ridurre la testa in poltiglia.
+Fatto: ogni colpo toglie la pelle attorno a entrata (1,5/2 cm) e uscita (2,5/3,4 cm; testa x1,3) e lancia il pezzo; si vede la carne interna. Arto tagliato solo quando i fori sono alla stessa altezza (+-5 cm) e attorno all arto: pistola 5 fori (o 7), AK 3 (o 5). Testa: persa il 30% della pelle -> esplode in 14 pezzi, collo aperto che spruzza, morte; decapitazione al 7o colpo. Monconi: niente piu dischi, carne irregolare + osso sporgente.
