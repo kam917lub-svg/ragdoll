@@ -106,3 +106,19 @@ conferma su versione Unity e avvio.
 Utente: "manda l'artifact senza testare; sto installando Unity 6.6".
 Pubblicata la versione 3 dell'artifact (patch3, non testata).
 Prossimo passo: progetto Unity 6 (URP).
+
+--- PROMPT 6 -------------------------------------------------------
+Utente: Unity 6.6 installato, "fai il gioco".
+Creato progetto Unity in unity/ (URP, tutto generato da codice, Play e basta):
+- GI.cs: input (nuovo Input System o vecchio), materiali, helper primitive.
+- Blood.cs: gocce balistiche (fino a 4000), macchie istanziate (DrawMeshInstanced)
+  tonde/spinose/allungate, colature sui muri, macchie sui corpi, pozze che crescono
+  (spessore 2,5 mm), fori di proiettile.
+- Mannequin.cs: ragdoll 11 parti (Rigidbody+CharacterJoint), camminata procedurale,
+  fuga agli spari, mano sulla ferita, caduta se colpito alle gambe, svenimento e
+  morte per perdita di sangue, headshot istantaneo, decapitazione, amputazione con
+  pezzo fisico separato, moncone con osso, getti pulsanti, Gib (pezzi di carne).
+- Player.cs: FPS, pistola semiautomatica 15 colpi, rinculo, lampo, tracciante, suono sintetizzato.
+- Level.cs: Vertical Impact Testsite (griglia, piattaforme, scale, bordi arancio, scritte).
+- Game.cs: avvio automatico, tempo [ ], pausa, N, T, HUD e monitor medico.
+Non compilato qui (niente Unity/dotnet nel container): in attesa degli errori Console.

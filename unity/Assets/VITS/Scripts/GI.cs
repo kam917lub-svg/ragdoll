@@ -1,0 +1,79 @@
+using UnityEngine;
+#if ENABLE_INPUT_SYSTEM
+using UnityEngine.InputSystem;
+#endif
+
+namespace VITS
+{
+    public enum K { W, A, S, D, Shift, Space, R, T, N, Esc, LBracket, RBracket, P, M }
+
+    // Input wrapper: works with the new Input System (Unity 6 default) or the old Input Manager.
+    public static class GI
+    {
+#if ENABLE_INPUT_SYSTEM
+        static Key Map(K k)
+        {
+            switch (k)
+            {
+                case K.W: return Key.W; case K.A: return Key.A; case K.S: return Key.S; case K.D: return Key.D;
+                case K.Shift: return Key.LeftShift; case K.Space: return Key.Space; case K.R: return Key.R;
+                case K.T: return Key.T; case K.N: return Key.N; case K.Esc: return Key.Escape;
+                case K.LBracket: return Key.LeftBracket; case K.RBracket: return Key.RightBracket;
+                case K.P: return Key.P; default: return Key.M;
+            }
+        }
+        public static bool Held(K k) { var kb = Keyboard.current; return kb != null && kb[Map(k)].isPressed; }
+        public static bool Down(K k) { var kb = Keyboard.current; return kb != null && kb[Map(k)].wasPressedThisFrame; }
+        public static Vector2 MouseDelta() { var m = Mouse.current; return m == null ? Vector2.zero : m.delta.ReadValue() * 0.1f; }
+        public static bool FireDown() { var m = Mouse.current; return m != null && m.leftButton.wasPressedThisFrame; }
+        public static bool AimHeld() { var m = Mouse.current; return m != null && m.rightButton.isPressed; }
+#else
+        static KeyCode Map(K k)
+        {
+            switch (k)
+            {
+                case K.W: return KeyCode.W; case K.A: return KeyCode.A; case K.S: return KeyCode.S; case K.D: return KeyCode.D;
+                case K.Shift: return KeyCode.LeftShift; case K.Space: return KeyCode.Space; case K.R: return KeyCode.R;
+                case K.T: return KeyCode.T; case K.N: return KeyCode.N; case K.Esc: return KeyCode.Escape;
+                case K.LBracket: return KeyCode.LeftBracket; case K.RBracket: return KeyCode.RightBracket;
+                case K.P: return KeyCode.P; default: return KeyCode.M;
+            }
+        }
+        public static bool Held(K k) => Input.GetKey(Map(k));
+        public static bool Down(K k) => Input.GetKeyDown(Map(k));
+        public static Vector2 MouseDelta() => new Vector2(Input.GetAxisRaw("Mouse X"), Input.GetAxisRaw("Mouse Y"));
+        public static bool FireDown() => Input.GetMouseButtonDown(0);
+        public static bool AimHeld() => Input.GetMouseButton(1);
+#endif
+    }
+
+    public static class Mats
+    {
+        static Shader lit, spr;
+        public static Material Lit(Color c, float smooth = 0.25f)
+        {
+            if (lit == null) { lit = Shader.Find("Universal Render Pipeline/Lit"); if (lit == null) lit = Shader.Find("Standard"); }
+            var m = new Material(lit) { color = c, enableInstancing = true };
+            if (m.HasProperty("_Smoothness")) m.SetFloat("_Smoothness", smooth);
+            if (m.HasProperty("_Glossiness")) m.SetFloat("_Glossiness", smooth);
+            return m;
+        }
+        // unlit transparent, tinted (used for blood decals / pools / tracer)
+        public static Material Decal(Texture2D t, Color c, int queue = 3000)
+        {
+            if (spr == null) { spr = Shader.Find("Sprites/Default"); if (spr == null) spr = Shader.Find("Unlit/Transparent"); }
+            var m = new Material(spr) { mainTexture = t, color = c, enableInstancing = true, renderQueue = queue };
+            return m;
+        }
+        public static GameObject Vis(PrimitiveType type, Transform parent, Vector3 lp, Vector3 ls, Material m, bool shadow = true)
+        {
+            var g = GameObject.CreatePrimitive(type);
+            Object.DestroyImmediate(g.GetComponent<Collider>());
+            g.transform.SetParent(parent, false);
+            g.transform.localPosition = lp; g.transform.localScale = ls;
+            var r = g.GetComponent<Renderer>(); r.sharedMaterial = m;
+            r.shadowCastingMode = shadow ? UnityEngine.Rendering.ShadowCastingMode.On : UnityEngine.Rendering.ShadowCastingMode.Off;
+            return g;
+        }
+    }
+}
