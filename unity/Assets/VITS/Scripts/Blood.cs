@@ -250,7 +250,7 @@ namespace VITS
                 float len = Mathf.Clamp(slide * 0.035f * (0.5f + vol * 0.5f), 0.04f, 0.22f);
                 AddDecal(2, h.point + up * len * 0.45f, n, up, Mathf.Max(0.008f, size * 0.35f), len);
             }
-            if (n.y > 0.7f) { Wet(h.point, vol); var sc = Cell(h.point); stain.TryGetValue(sc, out float sv); stain[sc] = sv + vol; }
+            if (n.y > 0.7f) { Wet(h.point, vol * (sp < 2.5f ? 1f : 0.25f));   // fast spatter makes stains; puddles come from blood that keeps flowing var sc = Cell(h.point); stain.TryGetValue(sc, out float sv); stain[sc] = sv + vol; }
             else if (Mathf.Abs(n.y) < 0.35f && vol > 0.25f && Random.value < 0.5f)
             {
                 // run down the wall

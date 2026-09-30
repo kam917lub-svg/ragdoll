@@ -406,3 +406,8 @@ Fatto: tolto il getto di 140 gocce grosse verso il basso a ogni colpo in testa (
 --- PROMPT 43 ---
 Utente: la pozza si vede in trasparenza, dovrebbe essere scura; sembra un cartone.
 Fatto: nuovo shader VITS/Pool (incluso nella build): opaco (alpha clip, ZWrite, offset), rosso quasi nero dove e spessa (0,2 0,003 0,01), piu chiaro solo sul bordo sottile (texture pozza con bordo morbido largo), riflesso speculare bagnato e riflesso del capannone a luce radente. Macchie un po piu scure (0,5 0 0,016).
+
+--- PROMPT 44 ---
+Utente: colpo in testa a terra crea ancora una pozza istantanea.
+Causa: lo spruzzo di uscita (320 gocce fino a 2 ml x3,5) finiva subito sul pavimento sotto la testa = centinaia di ml in un colpo.
+Fatto: uscita testa 110 gocce 0,1-0,7 ml (nebbia + frammenti, ~30-60 ml), entrata testa 30 gocce; le gocce veloci (spruzzi) contano 1/4 per le pozze: le pozze nascono dal sangue che continua a uscire, non dallo schizzo.

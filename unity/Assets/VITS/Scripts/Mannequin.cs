@@ -1249,8 +1249,8 @@ namespace VITS
             Carve(p, pt, rin);
             if (exits) { Carve(p, skinExit ? outSkin : outW, rout); Gib.Spawn(outW + outN * 0.02f, dir * Random.Range(2f, 4.5f) + Random.insideUnitSphere + Vector3.up * 0.6f, rout * Random.Range(0.8f, 1.2f)); }
             float cal = Player.AWP ? 2.5f : Player.AK ? 1.5f : 1f;   // bigger round, more tissue destroyed, more blood thrown
-            B.Spray(inW + inN * 0.01f, (-dir + inN) * 0.5f, (int)((p.isHead ? 60 : 22) * cal), p.isHead ? 2.2f : 1.5f, 0.5f, 0.05f, p.isHead ? 0.9f : 0.4f);
-            if (exits) B.Spray(outW + outN * 0.01f, dir, (int)((p.isHead ? 320 : 90) * cal), p.isHead ? 6f : 4f, p.isHead ? 0.55f : 0.4f, 0.2f, p.isHead ? 2f : 1.2f);
+            B.Spray(inW + inN * 0.01f, (-dir + inN) * 0.5f, (int)((p.isHead ? 30 : 22) * cal), p.isHead ? 2.2f : 1.5f, 0.5f, 0.05f, 0.4f);
+            if (exits) B.Spray(outW + outN * 0.01f, dir, (int)((p.isHead ? 110 : 90) * cal), p.isHead ? 6f : 4f, p.isHead ? 0.55f : 0.4f, 0.1f, p.isHead ? 0.7f : 1.2f);   // a head exit is a fine mist + bits, ~30-60 ml, not a bucket
             if (p.isHead)
             {
                 // the scalp bleeds freely but a skull holds only so much: a short run of drops, not a bucket
