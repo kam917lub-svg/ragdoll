@@ -482,3 +482,7 @@ Fatto: Injured = dolore >0,25, gambe <60%, forze <50% o ferite aperte. Se non e 
 --- PROMPT 60 ---
 Utente: si rialzano "resettandosi" di colpo; devono appoggiare le mani e alzarsi come una persona vera; la camminata e innaturale e trascinano i piedi.
 Fatto: rialzarsi fisico in ~3 s (getUp): prima si gira a pancia in giu, poi carponi (ginocchia sotto le anche, braccia tese che spingono il busto, testa alzata) con forze di spinta che crescono, poi il sostegno sale: un ginocchio a terra, poi in piedi; solo quando e in piedi (sostegno >0,9) torna all animazione di camminata. Interrotto da un nuovo colpo, dalla presa o se si scopre ferito. Camminata: il ginocchio si alza di piu nella fase di volo (+47% e +4 gradi di base) cosi il piede non striscia; lo spostamento resta entro 0,85-1,15 del passo (prima 0,6-1,6 -> pattinava).
+
+--- PROMPT 61 ---
+Utente: camminata ancora brutta; rialzarsi da poco/non ferito e ancora istantaneo, deve essere un azione animata senza transizioni istantanee.
+Fatto: anche il percorso "ferito ma con gambe buone" ora fa il rialzarsi fisico (prima chiamava Recover subito da terra); si passa alla camminata solo quando e gia in piedi (sostegno >0,85). Il rialzarsi si interrompe solo se troppo ferito per stare in piedi (gambe <30%, forze <35%, svenuto); da feriti e piu lento. Recover non teletrasporta piu il bacino all altezza standard: il corpo resta dov e e la posa di camminata si fonde da li. Camminata: la gamba va piu avanti che indietro (appoggio di tallone), passo piu naturale.

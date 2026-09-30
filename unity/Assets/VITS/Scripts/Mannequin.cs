@@ -789,7 +789,9 @@ namespace VITS
             float breath = Mathf.Sin(Time.time * 1.6f + gSeed) * 1.5f;   // chest rises and falls
             float kneeL = Mathf.Max(0, Mathf.Sin(phase * Mathf.PI * 2f - 1.2f)) * a * 2.2f + 4f;   // knee lifts the foot clear in the swing
             float kneeR = Mathf.Max(0, Mathf.Sin(phase * Mathf.PI * 2f + Mathf.PI - 1.2f)) * a * 2.2f + 4f;
-            float thL = -s * a, thR = s * a;
+            // the leg swings further forward than back (reaching heel first), a bent knee soaks up each footfall
+            float fwdL = -s > 0 ? 1f : 0.7f, fwdR = s > 0 ? 1f : 0.7f;
+            float thL = -s * a * fwdL, thR = s * a * fwdR;
             // body rises over the standing leg twice per cycle, hips sway side to side
             float bob = Mathf.Abs(Mathf.Cos(phase * Mathf.PI * 2f)) * 0.022f * Mathf.Clamp01(a / 20f);
             float pelvisY = 0.935f + bob;
@@ -980,15 +982,17 @@ namespace VITS
             Vector3 fwd = Flat(parts["chest"].transform.forward);
             if (fwd.sqrMagnitude < 0.01f) fwd = transform.forward;
             float gy = GroundBelow(new Vector3(p.x, p.y + 0.3f, p.z)); fallV = 0;
+            // keep the body exactly where it is: the walking pose then blends in from here (no snap)
+            Quaternion pr = pel.transform.rotation;
             transform.SetPositionAndRotation(new Vector3(p.x, gy, p.z), Quaternion.LookRotation(fwd.normalized));
             for (int n = 0; n < DEFS.Length; n++)
             {
                 var q = parts[DEFS[n].k];
                 if (q.severed) continue;
                 q.rb.isKinematic = true; q.rb.interpolation = RigidbodyInterpolation.None; q.gameObject.layer = LayerWalk;
-                q.transform.localPosition = DEFS[n].pos;
-                if (n == 0) q.transform.localRotation = Quaternion.identity;
+                if (n != 0) q.transform.localPosition = DEFS[n].pos;
             }
+            pel.transform.SetPositionAndRotation(p, pr);
             mode = M.Anim; lastPos = transform.position; vel = Vector3.zero; speed = 0;
             Flee();
         }
@@ -1001,8 +1005,8 @@ namespace VITS
             support = Mathf.MoveTowards(support, Mathf.Clamp01(want), dt * (want < support ? 0.45f : 0.12f));
             if (getUp > 0f)
             {
-                if (Injured || Held) getUp = 0f;
-                else { getUp = Mathf.Min(1f, getUp + dt / 3f); support = Mathf.Max(support, getUp * 1.05f); }
+                if (Held || Mathf.Min(legFn[0], legFn[1]) < 0.3f || strength < 0.35f || !conscious) getUp = 0f;   // too hurt to stand: stay down
+                else { getUp = Mathf.Min(1f, getUp + dt / (3f + pain * 4f)); support = Mathf.Max(support, getUp * 1.05f); }   // hurt: slower, laboured
             }
             float kneel = Mathf.InverseLerp(0.72f, 0.45f, support);   // 0 standing .. 1 kneeling
             bool down = support < 0.35f;
@@ -1067,7 +1071,11 @@ namespace VITS
             }
             // legs still work: get up and run (hand on the wound) as soon as the jolt is over - pain drives you away, it doesn't keep you sitting
             if (!Held && Time.time - heldT > 1.5f && !crawling && Mathf.Max(legFn[0], legFn[1]) > 0.6f && Mathf.Min(legFn[0], legFn[1]) > 0.3f && strength > 0.5f && Time.time - lastHitTime > 0.7f && shock < 0.3f && OnGround())
-                Recover();
+            {
+                // only switch to walking once actually standing; from the floor, get up for real first
+                if (support > 0.85f && (getUp <= 0f || getUp >= 1f)) { getUp = 0f; Recover(); }
+                else if (getUp <= 0f) { getUp = 0.001f; injuries.Add("GETTING UP"); }
+            }
         }
 
         // the instant reaction to a bullet: the body jerks, curls toward the wound
