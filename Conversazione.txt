@@ -53,3 +53,35 @@ video (nessun display GPU); mira di tiro nelle file fitte a volte colpisce
 il vicino; presa/lancio ("HOLDING") usa la modalita' Mano gia' esistente (2).
 
 Stato: consegnato in index.html (branch claude/focused-fermat-35jgru).
+
+--- PROMPT 2 -------------------------------------------------------
+Utente: "non e' accurato, buggy, non uguale al video" + screenshot del gioco
+di riferimento + 3 nuovi clip (pistola vs manichino sanguinante, AK-47 su
+scale, folla con pannello medico). Promette altri 3 clip.
+
+Cosa ho capito dai clip (gioco di riferimento "Vertical Impact Testsite"):
+- I manichini NON stanno in fila: camminano, si tengono la ferita, si
+  inginocchiano, svengono ("CARL #08" nel pannello medico, M = vista 3D).
+- Mondo celeste-grigio senza soffitto, pavimento con griglia bianca ogni ~2,5 m,
+  scale e piattaforme chiare con bordo arancione, muri grigi, cartello
+  "VERTICAL IMPACT TESTSITE".
+- HUD: centro "SPECIMENS n / 100 · 90 HZ", alto-destra "TIME 1.0x / FREE
+  MOVEMENT", basso-destra "AK-47 / 7.62", "17 / 30", "∞ RESERVE".
+- Armi: AK-47 (legno arancio, acciaio blu-grigio, mirino con puntino arancio,
+  30 colpi, fuoco automatico) e pistola con impugnatura arancio.
+- Sangue: gocce piccole rosse sul pavimento, pozze grandi scure, rivoli
+  luminosi sul corpo e sui muri.
+
+Modifiche (patch2 sopra la versione precedente, tutto in index.html):
+1. Mappa "Vertical Impact Testsite" (aperta, senza soffitto, scale, piattaforme,
+   muri bassi, cartello).
+2. Manichini liberi (10, "Carl #NN"), con l'IA originale (camminano, reagiscono).
+3. Movimento libero: Spazio sale, C/Ctrl scende, sali sui gradini/piattaforme.
+4. AK-47 (tasto 3, tenendo premuto spara a raffica) e pistola (tasto 1),
+   Mano = tasto 2; HUD come nel gioco; pannello medico scuro con bordo arancio,
+   visibile solo quando guardi un manichino (M lo nasconde).
+5. Niente tone-mapping (colori piatti e saturi come nel gioco), luci piu' basse.
+6. Sangue: goccioline meno enormi (vol x3.5), pozze scure (no piu' nere).
+Da fare (in attesa degli altri clip): pannello medico in inglese, rivoli sul
+corpo piu' marcati, forma delle gocce tonde, modello AK piu' fedele,
+comportamento di ferito (tiene la ferita, svenimento) da confrontare.
