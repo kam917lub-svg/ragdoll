@@ -111,7 +111,7 @@ namespace VITS
         public bool ragdoll => mode != M.Anim;
 
         public string displayName;
-        public bool dead, conscious = true, crawling;
+        public bool dead, conscious = true, crawling, provoked;
         public float blood = 5000f, support = 1f, strength = 1f;
         public const float BloodMax = 5000f;
         public string status = "WANDERING", cause = "", lastHit = "-";
@@ -394,6 +394,7 @@ namespace VITS
             {
                 case S.Idle:
                     status = hurt > 0.3f ? "HURT / STANDING" : "IDLE";
+                    if (!Game.Brains && !provoked) { stateT = 1f; break; }
                     if (stateT <= 0) NewGoal(S.Walk, Game.RandomPoint(), Random.Range(8f, 14f));
                     break;
                 case S.Walk:
@@ -725,10 +726,17 @@ namespace VITS
             GoLimp();
         }
 
+        // run AWAY from the shooter: a cover farther from him, or just away
         public void Flee()
         {
+            provoked = true;
             if (dead || mode != M.Anim) return;
-            NewGoal(S.Flee, Game.CoverPoint(transform.position, Vector3.one * 999f), Random.Range(10f, 16f));
+            Vector3 pos = transform.position, shooter = Game.I != null && Game.I.player != null ? Game.I.player.transform.position : pos - transform.forward;
+            Vector3 c = Game.CoverPoint(pos, Vector3.one * 999f);
+            bool coverAway = (c - shooter).magnitude > (pos - shooter).magnitude + 1f && (c - pos).magnitude < 14f;
+            Vector3 away = pos - shooter; away.y = 0; if (away.sqrMagnitude < 0.01f) away = -transform.forward;
+            Vector3 t = coverAway ? c : Game.Clamp(pos + away.normalized * 14f + Quaternion.Euler(0, Random.Range(-35f, 35f), 0) * away.normalized * 2f);
+            NewGoal(S.Flee, t, Random.Range(10f, 16f));
         }
 
         // ======================= damage =======================
@@ -795,6 +803,7 @@ namespace VITS
 
         void DoHit(Part p, Vector3 pt, Vector3 dir)
         {
+            provoked = true;
             p.hits++; lastHit = p.key.ToUpper(); lastHitTime = Time.time; lastDir = dir;
             hurt = Mathf.Min(1, hurt + 0.3f);
             var B = Blood.I;
@@ -807,8 +816,8 @@ namespace VITS
             Vector3 outW = exits ? p.transform.TransformPoint(outL) : inW, outN = exits ? p.transform.TransformDirection(p.Normal(outL)) : dir;
 
             // 9 mm: a small dark hole in, a slightly bigger torn one out
-            B.SkinDecal(p.transform, inL, p.Normal(inL), 0.011f, 5);
-            if (exits) B.SkinDecal(p.transform, outL, p.Normal(outL), 0.02f, 5);
+            B.SkinDecal(p.transform, inL, p.Normal(inL), 0.008f, 5);
+            if (exits) B.SkinDecal(p.transform, outL, p.Normal(outL), Player.AK ? 0.02f : 0.014f, 5);
 
             B.Spray(inW + inN * 0.01f, (-dir + inN) * 0.5f, 10, 1.4f, 0.45f, 0.05f, 0.35f);
             if (exits) B.Spray(outW + outN * 0.01f, dir, p.isHead ? 90 : 45, p.isHead ? 5.5f : 3.8f, 0.4f, 0.15f, 1.1f);
@@ -853,7 +862,7 @@ namespace VITS
                 injuries.Add(p.key.ToUpper() + "  GUNSHOT");
                 if (!p.severed && !dead) clutch = p;
                 if (p.isLeg && !p.severed) legFn[p.key.EndsWith("R") ? 1 : 0] -= 0.45f;
-                bool cut = p.hits >= 3 || (p.hits >= 2 && Random.value < 0.5f);
+                bool cut = Player.AK ? (p.hits >= 2 || Random.value < 0.3f) : (p.hits >= 3 || (p.hits >= 2 && Random.value < 0.5f));
                 if (cut) SeverAt(p, -inL.y, dir);
                 else if (p.isLeg && !dead && !p.severed)
                 {

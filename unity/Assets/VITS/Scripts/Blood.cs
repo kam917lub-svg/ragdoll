@@ -52,9 +52,9 @@ namespace VITS
                 Mats.Decal(Tex(0), Fresh),                           // round splat
                 Mats.Decal(Tex(1), Fresh),                           // fast splat with spines
                 Mats.Decal(Tex(2), Fresh),                           // elongated drop / drip
-                Mats.Decal(Tex(3), new Color(0.08f, 0.08f, 0.09f, 0.9f)), // bullet hole
+                Mats.Decal(Tex(3), new Color(0.5f, 0.53f, 0.58f, 0.7f)),  // bullet chip (light, small)
                 Mats.Decal(Tex(2), new Color(0.45f, 0.01f, 0.03f, 0.95f)), // wall drip (darker)
-                Mats.Decal(Tex(5), new Color(0.45f, 0.02f, 0.04f, 1f)),      // bullet wound on skin
+                Mats.Decal(Tex(5), new Color(0.62f, 0.03f, 0.05f, 1f)),      // bullet wound on skin
             };
             for (int v = 0; v < 6; v++) skin[v] = new SkinDec[SKIN_MAX];
             skinBatches = new Matrix4x4[12][]; for (int q = 0; q < 12; q++) skinBatches[q] = new Matrix4x4[B];
@@ -155,7 +155,7 @@ namespace VITS
             }
         }
 
-        public void Hole(Vector3 p, Vector3 n) => AddDecal(3, p, n, RandomTangent(n), 0.01f, 0.01f);
+        public void Hole(Vector3 p, Vector3 n) => AddDecal(3, p, n, RandomTangent(n), 0.008f, 0.008f);
 
         // ---------- simulation
         void Update()

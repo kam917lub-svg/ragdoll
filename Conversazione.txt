@@ -222,3 +222,13 @@ Fatto:
   carotide 30, aorta 45 (+interna), femorale/iliaca 25, succlavia 20, brachiale 10, radiale/tibiale 5 ml/s;
   ferite 9 mm nei tessuti 0,6-6 ml/s; svenimento al 35% perso, morte al 50%; il sangue visibile e' doppio
   rispetto a quello perso per leggibilita'. Spinta del 9 mm 3,5 N·s (quantita' di moto reale ~2,8).
+
+--- PROMPT 14 ---
+Utente: non scappano davvero, menu con Esc per scegliere pistola/AK-47, poter spegnere il "cervello"
+dei Carl (fermi finche' non gli si spara), ancora cose nere quando spara.
+Fatto:
+- Esc = menu (tempo in pausa): PISTOLA 9 mm semiautomatica / AK-47 7.62 automatica (modello nuovo,
+  30 colpi, spinta 6 N·s, taglia gli arti prima), CARL BRAINS ON/OFF, RIPRENDI.
+- Fuga: corrono LONTANO dal tiratore (riparo piu' lontano da lui o 14 m nella direzione opposta);
+  con cervello acceso scappano tutti entro 25 m; spento reagisce solo chi viene colpito o sfiorato (2 m).
+- Niente piu' segni scuri: ferita = puntino rosso 0,8-2 cm, colpo su muro/pavimento = scheggia grigio chiaro 0,8 cm.

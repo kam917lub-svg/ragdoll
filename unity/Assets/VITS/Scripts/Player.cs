@@ -7,7 +7,11 @@ namespace VITS
     {
         public Camera cam;
         public Mannequin looked;
-        public int ammo = 15; public const int MaxAmmo = 15;
+        public int ammo = 15; public int MaxAmmo => AK ? 30 : 15;
+        public static bool AK;               // chosen in the Esc menu
+        public bool menu;
+        Transform pistolModel, akModel;
+        int pistolAmmo = 15, akAmmo = 30;
         public float reloadT;
         public bool locked;
         public string aimInfo = ""; public float hitMarkT;
@@ -53,6 +57,23 @@ namespace VITS
             Mats.Vis(PrimitiveType.Cube, gun, new Vector3(0, -0.055f, -0.045f), new Vector3(0.032f, 0.1f, 0.045f), grip, false).transform.localRotation = Quaternion.Euler(-15, 0, 0);
             Mats.Vis(PrimitiveType.Cube, gun, new Vector3(0, 0.052f, 0.12f), new Vector3(0.008f, 0.01f, 0.008f), dark, false);
             Mats.Vis(PrimitiveType.Capsule, gun, new Vector3(0.01f, -0.09f, -0.08f), new Vector3(0.06f, 0.07f, 0.06f), hand, false).transform.localRotation = Quaternion.Euler(-30, 0, 0);
+            // everything built so far is the pistol; the AK is a second model
+            pistolModel = new GameObject("PistolModel").transform; pistolModel.SetParent(gun, false);
+            var kids = new System.Collections.Generic.List<Transform>(); foreach (Transform c in gun) if (c != pistolModel) kids.Add(c);
+            foreach (var c in kids) c.SetParent(pistolModel, true);
+            akModel = new GameObject("AK47Model").transform; akModel.SetParent(gun, false);
+            var wood = Mats.Lit(new Color(0.88f, 0.55f, 0.28f), 0.2f); var blue = Mats.Lit(new Color(0.42f, 0.48f, 0.56f), 0.4f); var dk = Mats.Lit(new Color(0.2f, 0.22f, 0.26f), 0.3f);
+            Mats.Vis(PrimitiveType.Cube, akModel, new Vector3(0, 0.02f, 0.02f), new Vector3(0.045f, 0.06f, 0.3f), blue, false);
+            Mats.Vis(PrimitiveType.Cube, akModel, new Vector3(0, 0.05f, 0.0f), new Vector3(0.04f, 0.02f, 0.26f), blue, false);
+            Mats.Vis(PrimitiveType.Cube, akModel, new Vector3(0, 0.03f, 0.27f), new Vector3(0.05f, 0.05f, 0.2f), wood, false);
+            Mats.Vis(PrimitiveType.Cube, akModel, new Vector3(0, 0.04f, 0.48f), new Vector3(0.018f, 0.018f, 0.3f), dk, false);
+            Mats.Vis(PrimitiveType.Cube, akModel, new Vector3(0, 0.075f, 0.56f), new Vector3(0.01f, 0.03f, 0.01f), dk, false);
+            Mats.Vis(PrimitiveType.Cube, akModel, new Vector3(0, -0.06f, 0.1f), new Vector3(0.03f, 0.13f, 0.05f), dk, false).transform.localRotation = Quaternion.Euler(20, 0, 0);
+            Mats.Vis(PrimitiveType.Cube, akModel, new Vector3(0, -0.05f, -0.06f), new Vector3(0.03f, 0.09f, 0.04f), wood, false).transform.localRotation = Quaternion.Euler(-20, 0, 0);
+            Mats.Vis(PrimitiveType.Cube, akModel, new Vector3(0, 0.0f, -0.25f), new Vector3(0.04f, 0.07f, 0.26f), wood, false);
+            Mats.Vis(PrimitiveType.Capsule, akModel, new Vector3(0.01f, -0.09f, -0.08f), new Vector3(0.06f, 0.07f, 0.06f), hand, false).transform.localRotation = Quaternion.Euler(-30, 0, 0);
+            akModel.localPosition = new Vector3(0.02f, 0f, -0.1f);
+            akModel.gameObject.SetActive(false);
             var fgo = new GameObject("Flash"); fgo.transform.SetParent(gun, false); fgo.transform.localPosition = new Vector3(0, 0.03f, 0.17f);
             flash = fgo.AddComponent<Light>(); flash.type = LightType.Point; flash.range = 8f; flash.intensity = 0; flash.color = new Color(1f, 0.85f, 0.6f);
 
@@ -70,7 +91,8 @@ namespace VITS
         void Update()
         {
             float dt = Time.unscaledDeltaTime;
-            if (GI.Down(K.Esc)) { locked = false; Cursor.lockState = CursorLockMode.None; Cursor.visible = true; }
+            if (GI.Down(K.Esc)) SetMenu(!menu);
+            if (menu) return;
             if (!locked && GI.FireDown()) { locked = true; Cursor.lockState = CursorLockMode.Locked; Cursor.visible = false; return; }
 
             if (locked)
@@ -94,7 +116,7 @@ namespace VITS
             // weapon
             cool -= dt; recoil = Mathf.MoveTowards(recoil, 0, dt * 8f);
             if (reloadT > 0) { reloadT -= dt; if (reloadT <= 0) ammo = MaxAmmo; }
-            if (locked && GI.FireDown()) Shoot();
+            if (locked && (AK ? GI.FireHeld() : GI.FireDown())) Shoot();
             if (GI.Down(K.R) && ammo < MaxAmmo && reloadT <= 0) reloadT = 1.4f;
             cam.fieldOfView = Mathf.Lerp(cam.fieldOfView, GI.AimHeld() ? 45f : 70f, 1 - Mathf.Exp(-dt * 12f));
             float aim = GI.AimHeld() ? 1f : 0f;
@@ -156,11 +178,27 @@ namespace VITS
             held.AddForceAtPosition(Vector3.ClampMagnitude(f, 1500f), p);
         }
 
+        public void SetMenu(bool on)
+        {
+            menu = on;
+            locked = !on;
+            Cursor.lockState = on ? CursorLockMode.None : CursorLockMode.Locked; Cursor.visible = on;
+            if (Game.I != null) Game.I.SetMenuPause(on);
+        }
+
+        public void SetWeapon(bool ak)
+        {
+            if (AK) akAmmo = ammo; else pistolAmmo = ammo;
+            AK = ak; ammo = ak ? akAmmo : pistolAmmo; reloadT = 0;
+            pistolModel.gameObject.SetActive(!ak); akModel.gameObject.SetActive(ak);
+            flash.transform.localPosition = ak ? new Vector3(0, 0.04f, 0.64f) : new Vector3(0, 0.03f, 0.17f);
+        }
+
         void Shoot()
         {
             if (cool > 0 || reloadT > 0) return;
             if (ammo <= 0) { au.PlayOneShot(clickClip, 0.6f); return; }
-            ammo--; cool = 0.12f; recoil = 1f; flashT = 0.04f;
+            ammo--; cool = AK ? 0.1f : 0.12f; recoil = AK ? 0.7f : 1f; flashT = 0.04f;
             au.PlayOneShot(shotClip, 0.8f);
             var dir = (cam.transform.forward + Random.insideUnitSphere * 0.004f).normalized;
             var ray = new Ray(cam.transform.position, dir);
@@ -179,10 +217,10 @@ namespace VITS
                 }
             }
             else if (Mannequin.Pick(ray.origin, dir, 200f, out Part sp2, out float st2)) { end = ray.origin + dir * st2; sp2.owner.Hit(sp2, null, end, dir, -dir); hitMarkT = 0.2f; }
-            tracer.SetPosition(0, gun.TransformPoint(new Vector3(0, 0.03f, 0.14f)));
+            tracer.SetPosition(0, flash.transform.position);
             tracer.SetPosition(1, end);
             tracerT = 0.03f;
-            if (Game.I != null) Game.I.Gunshot(transform.position);
+            if (Game.I != null) Game.I.Gunshot(cam.transform.position, end);
         }
 
         static AudioClip MakeShot()

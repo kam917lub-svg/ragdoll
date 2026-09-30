@@ -16,7 +16,7 @@ Serve Unity 6 (testato come codice per 6000.x) con **URP**.
 | W A S D | muoversi |
 | Shift | correre |
 | Spazio | saltare |
-| Clic sinistro | sparare (pistola semiautomatica, 15 colpi) |
+| Clic sinistro | sparare (pistola: un colpo per clic; AK-47: tieni premuto) |
 | Clic destro (tenuto) | mirare |
 | Rotella (tenuta) | afferrare e trascinare un corpo o un pezzo; girare la rotella = avvicina/allontana |
 | R | ricaricare |
@@ -25,7 +25,7 @@ Serve Unity 6 (testato come codice per 6000.x) con **URP**.
 | [ ] | rallenta / accelera il tempo |
 | P | pausa |
 | Backspace | ricomincia |
-| Esc | libera il mouse (clic nella finestra per riprenderlo) |
+| Esc | menu: scegli PISTOLA o AK-47, CARL BRAINS on/off (off = stanno fermi finché non vengono presi di mira), riprendi |
 
 Sotto il mirino c'è scritto cosa stai puntando; una X rossa conferma che il colpo ha preso un corpo.
 

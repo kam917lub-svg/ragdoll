@@ -26,6 +26,7 @@ namespace VITS
         public static bool Down(K k) { var kb = Keyboard.current; return kb != null && kb[Map(k)].wasPressedThisFrame; }
         public static Vector2 MouseDelta() { var m = Mouse.current; return m == null ? Vector2.zero : m.delta.ReadValue() * 0.1f; }
         public static bool FireDown() { var m = Mouse.current; return m != null && m.leftButton.wasPressedThisFrame; }
+        public static bool FireHeld() { var m = Mouse.current; return m != null && m.leftButton.isPressed; }
         public static bool AimHeld() { var m = Mouse.current; return m != null && m.rightButton.isPressed; }
         public static bool GrabDown() { var m = Mouse.current; return m != null && m.middleButton.wasPressedThisFrame; }
         public static bool GrabHeld() { var m = Mouse.current; return m != null && m.middleButton.isPressed; }
@@ -46,6 +47,7 @@ namespace VITS
         public static bool Down(K k) => Input.GetKeyDown(Map(k));
         public static Vector2 MouseDelta() => new Vector2(Input.GetAxisRaw("Mouse X"), Input.GetAxisRaw("Mouse Y"));
         public static bool FireDown() => Input.GetMouseButtonDown(0);
+        public static bool FireHeld() => Input.GetMouseButton(0);
         public static bool AimHeld() => Input.GetMouseButton(1);
         public static bool GrabDown() => Input.GetMouseButtonDown(2);
         public static bool GrabHeld() => Input.GetMouseButton(2);

@@ -8,7 +8,8 @@ namespace VITS
     public class Game : MonoBehaviour
     {
         public static Game I;
-        public const float BulletImpulse = 3.5f; // N·s pushed into a ragdoll part by a 9 mm round (gamey, not realistic)
+        public static float BulletImpulse => Player.AK ? 6f : 3.5f; // momentum of a 9 mm / 7.62x39 round, rounded up
+        public static bool Brains = true; // Esc menu: when off, Carls stand still until shot at // N·s pushed into a ragdoll part by a 9 mm round (gamey, not realistic)
         public Player player;
         static readonly float[] TS = { 0.25f, 0.5f, 1f, 2f };
         int tsi = 2; bool paused;
@@ -132,15 +133,25 @@ namespace VITS
             return best;
         }
 
-        public void Gunshot(Vector3 from)
+        // everybody near hears the shot and runs; with brains off only those the bullet passed close to react
+        public void Gunshot(Vector3 from, Vector3 end)
         {
             foreach (var m in Mannequin.All)
-                if (!m.dead && !m.ragdoll && (m.transform.position - from).magnitude < 15f && Random.value < 0.5f) m.Flee();
+            {
+                if (m.dead || m.ragdoll) continue;
+                Vector3 c = m.transform.position + Vector3.up * 1.2f, seg = end - from;
+                float t = Mathf.Clamp01(Vector3.Dot(c - from, seg) / Mathf.Max(1e-4f, seg.sqrMagnitude));
+                bool close = (from + seg * t - c).magnitude < 2f;
+                if (close || (Brains && (m.transform.position - from).magnitude < 25f)) m.Flee();
+            }
         }
+
+        bool menuPause;
+        public void SetMenuPause(bool on) { menuPause = on; ApplyTime(); }
 
         void ApplyTime()
         {
-            Time.timeScale = paused ? 0f : TS[tsi];
+            Time.timeScale = (paused || menuPause) ? 0f : TS[tsi];
             Time.fixedDeltaTime = (1f / 90f) * Mathf.Max(0.25f, TS[tsi]);
         }
 
@@ -173,9 +184,9 @@ namespace VITS
             Label(new Rect(W - 330 * s, 14 * s, 300 * s, 34 * s), paused ? "TIME  PAUSED" : $"TIME  {TS[tsi]:0.0}x", (int)(26 * s), TextAnchor.UpperRight);
             Label(new Rect(W - 330 * s, 48 * s, 300 * s, 22 * s), XRay.On ? "X-RAY  ·  FREE MOVEMENT" : "FREE MOVEMENT", (int)(14 * s), TextAnchor.UpperRight, 0.7f);
 
-            Label(new Rect(W - 330 * s, H - 150 * s, 300 * s, 22 * s), "PISTOL / 9MM", (int)(14 * s), TextAnchor.UpperRight, 0.7f);
+            Label(new Rect(W - 330 * s, H - 150 * s, 300 * s, 22 * s), Player.AK ? "AK-47 / 7.62" : "PISTOL / 9MM", (int)(14 * s), TextAnchor.UpperRight, 0.7f);
             string am = player.reloadT > 0 ? "..." : player.ammo.ToString("00");
-            Label(new Rect(W - 330 * s, H - 128 * s, 300 * s, 70 * s), $"{am}<size={(int)(24 * s)}> / {Player.MaxAmmo}</size>", (int)(56 * s), TextAnchor.UpperRight);
+            Label(new Rect(W - 330 * s, H - 128 * s, 300 * s, 70 * s), $"{am}<size={(int)(24 * s)}> / {player.MaxAmmo}</size>", (int)(56 * s), TextAnchor.UpperRight);
             Label(new Rect(W - 330 * s, H - 58 * s, 300 * s, 22 * s), "∞  RESERVE", (int)(14 * s), TextAnchor.UpperRight, 0.6f);
             Label(new Rect(20 * s, H - 36 * s, W, 24 * s), "WASD move · SHIFT run · SPACE jump · LMB fire · RMB aim · MMB hold: grab & drag · R reload · T x-ray · Y spawn Carl · [ ] time · P pause · BACKSPACE reset · ESC mouse", (int)(13 * s), TextAnchor.UpperLeft, 0.55f);
 
@@ -196,6 +207,20 @@ namespace VITS
             Label(new Rect(0, cy + 22 * s, W, 20 * s), player.held != null ? "HOLDING" : player.aimInfo, (int)(12 * s), TextAnchor.UpperCenter, 0.75f);
 
             if (LastError.Length > 0) { st.normal.textColor = new Color(1f, 0.3f, 0.3f); st.fontSize = (int)(13 * s); st.alignment = TextAnchor.UpperLeft; GUI.Label(new Rect(20 * s, H - 62 * s, W - 40 * s, 24 * s), "ERROR: " + LastError, st); }
+            if (player.menu)
+            {
+                GUI.color = Color.white;
+                var box = new Rect(W / 2f - 190 * s, H / 2f - 170 * s, 380 * s, 340 * s);
+                GUI.DrawTexture(box, panelTex);
+                Label(new Rect(box.x, box.y + 14 * s, box.width, 30 * s), "VERTICAL IMPACT TESTSITE", (int)(20 * s), TextAnchor.UpperCenter);
+                var bs = new GUIStyle(GUI.skin.button) { fontSize = (int)(18 * s), fontStyle = FontStyle.Bold };
+                float bx = box.x + 30 * s, bw = box.width - 60 * s, bh = 42 * s, y0 = box.y + 60 * s;
+                if (GUI.Button(new Rect(bx, y0, bw, bh), (Player.AK ? "  " : "▶ ") + "PISTOL  (9 mm, semi-auto)", bs)) player.SetWeapon(false);
+                if (GUI.Button(new Rect(bx, y0 + 52 * s, bw, bh), (Player.AK ? "▶ " : "  ") + "AK-47  (7.62, full auto)", bs)) player.SetWeapon(true);
+                if (GUI.Button(new Rect(bx, y0 + 104 * s, bw, bh), "CARL BRAINS: " + (Brains ? "ON (walk around)" : "OFF (wait until shot)"), bs)) Brains = !Brains;
+                if (GUI.Button(new Rect(bx, y0 + 170 * s, bw, bh), "RESUME  (Esc)", bs)) player.SetMenu(false);
+                return;
+            }
             if (!player.locked) Label(new Rect(0, H * 0.55f, W, 30 * s), "CLICK TO PLAY", (int)(22 * s), TextAnchor.UpperCenter);
 
             // medical monitor
