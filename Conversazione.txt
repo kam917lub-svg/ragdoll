@@ -354,3 +354,10 @@ Fatto:
 - Nomi: KEKKO #NN, menu "KEKKO BRAINS".
 - Discord: riga nel menu Esc + watermark fisso in alto a destra.
 - Monitor in alto a sinistra: pannello giallo crash test con bordo nero, strisce di pericolo giallo/nere sopra e sotto, simbolo a quadranti del manichino, testi neri (CRASH TEST SPECIMEN, stato, gambe/sforzo/dolore, barra sangue, IMPACT, DAMAGE LOG).
+
+--- PROMPT 33 ---
+Utente: con ferite leggere (mano, braccio, piede) devono andare in panico: correre a tutta velocita al riparo o tuffarsi dietro il muro; lasciato cadere da 15 m planava ed era bloccato; da vicino/sotto di se non si riesce a sparare, come una barriera.
+Fatto:
+- Panico: in fuga dopo essere stati provocati corrono a 3,4 m/s (prima 0,8-2); a 0,9-1,8 m dal riparo si tuffano (Dive: corpo fisico lanciato a 4 m/s avanti + 2,2 in alto, rotazione), poi si rialzano dietro il muro. Con una gamba ferita saltellano come prima.
+- Caduta: in modalita fisica le forze che tengono in piedi si spengono se il bacino e a piu di 1,4 m dal suolo (era questo il "planare": Ground non trovava il pavimento e il sostegno teneva il corpo in aria). Atterraggio: >9 m/s gambe fratturate in proporzione, >14 m/s (circa 10 m) morte all 85%; spruzzo di sangue e dolore.
+- Colpi vicini: il raggio del mondo ignora qualsiasi cosa entro 25 cm dall occhio (pedana ascensore, bordo della torre su cui ti sporgi) e la capsula del giocatore.

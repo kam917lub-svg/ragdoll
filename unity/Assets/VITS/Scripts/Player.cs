@@ -396,7 +396,10 @@ namespace VITS
             // A Carl is tested two ways and the nearer wins: his skin triangles exactly as drawn, and his solid body shape
             // (so a carved hole still stops the bullet in the flesh behind it). Body colliders are never used for bullets.
             const int WORLD = ~((1 << 2) | (1 << Mannequin.LayerWalk) | (1 << Mannequin.LayerRag));
-            bool world = Physics.Raycast(ray, out RaycastHit h, 400f, WORLD, QueryTriggerInteraction.Ignore);
+            // nearest world hit, ignoring anything right at the muzzle/eye (the lift you stand on, an edge you lean over)
+            bool world = false; RaycastHit h = default; float hd = 1e9f;
+            foreach (var wh in Physics.RaycastAll(ray, 400f, WORLD, QueryTriggerInteraction.Ignore))
+                if (wh.distance > 0.25f && !(wh.collider is CharacterController) && wh.distance < hd) { hd = wh.distance; h = wh; world = true; }
             float wd = world ? h.distance : 400f;
             Part bp = null; float bt = wd + 0.03f; Vector3 bn = -dir; string how = "";
             if (Mannequin.PickSkin(ray.origin, dir, bt, out Part sp, out float st, out Vector3 sn)) { bp = sp; bt = st; bn = sn; how = "SKIN"; }

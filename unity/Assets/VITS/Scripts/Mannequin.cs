@@ -489,8 +489,12 @@ namespace VITS
                     break;
                 case S.Flee:
                     status = hurt > 0.3f ? "HURT / GOING TO COVER" : "RUNNING TO COVER";
-                    want = hurt > 0.5f ? 0.8f : 2.0f;
-                    if (Flat(target - pos).magnitude < 0.6f) { state = S.Cover; stateT = Random.Range(10f, 20f); }
+                    // panic: a wound that doesn't stop the legs means a flat-out sprint for cover
+                    want = Hopping ? 0.8f : (provoked ? 3.4f : 2.0f);
+                    if (provoked) status = "PANIC / SPRINTING TO COVER";
+                    float td = Flat(target - pos).magnitude;
+                    if (provoked && !Hopping && speed > 2.5f && td < 1.8f && td > 0.9f && Time.time > diveT) { diveT = Time.time + 15f; Dive(); return; }
+                    if (td < 0.6f) { state = S.Cover; stateT = Random.Range(10f, 20f); }
                     if (stateT <= 0) NewGoal(S.Walk, Game.RandomPoint(), 10f);
                     break;
                 case S.Cover:
@@ -890,6 +894,29 @@ namespace VITS
             writheT = 0;
         }
 
+        float diveT, lastVy;
+        // hitting the ground hard: ~9 m/s (4 m) breaks legs, ~14 m/s (10 m) and up is usually fatal
+        void Landed(float speed)
+        {
+            injuries.Add($"FALL IMPACT {speed:0} M/S");
+            Blood.I.Spray(parts["pelvis"].transform.position, Vector3.up, (int)(speed * 8f), speed * 0.25f, 1f, 0.2f, 1f);
+            if (speed > 14f && Random.value < 0.85f) { Die("FALL"); return; }
+            legFn[0] *= Mathf.Clamp01(1.6f - speed / 10f); legFn[1] *= Mathf.Clamp01(1.6f - speed / 10f);
+            shock = 1f; pain = Mathf.Min(1f, pain + speed * 0.05f);
+            if (legFn[0] < 0.5f) injuries.Add("LEFT LEG  FRACTURED"); if (legFn[1] < 0.5f) injuries.Add("RIGHT LEG  FRACTURED");
+        }
+        // throws itself the last metre behind the wall, lands on the floor, then gets up there
+        void Dive()
+        {
+            Vector3 d = Flat(target - transform.position).normalized;
+            injuries.Add("DIVED FOR COVER");
+            GoActive();
+            shock = 0.5f; lastHitTime = Time.time;
+            foreach (var q in parts.Values)
+                if (!q.severed && q.rb != null) q.rb.linearVelocity = d * 4f + Vector3.up * 2.2f;
+            parts["chest"].rb.AddTorque(Vector3.Cross(Vector3.up, d) * parts["chest"].rb.mass * 2f, ForceMode.Impulse);
+        }
+
         void Writhe(float dt)
         {
             writheT -= dt;
@@ -912,6 +939,12 @@ namespace VITS
             if (mode != M.Active) return;
             var pel = parts["pelvis"]; var ch = parts["chest"];
             if (Held) { anchor = pel.transform.position; if (conscious) Writhe(Time.fixedDeltaTime * 2f); return; }   // dangling in your grip, kicking
+            // falling: no muscle can hold you up in the air (this was the 'gliding' after a drop)
+            float fallH = pel.transform.position.y - GroundBelow(pel.transform.position + Vector3.up * 0.2f);
+            float vy = pel.rb.linearVelocity.y;
+            if (lastVy < -9f && vy > lastVy + 6f && fallH < 1.3f) Landed(-lastVy);
+            lastVy = vy;
+            if (fallH > 1.4f) return;
             if (crawling) { Crawl(); return; }
             float s = support;
             if (s < 0.35f) return;
