@@ -654,7 +654,7 @@ namespace VITS
                 // walking is driven by the legs: the body moves exactly as far as the planted foot is pushed back
                 // by the animation (root motion), so feet never skate. Hopping keeps its own airborne push.
                 float cadence = speed * Mathf.Max(0.25f, turnSlow);
-                Vector3 fwd = transform.forward, step = Hopping ? fwd * cadence * gait * dt : fwd * Mathf.Clamp(rootMove, cadence * dt * 0.6f, cadence * dt * 1.6f);   // feet lead, clamped around the wanted pace so they never stall or leap
+                Vector3 fwd = transform.forward, step = Hopping ? fwd * cadence * gait * dt : fwd * Mathf.Clamp(rootMove, cadence * dt * 0.85f, cadence * dt * 1.15f);   // feet lead, clamped around the wanted pace so they never stall or leap
                 rootMove = 0f;
                 if (!Free(pos + fwd * 0.35f))
                 {
@@ -787,8 +787,8 @@ namespace VITS
             float a = Amp() * gAmp;
             float s = Mathf.Sin(phase * Mathf.PI * 2f);
             float breath = Mathf.Sin(Time.time * 1.6f + gSeed) * 1.5f;   // chest rises and falls
-            float kneeL = Mathf.Max(0, Mathf.Sin(phase * Mathf.PI * 2f - 1.2f)) * a * 1.5f;
-            float kneeR = Mathf.Max(0, Mathf.Sin(phase * Mathf.PI * 2f + Mathf.PI - 1.2f)) * a * 1.5f;
+            float kneeL = Mathf.Max(0, Mathf.Sin(phase * Mathf.PI * 2f - 1.2f)) * a * 2.2f + 4f;   // knee lifts the foot clear in the swing
+            float kneeR = Mathf.Max(0, Mathf.Sin(phase * Mathf.PI * 2f + Mathf.PI - 1.2f)) * a * 2.2f + 4f;
             float thL = -s * a, thR = s * a;
             // body rises over the standing leg twice per cycle, hips sway side to side
             float bob = Mathf.Abs(Mathf.Cos(phase * Mathf.PI * 2f)) * 0.022f * Mathf.Clamp01(a / 20f);
@@ -999,6 +999,11 @@ namespace VITS
             float legs = Mathf.Min(legFn[0], legFn[1]) * 0.65f + (legFn[0] + legFn[1]) * 0.175f;
             float want = Mathf.Min(strength, legs) - shock - pain * 0.1f;
             support = Mathf.MoveTowards(support, Mathf.Clamp01(want), dt * (want < support ? 0.45f : 0.12f));
+            if (getUp > 0f)
+            {
+                if (Injured || Held) getUp = 0f;
+                else { getUp = Mathf.Min(1f, getUp + dt / 3f); support = Mathf.Max(support, getUp * 1.05f); }
+            }
             float kneel = Mathf.InverseLerp(0.72f, 0.45f, support);   // 0 standing .. 1 kneeling
             bool down = support < 0.35f;
 
@@ -1019,6 +1024,16 @@ namespace VITS
                 // on the floor: curl up around the wounds
                 status = crawling ? "CRAWLING TO COVER" : conscious ? "DOWN / CONSCIOUS" : "DOWN / UNCONSCIOUS";
                 float c = conscious ? 1f : 0.3f;
+                if (getUp > 0f)
+                {
+                    // hands and knees: knees under the hips, arms straight down pushing the chest up, head up
+                    status = "GETTING UP";
+                    T("chest", 40f); T("head", -25f);
+                    T("thighL", -95f); T("thighR", -95f); T("shinL", 115f); T("shinR", 115f);
+                    T("uarmL", -80f, 8f); T("uarmR", -80f, -8f); T("farmL", -10f); T("farmR", -10f);
+                    Tone(0.9f);
+                    return;
+                }
                 T("chest", 22f * c); T("head", 18f * c);
                 T("thighL", -60f * c); T("thighR", -55f * c); T("shinL", 100f * c); T("shinR", 95f * c);
                 T("uarmL", -40f * c, 20f * c); T("uarmR", -40f * c, -20f * c); T("farmL", -100f * c); T("farmR", -100f * c);
@@ -1045,8 +1060,9 @@ namespace VITS
             // light wounds only, standing and steady for a while: walk (or hop) away
             if (!Injured && !Held && Time.time - heldT > 1.2f && !crawling && Time.time - lastHitTime > 1.2f && Time.time - airT > 1.2f && OnGround())
             {
-                injuries.Add("GOT BACK UP");
-                Recover();
+                // get up like a person: roll onto the belly, hands and knees, one knee, stand (about 3 s)
+                if (getUp <= 0f) { getUp = 0.001f; injuries.Add("GETTING UP"); }
+                if (getUp >= 1f && support > 0.9f) { getUp = 0f; Recover(); }
                 return;
             }
             // legs still work: get up and run (hand on the wound) as soon as the jolt is over - pain drives you away, it doesn't keep you sitting
@@ -1069,6 +1085,7 @@ namespace VITS
             writheT = 0;
         }
 
+        float getUp;
         float diveT, lastVy, airT = -9f, gbT, gbY; float gGround, gGroundT; float rootMove, lastFootZ, lastFootZR; int lastStance = -1; Vector3 coverFace;
         // hitting the ground hard: ~9 m/s (4 m) breaks legs, ~14 m/s (10 m) and up is usually fatal
         void Landed(float speed)
@@ -1143,7 +1160,18 @@ namespace VITS
             }
             if (crawling) { Crawl(); return; }
             float s = support;
-            if (s < 0.35f) return;
+            if (s < 0.35f)
+            {
+                if (getUp > 0f)
+                {
+                    // arms and legs push the body up off the floor; early on, roll onto the front
+                    float lift = Mathf.Clamp01(getUp * 3f);
+                    pel.rb.AddForce(Vector3.up * totalMass * 9.81f * 0.45f * lift);
+                    ch.rb.AddForce(Vector3.up * totalMass * 9.81f * 0.3f * lift);
+                    if (getUp < 0.35f) Upright(ch.rb, ch.transform.forward, Vector3.down, 60f, 8f);
+                }
+                return;
+            }
             groundT -= Time.fixedDeltaTime;
             if (groundT <= 0) { groundT = 0.25f; groundY = Ground(pel.transform.position, pel.transform.position.y - 0.95f * Scale); }
             float kneel = Mathf.InverseLerp(0.72f, 0.45f, s);
@@ -1368,7 +1396,7 @@ namespace VITS
 
         void DoHit(Part p, Vector3 pt, Vector3 dir)
         {
-            provoked = true;
+            provoked = true; getUp = 0f;
             // pain adds up and each new wound hurts more than the last (exponential), capped at 1
             woundCount++;
             pain = Mathf.Min(1f, pain + 0.07f * Mathf.Pow(1.3f, woundCount - 1) * (p.isHead || p.isTorso ? 1.3f : 1f));

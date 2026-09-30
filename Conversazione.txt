@@ -478,3 +478,7 @@ Fatto: lo scope resta attivo anche durante il ciclo dell otturatore (tolta la co
 Utente: spinti correndo o col tasto centrale senza farsi male restano a terra con spasmi invece di rialzarsi come una persona normale.
 Causa: a terra partiva sempre lo strisciamento/contorcimento anche senza ferite, e chi striscia non si rialza mai.
 Fatto: Injured = dolore >0,25, gambe <60%, forze <50% o ferite aperte. Se non e ferito: niente strisciare ne contorcersi; appena a terra e fermo da ~1,2 s (non tenuto, non in volo) si rialza e riprende (GOT BACK UP). Il contorcimento solo con dolore reale.
+
+--- PROMPT 60 ---
+Utente: si rialzano "resettandosi" di colpo; devono appoggiare le mani e alzarsi come una persona vera; la camminata e innaturale e trascinano i piedi.
+Fatto: rialzarsi fisico in ~3 s (getUp): prima si gira a pancia in giu, poi carponi (ginocchia sotto le anche, braccia tese che spingono il busto, testa alzata) con forze di spinta che crescono, poi il sostegno sale: un ginocchio a terra, poi in piedi; solo quando e in piedi (sostegno >0,9) torna all animazione di camminata. Interrotto da un nuovo colpo, dalla presa o se si scopre ferito. Camminata: il ginocchio si alza di piu nella fase di volo (+47% e +4 gradi di base) cosi il piede non striscia; lo spostamento resta entro 0,85-1,15 del passo (prima 0,6-1,6 -> pattinava).
