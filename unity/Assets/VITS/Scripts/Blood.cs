@@ -141,7 +141,7 @@ namespace VITS
             }
         }
 
-        public void Hole(Vector3 p, Vector3 n) => AddDecal(3, p, n, RandomTangent(n), 0.018f, 0.018f);
+        public void Hole(Vector3 p, Vector3 n) => AddDecal(3, p, n, RandomTangent(n), 0.012f, 0.012f);
 
         // ---------- simulation
         void Update()
@@ -177,14 +177,14 @@ namespace VITS
             Vector3 vt = v - vnS * n;
             float sp = v.magnitude;
             float r = Mathf.Pow(vol * 1e-6f * 0.75f / Mathf.PI, 1f / 3f);          // drop radius (m)
-            float size = Mathf.Clamp(r * 2f * (1.8f + sp * 0.2f), 0.006f, 0.07f);   // stain grows with impact speed
+            float size = Mathf.Clamp(r * 2f * (2.1f + sp * 0.25f), 0.007f, 0.09f);   // stain grows with impact speed
             float el = 1f + Mathf.Clamp(vt.magnitude / (vn + 0.6f), 0f, 2.2f);       // oblique impact -> ellipse
             Vector3 up = vt.sqrMagnitude > 1e-4f ? vt.normalized : RandomTangent(n);
 
             if (h.rigidbody != null)
             {
                 // on a body or a severed piece: stain sticks to it
-                if (Random.value < 0.4f) BodyDecal(h.collider.transform, h.point, n, size * 0.9f, el > 1.6f ? 2 : 0, up);
+                if (Random.value < 0.75f) BodyDecal(h.collider.transform, h.point, n, size * 0.9f, el > 1.6f ? 2 : 0, up);
                 return;
             }
             int variant = sp > 4.5f ? 1 : (el > 1.6f ? 2 : 0);
@@ -215,7 +215,7 @@ namespace VITS
             dec[v][i / B][i % B] = Matrix4x4.TRS(p + n * off, rot, new Vector3(sx, sy, 1));
         }
 
-        public void BodyDecal(Transform t, Vector3 p, Vector3 n, float size, int variant, Vector3 up)
+        public void BodyDecal(Transform t, Vector3 p, Vector3 n, float size, int variant, Vector3 up, float len = -1f)
         {
             var go = new GameObject("blood");
             go.AddComponent<MeshFilter>().sharedMesh = quad;
@@ -223,7 +223,7 @@ namespace VITS
             mr.sharedMaterial = decMat[variant]; mr.shadowCastingMode = ShadowCastingMode.Off; mr.receiveShadows = false;
             if (Mathf.Abs(Vector3.Dot(up, n)) > 0.98f) up = RandomTangent(n);
             go.transform.SetPositionAndRotation(p + n * 0.004f, Quaternion.LookRotation(n, up));
-            go.transform.localScale = new Vector3(size, size * (variant == 2 ? 2.2f : 1f), 1f);
+            go.transform.localScale = new Vector3(size, len > 0 ? len : size * (variant == 2 ? 2.2f : 1f), 1f);
             go.transform.SetParent(t, true);
             bodyDec.Enqueue(go);
             while (bodyDec.Count > MAXBODY) { var o = bodyDec.Dequeue(); if (o != null) Destroy(o); }
@@ -235,7 +235,7 @@ namespace VITS
                 if (Mathf.Abs(P.p.y - p.y) < 0.2f && (new Vector2(P.p.x - p.x, P.p.z - p.z)).magnitude < P.r * 0.95f) { Grow(P, vol); return; }
             var cell = new Vector2Int(Mathf.FloorToInt(p.x / 0.3f), Mathf.FloorToInt(p.z / 0.3f));
             wet.TryGetValue(cell, out float w); w += vol;
-            if (w > 9f && pools.Count < MAXPOOLS)
+            if (w > 5f && pools.Count < MAXPOOLS)
             {
                 wet[cell] = 0;
                 var go = new GameObject("pool");

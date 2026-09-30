@@ -60,7 +60,23 @@ namespace VITS
         {
             p.x = Mathf.Clamp(p.x, -Level.HX + 1f, Level.HX - 1f);
             p.z = Mathf.Clamp(p.z, -Level.HZ + 1f, Level.HZ - 1f);
-            p.y = 0; return p;
+            return p;
+        }
+
+        // a spot behind the nearest cover wall, on the side away from the shooter
+        public static Vector3 CoverPoint(Vector3 from)
+        {
+            Vector3 shooter = I != null && I.player != null ? I.player.transform.position : Vector3.zero;
+            Vector3 best = RandomPoint(); float bd = 1e9f;
+            foreach (var c in Level.Covers)
+            {
+                Vector3 away = c - shooter; away.y = 0;
+                if (away.sqrMagnitude < 1e-4f) away = Vector3.forward;
+                Vector3 hide = c + away.normalized * 0.9f; hide.y = 0;
+                float d = (hide - from).magnitude + (hide - shooter).magnitude * 0.1f;
+                if (d < bd) { bd = d; best = hide; }
+            }
+            return best;
         }
 
         public void Gunshot(Vector3 from)

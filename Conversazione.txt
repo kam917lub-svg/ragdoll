@@ -126,3 +126,21 @@ Non compilato qui (niente Unity/dotnet nel container): in attesa degli errori Co
 --- PROMPT 7 ---
 Utente: manichini a bitorzoli, camminano velocissimi, spari/buchi enormi.
 Fix: un solo pezzo liscio per parte (capsule), velocita umane (0.85 cammino, 2.2 fuga), niente interpolazione da kinematic, fori 9mm piccoli (2-3.5 cm), meno spruzzi, macchie piu piccole, meno fughe di massa.
+
+--- PROMPT 8 ---
+Utente: ancora bitorzoli (fonderli), sangue troppo poco, poter togliere la carne e
+frammentare il corpo, segni della pistola ancora enormi, Carl attraversano le cose,
+colpiti alle gambe devono trascinarsi verso ripari, muri "COVER 01".
+Fatto:
+- BodyMesh.cs (nuovo): corpo UNICO liscio generato da campo di distanza (capsule +
+  ellissoidi fusi con smooth-min) -> triangoli (surface nets) -> skinning sulle 11 ossa.
+  Materiale interno rosso (back-face) visibile dove la pelle viene tolta.
+- Carne che si toglie: ogni colpo rimuove i triangoli attorno all'entrata (3 cm) e
+  all'uscita (4-5 cm) + pezzo di carne; quando un arto perde il 20% (testa 40%) si stacca;
+  il pezzo staccato si porta via la sua parte di mesh (skin separata, si piega ancora).
+- Sangue di piu': spruzzi 10/40 (testa 70), ferite 8-22 ml/s, colature sulla pelle,
+  macchie sui corpi 75%, pozze da 5 ml.
+- Fori nei muri 1,2 cm; niente piu' decal enormi sul corpo (ora e' il buco vero).
+- Collisioni: capsule-cast contro muri/manichini, aggira gli ostacoli, sale gradini.
+- 6 muri "COVER / 01..06" (scritta sui due lati); fuga verso il lato nascosto al tiratore,
+  accovacciati in copertura; colpiti alle gambe: a terra si trascinano con le braccia.

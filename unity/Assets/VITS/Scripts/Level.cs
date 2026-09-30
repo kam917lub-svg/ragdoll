@@ -9,6 +9,7 @@ namespace VITS
     {
         public static readonly Color Sky = new Color(0.66f, 0.73f, 0.82f);
         public const float HX = 26f, HZ = 26f;
+        public static readonly System.Collections.Generic.List<Vector3> Covers = new System.Collections.Generic.List<Vector3>();
         static Material plat, orange, wall;
 
         public static void Build()
@@ -49,9 +50,14 @@ namespace VITS
             // right platform + stairs
             Box(new Vector3(14f, 2f, 15f), new Vector3(12f, 4f, 10f), plat, true);
             for (int i = 0; i < 9; i++) { float h = 4f * (9 - i) / 10f; Box(new Vector3(14f, h / 2f, 10f - 0.45f - i * 0.9f), new Vector3(5f, h, 0.9f), plat, true); }
-            // low cover walls / blocks
-            Box(new Vector3(-6f, 0.9f, 2f), new Vector3(0.4f, 1.8f, 7f), plat, true);
-            Box(new Vector3(7f, 0.7f, -3f), new Vector3(7f, 1.4f, 0.4f), plat, true);
+            // cover walls where the specimens run / crawl to hide
+            Covers.Clear();
+            Cover(1, new Vector3(-8f, 0, -3f), 0f);
+            Cover(2, new Vector3(8f, 0, -1f), 0f);
+            Cover(3, new Vector3(-3f, 0, 6f), 0f);
+            Cover(4, new Vector3(4f, 0, 9f), 0f);
+            Cover(5, new Vector3(-12f, 0, 4f), 90f);
+            Cover(6, new Vector3(12f, 0, 5f), 90f);
             Box(new Vector3(0f, 1.25f, 21f), new Vector3(10f, 2.5f, 0.5f), plat, true);
             Box(new Vector3(-18f, 0.5f, -10f), new Vector3(2.5f, 1f, 2.5f), plat, true);
             Box(new Vector3(18f, 0.5f, -12f), new Vector3(2f, 1f, 3f), plat, true);
@@ -59,6 +65,25 @@ namespace VITS
             Text("VERTICAL IMPACT\nTESTSITE", new Vector3(-6f, 6.2f, HZ - 0.02f), Quaternion.identity, 0.9f, new Color(0.2f, 0.24f, 0.28f));
             Text("01", new Vector3(-9f, 0.01f, -6f), Quaternion.Euler(90, 0, 0), 1.6f, new Color(1, 1, 1, 0.9f));
             Text("02", new Vector3(9f, 0.01f, -9f), Quaternion.Euler(90, 0, 0), 1.6f, new Color(1, 1, 1, 0.9f));
+        }
+
+        static void Cover(int n, Vector3 p, float yaw)
+        {
+            var rot = Quaternion.Euler(0, yaw, 0);
+            var g = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            g.name = "COVER " + n.ToString("00");
+            g.transform.SetPositionAndRotation(p + Vector3.up * 0.65f, rot);
+            g.transform.localScale = new Vector3(3f, 1.3f, 0.35f);
+            g.GetComponent<Renderer>().sharedMaterial = wall;
+            var e = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            Object.DestroyImmediate(e.GetComponent<Collider>());
+            e.transform.SetPositionAndRotation(p + Vector3.up * 1.31f, rot);
+            e.transform.localScale = new Vector3(3.02f, 0.03f, 0.37f);
+            e.GetComponent<Renderer>().sharedMaterial = orange;
+            string label = "COVER / " + n.ToString("00");
+            Text(label, p + Vector3.up * 0.75f + rot * new Vector3(0, 0, -0.18f), rot, 0.28f, new Color(1f, 1f, 1f, 0.95f));
+            Text(label, p + Vector3.up * 0.75f + rot * new Vector3(0, 0, 0.18f), rot * Quaternion.Euler(0, 180, 0), 0.28f, new Color(1f, 1f, 1f, 0.95f));
+            Covers.Add(p);
         }
 
         static void Box(Vector3 c, Vector3 s, Material m, bool edge)
