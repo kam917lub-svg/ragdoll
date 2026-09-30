@@ -50,7 +50,8 @@ namespace VITS
         public static int Model;
 
         // signed distance to the skin of segment b, p in that bone's local space
-        public static float Sdf(int b, Vector3 p) => Model == 1 ? SdfReal(b, p) : SdfClassic(b, p);
+        public static float Sdf(int b, Vector3 p) => SdfM(Model, b, p);
+        static float SdfM(int model, int b, Vector3 p) => model == 1 ? SdfReal(b, p) : SdfClassic(b, p);
 
         static float SdfReal(int b, Vector3 p)
         {
@@ -178,9 +179,10 @@ namespace VITS
         }
 
         // whole body in body space; fills sd[] with each segment's distance
-        public static float BodySdf(Vector3 p)
+        public static float BodySdf(Vector3 p) => BodySdfM(Model, p, sd);
+        static float BodySdfM(int model, Vector3 p, float[] sd)
         {
-            for (int b = 0; b < NB; b++) sd[b] = Sdf(b, Bind[b].MultiplyPoint3x4(p));
+            for (int b = 0; b < NB; b++) sd[b] = SdfM(model, b, Bind[b].MultiplyPoint3x4(p));
             float torso = Smin(Smin(sd[PEL], sd[CHE], 0.035f), sd[HEA], 0.02f);
             float legL = Smin(sd[THL], sd[SHL], 0.02f), legR = Smin(sd[THR], sd[SHR], 0.02f);
             float armL = Smin(sd[UAL], sd[FAL], 0.02f), armR = Smin(sd[UAR], sd[FAR], 0.02f);
@@ -188,50 +190,75 @@ namespace VITS
             d = Mathf.Min(d, Smin(torso, armL, 0.02f));
             return Mathf.Min(d, Smin(torso, armR, 0.02f));
         }
-        static Vector3 BodyNormal(Vector3 p)
-        {
-            const float e = 0.002f;
-            var g = new Vector3(BodySdf(p + new Vector3(e, 0, 0)) - BodySdf(p - new Vector3(e, 0, 0)),
-                                BodySdf(p + new Vector3(0, e, 0)) - BodySdf(p - new Vector3(0, e, 0)),
-                                BodySdf(p + new Vector3(0, 0, e)) - BodySdf(p - new Vector3(0, 0, e)));
-            return g.sqrMagnitude > 1e-12f ? g.normalized : Vector3.up;
-        }
-        static Vector3 BodyProject(Vector3 p)
-        {
-            for (int i = 0; i < 4; i++) { float d = BodySdf(p); if (Mathf.Abs(d) < 0.0005f) break; p -= BodyNormal(p) * d; }
-            return p;
-        }
 
-        public static void Build()
+        // both body models are computed once (the second one in the background at startup) and kept:
+        // switching model in the menu is then instant
+        class Data { public Vector3[] verts, normals; public int[] tris, dom, tpb; public BoneWeight[] w; public Mesh mesh; }
+        static readonly Data[] cache = new Data[2];
+        static readonly System.Threading.Tasks.Task[] jobs = new System.Threading.Tasks.Task[2];
+
+        static Data Compute(int model)
         {
-            System.Array.Clear(TrisPerBone, 0, TrisPerBone.Length);
-            InitRest();
+            var buf = new float[NB];
+            System.Func<Vector3, float> F = p => BodySdfM(model, p, buf);
+            System.Func<Vector3, Vector3> N = p =>
+            {
+                const float e = 0.002f;
+                var g = new Vector3(F(p + new Vector3(e, 0, 0)) - F(p - new Vector3(e, 0, 0)), F(p + new Vector3(0, e, 0)) - F(p - new Vector3(0, e, 0)), F(p + new Vector3(0, 0, e)) - F(p - new Vector3(0, 0, e)));
+                return g.sqrMagnitude > 1e-12f ? g.normalized : Vector3.up;
+            };
+            System.Func<Vector3, Vector3> P = p => { for (int i = 0; i < 4; i++) { float d = F(p); if (Mathf.Abs(d) < 0.0005f) break; p -= N(p) * d; } return p; };
             var verts = new List<Vector3>(); var tris = new List<int>();
-            Nets(BodySdf, BodyNormal, BodyProject, new Vector3(-0.47f, -0.03f, -0.16f), new Vector3(0.47f, 1.86f, 0.23f), verts, tris);
+            Nets(F, N, P, new Vector3(-0.47f, -0.03f, -0.16f), new Vector3(0.47f, 1.86f, 0.23f), verts, tris);
             int nv = verts.Count;
-            var normals = new Vector3[nv];
-            Weights = new BoneWeight[nv]; Dom = new int[nv];
+            var D = new Data { verts = verts.ToArray(), tris = tris.ToArray(), normals = new Vector3[nv], w = new BoneWeight[nv], dom = new int[nv], tpb = new int[NB] };
             for (int v = 0; v < nv; v++)
             {
-                normals[v] = BodyNormal(verts[v]);
-                BodySdf(verts[v]);
-                int b0 = 0; for (int b = 1; b < NB; b++) if (sd[b] < sd[b0]) b0 = b;
+                D.normals[v] = N(verts[v]);
+                F(verts[v]);
+                int b0 = 0; for (int b = 1; b < NB; b++) if (buf[b] < buf[b0]) b0 = b;
                 int b1 = -1;
                 for (int b = 0; b < NB; b++)
                 {
                     if (b == b0 || (Parent[b] != b0 && Parent[b0] != b)) continue;
-                    if (b1 < 0 || sd[b] < sd[b1]) b1 = b;
+                    if (b1 < 0 || buf[b] < buf[b1]) b1 = b;
                 }
-                Dom[v] = b0;
-                float w1 = b1 < 0 ? 0f : Mathf.Min(1f, Mathf.Exp(-(sd[b1] - sd[b0]) / 0.012f));
+                D.dom[v] = b0;
+                float w1 = b1 < 0 ? 0f : Mathf.Min(1f, Mathf.Exp(-(buf[b1] - buf[b0]) / 0.012f));
                 float s = 1f + w1;
-                Weights[v] = new BoneWeight { boneIndex0 = b0, weight0 = 1f / s, boneIndex1 = Mathf.Max(0, b1), weight1 = w1 / s };
+                D.w[v] = new BoneWeight { boneIndex0 = b0, weight0 = 1f / s, boneIndex1 = Mathf.Max(0, b1), weight1 = w1 / s };
             }
-            BodyVerts = verts.ToArray(); BodyTris = tris.ToArray();
-            for (int t = 0; t < tris.Count; t += 3) TrisPerBone[Dom[tris[t]]]++;
-            Body = new Mesh { name = "MannequinBody", indexFormat = IndexFormat.UInt32 };
-            Body.SetVertices(verts); Body.normals = normals; Body.SetTriangles(tris, 0);
-            Body.boneWeights = Weights; Body.bindposes = Bind; Body.RecalculateBounds();
+            for (int t = 0; t < D.tris.Length; t += 3) D.tpb[D.dom[D.tris[t]]]++;
+            return D;
+        }
+
+        // start computing a model on a worker thread (no-op if done or running)
+        public static void Prewarm(int model)
+        {
+            InitRest();
+            if (cache[model] != null || jobs[model] != null) return;
+            jobs[model] = System.Threading.Tasks.Task.Run(() => { var d = Compute(model); cache[model] = d; });
+        }
+
+        public static void Build()
+        {
+            InitRest();
+            int m = Model;
+            if (cache[m] == null)
+            {
+                if (jobs[m] != null) { try { jobs[m].Wait(); } catch { } }
+                if (cache[m] == null) cache[m] = Compute(m);
+            }
+            var D = cache[m];
+            if (D.mesh == null)
+            {
+                D.mesh = new Mesh { name = "MannequinBody" + m, indexFormat = IndexFormat.UInt32, hideFlags = HideFlags.DontUnloadUnusedAsset };
+                D.mesh.SetVertices(D.verts); D.mesh.normals = D.normals; D.mesh.SetTriangles(D.tris, 0);
+                D.mesh.boneWeights = D.w; D.mesh.bindposes = Bind; D.mesh.RecalculateBounds();
+            }
+            Body = D.mesh; BodyVerts = D.verts; BodyTris = D.tris; Weights = D.w; Dom = D.dom;
+            System.Array.Copy(D.tpb, TrisPerBone, NB);
+            Prewarm(1 - m);   // the other model, ready for the menu
         }
 
         static void Nets(System.Func<Vector3, float> F, System.Func<Vector3, Vector3> N, System.Func<Vector3, Vector3> P,

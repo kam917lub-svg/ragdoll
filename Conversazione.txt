@@ -388,3 +388,8 @@ Fatto: BodyMesh.Model 0/1 (salvato). Modello REALISTIC: stesso scheletro scalato
 --- PROMPT 39 ---
 Utente: tutta la mappa bianca, gialla e nera, stile crash test.
 Fatto: cielo/nebbia bianco caldo, piattaforme/torri/muri bianchi, bordi e tacche gialli di sicurezza, pavimento chiaro con griglia nera, fascia a strisce giallo/nere alla base di tutti i muri esterni, muri COVER a strisce di pericolo giallo/nere (texture diagonale generata).
+
+--- PROMPT 40 ---
+Utente: cambiando modello dal menu resta in una schermata grigia ad aspettare.
+Causa: la mesh del corpo (surface nets 1,2 cm) veniva ricalcolata sul thread principale al cambio.
+Fatto: BodyMesh.Compute(model) e thread-safe (buffer locale, SdfM per modello); all avvio, dopo il primo modello, l altro viene calcolato in background (Task.Run) e tenuto in cache con la sua Mesh (DontUnloadUnusedAsset): il cambio modello usa la cache ed e immediato.
