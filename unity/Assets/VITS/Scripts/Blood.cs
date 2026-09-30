@@ -33,7 +33,7 @@ namespace VITS
         readonly List<Pool> pools = new List<Pool>();
         readonly Dictionary<Vector2Int, float> wet = new Dictionary<Vector2Int, float>();
 
-        public static readonly Color Fresh = new Color(0.62f, 0.0f, 0.02f, 0.97f);   // saturated arterial red   // real blood is dark red, almost maroon when it lies thick
+        public static readonly Color Fresh = new Color(0.5f, 0.0f, 0.016f, 0.97f);   // deep red, not cartoon red   // real blood is dark red, almost maroon when it lies thick
 
         void Awake()
         {
@@ -63,7 +63,7 @@ namespace VITS
             };
             for (int v = 0; v < 6; v++) skin[v] = new SkinDec[SKIN_MAX];
             skinBatches = new Matrix4x4[12][]; for (int q = 0; q < 12; q++) skinBatches[q] = new Matrix4x4[B];
-            poolMat = Mats.Decal(Tex(4), new Color(0.5f, 0.0f, 0.02f, 0.98f), 3001);
+            poolMat = new Material(Mats.Find("VITS/Pool", "VITS/Decal")) { mainTexture = Tex(4), color = new Color(0.2f, 0.003f, 0.01f, 1f), enableInstancing = true };
             int nv = decMat.Length;
             dec = new Matrix4x4[nv][][]; decN = new int[nv]; decHead = new int[nv];
             for (int v = 0; v < nv; v++) { dec[v] = new Matrix4x4[DEC_BATCHES][]; for (int b = 0; b < DEC_BATCHES; b++) dec[v][b] = new Matrix4x4[B]; }
@@ -83,7 +83,7 @@ namespace VITS
                 for (int y = y0; y <= y1; y++) for (int x = x0; x <= x1; x++)
                 {
                     float d = Mathf.Sqrt((x - cx) * (x - cx) + (y - cy) * (y - cy));
-                    float v = Mathf.Clamp01((r - d) / 1.5f) * str;
+                    float v = Mathf.Clamp01((r - d) / (kind == 4 ? 9f : 1.5f)) * str;   // pools: wide soft rim = thin film
                     if (v > a[y * S + x]) a[y * S + x] = v;
                 }
             };

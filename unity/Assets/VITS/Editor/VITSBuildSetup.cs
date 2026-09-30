@@ -14,7 +14,7 @@ namespace VITS.EditorTools
     public class VITSBuildSetup : IPreprocessBuildWithReport
     {
         public const string Dir = "Assets/VITS/Resources/BuildMaterials";
-        static readonly string[] ShaderNames = { "Universal Render Pipeline/Lit", "VITS/Decal", "VITS/Flesh", "VITS/Text", "VITS/XRay" };
+        static readonly string[] ShaderNames = { "Universal Render Pipeline/Lit", "VITS/Decal", "VITS/Pool", "VITS/Flesh", "VITS/Text", "VITS/XRay" };
 
         static VITSBuildSetup() { EditorApplication.delayCall += Ensure; }
 

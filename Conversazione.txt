@@ -402,3 +402,7 @@ Fatto: SceneManager.sceneLoaded ricrea il Game a ogni caricamento (RESET, Backsp
 --- PROMPT 42 ---
 Utente: la testa sembra una fonte infinita di sangue, pozza istantanea.
 Fatto: tolto il getto di 140 gocce grosse verso il basso a ogni colpo in testa (ora 18 piccole); ferite testa 3/7 ml/s (erano 12/25); testa esplosa 25 ml/s per 6 s (era 45 per 12). Dopo la morte il cuore si ferma: le ferite drenano solo per gravita, 45% che cala con costante 12 s e si fermano (niente piu sangue infinito dai cadaveri).
+
+--- PROMPT 43 ---
+Utente: la pozza si vede in trasparenza, dovrebbe essere scura; sembra un cartone.
+Fatto: nuovo shader VITS/Pool (incluso nella build): opaco (alpha clip, ZWrite, offset), rosso quasi nero dove e spessa (0,2 0,003 0,01), piu chiaro solo sul bordo sottile (texture pozza con bordo morbido largo), riflesso speculare bagnato e riflesso del capannone a luce radente. Macchie un po piu scure (0,5 0 0,016).
