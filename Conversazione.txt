@@ -380,3 +380,7 @@ Fatto: SnapWear() dopo la creazione della pelle: raggio da davanti sul mesh vero
 --- PROMPT 37 ---
 Utente (screenshot trascinando un Kekko): sangue trascinato non realistico (bande rosa continue, migliaia di aghi sottili).
 Fatto: strisce delle gocce solo per gocce grosse e veloci (35%), corte (4-22 cm) e larghe 1/3 della goccia (niente aghi). Strisciate: macchie spezzate e irregolari (probabilita, larghezza, spostamento laterale e direzione casuali), carico cala x0,78, colore rosso scuro (non rosa), texture con chiazze bagnate e vuoti (Perlin); la ferita che sanguina lascia gocce tonde lungo la scia.
+
+--- PROMPT 38 ---
+Utente: nel menu Esc un pulsante per scegliere il modello: questo o uno come nello screenshot, piu alto e realistico.
+Fatto: BodyMesh.Model 0/1 (salvato). Modello REALISTIC: stesso scheletro scalato 1,08 (circa 1,85 m), SDF nuova: fianchi piu stretti + glutei, vita stretta, pettorali, trapezi, collo sottile, testa piu piccola con mascella e naso, deltoidi, avambracci muscolosi e mani piatte, quadricipiti, polpacci, piedi piu lunghi; pelle rosata (0,90 0,56 0,50). Pulsante "MODEL: CLASSIC DUMMY / REALISTIC 1.85 M (restarts)" nel menu: cambia e riavvia la scena (mesh ricostruita). Scala gestita in supporto bacino, falcata, IK braccia, pezzi tagliati (lossyScale). Anteprima: model_realistic.png.

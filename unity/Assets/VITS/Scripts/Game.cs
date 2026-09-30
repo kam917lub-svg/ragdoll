@@ -25,6 +25,7 @@ namespace VITS
         void Awake()
         {
             I = this;
+            Mannequin.LoadModel();
             Gib.Clear();
             // disable the template's camera and lights: we bring our own
             foreach (var c in FindObjectsByType<Camera>(FindObjectsSortMode.None)) c.gameObject.SetActive(false);
@@ -120,6 +121,7 @@ namespace VITS
         public void ResetAll()
         {
             XRay.On = false; Skin.All.Clear(); Gib.Clear(); LastShot = "";
+            Mannequin.ResetStatics();
             Time.timeScale = 1f; paused = false;
             SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
         }
@@ -281,7 +283,7 @@ namespace VITS
             if (player.menu)
             {
                 GUI.color = Color.white;
-                var box = new Rect(W / 2f - 190 * s, H / 2f - 305 * s, 380 * s, 630 * s);
+                var box = new Rect(W / 2f - 190 * s, H / 2f - 330 * s, 380 * s, 680 * s);
                 GUI.DrawTexture(box, panelTex);
                 Label(new Rect(box.x, box.y + 14 * s, box.width, 30 * s), "VERTICAL IMPACT TESTSITE", (int)(20 * s), TextAnchor.UpperCenter);
                 var bs = new GUIStyle(GUI.skin.button) { fontSize = (int)(18 * s), fontStyle = FontStyle.Bold };
@@ -289,9 +291,14 @@ namespace VITS
                 if (GUI.Button(new Rect(bx, y0, bw, bh), (Player.Weapon == 0 ? "▶ " : "  ") + "PISTOL  (9 mm, semi-auto)", bs)) player.SetWeapon(0);
                 if (GUI.Button(new Rect(bx, y0 + 52 * s, bw, bh), (Player.Weapon == 1 ? "▶ " : "  ") + "AK-47  (7.62, full auto)", bs)) player.SetWeapon(1);
                 if (GUI.Button(new Rect(bx, y0 + 104 * s, bw, bh), (Player.Weapon == 2 ? "▶ " : "  ") + "AWP  (.338, bolt, scope)", bs)) player.SetWeapon(2);
+                if (GUI.Button(new Rect(bx, y0 + 208 * s, bw, bh), "MODEL: " + (BodyMesh.Model == 1 ? "REALISTIC 1.85 M" : "CLASSIC DUMMY") + "  (restarts)", bs))
+                {
+                    BodyMesh.Model = 1 - BodyMesh.Model; PlayerPrefs.SetInt("vits_model", BodyMesh.Model); PlayerPrefs.Save();
+                    player.SetMenu(false); ResetAll(); return;
+                }
                 if (GUI.Button(new Rect(bx, y0 + 156 * s, bw, bh), "KEKKO BRAINS: " + (Brains ? "ON (walk around)" : "OFF (wait until shot)"), bs)) Brains = !Brains;
                 // settings: mouse sensitivity and aim (ADS) sensitivity multiplier
-                float sy = y0 + 214 * s;
+                float sy = y0 + 266 * s;
                 Label(new Rect(bx, sy, bw, 22 * s), $"SENSITIVITY  {Player.Sens:0.00}", (int)(15 * s), TextAnchor.UpperLeft);
                 float ns = GUI.HorizontalSlider(new Rect(bx, sy + 24 * s, bw, 20 * s), Player.Sens, 0.1f, 4f);
                 Label(new Rect(bx, sy + 50 * s, bw, 22 * s), $"ADS SENSITIVITY  {Player.AdsSens:0.00}x", (int)(15 * s), TextAnchor.UpperLeft);

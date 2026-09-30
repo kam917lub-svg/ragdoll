@@ -46,8 +46,62 @@ namespace VITS
             return Mathf.Lerp(b, a, h) - k * h * (1f - h);
         }
 
+        // 0 = classic smooth mannequin, 1 = realistic (slimmer limbs, muscles, glutes, calves, jaw); chosen in the Esc menu
+        public static int Model;
+
         // signed distance to the skin of segment b, p in that bone's local space
-        public static float Sdf(int b, Vector3 p)
+        public static float Sdf(int b, Vector3 p) => Model == 1 ? SdfReal(b, p) : SdfClassic(b, p);
+
+        static float SdfReal(int b, Vector3 p)
+        {
+            float sx = b == UAR || b == FAR || b == THR || b == SHR ? -1f : 1f;   // mirror the right side
+            switch (Kind(b))
+            {
+                case 0:
+                {
+                    float hips = Smin(Cap(p, new Vector3(-0.065f, 0, 0), new Vector3(0.065f, 0, 0), 0.12f, 0.72f),
+                                      Cap(p, new Vector3(-0.055f, -0.07f, 0), new Vector3(0.055f, -0.07f, 0), 0.1f, 0.78f), 0.04f);
+                    float glutes = Mathf.Min(Ell(p, new Vector3(-0.06f, -0.06f, -0.055f), new Vector3(0.08f, 0.09f, 0.065f)),
+                                             Ell(p, new Vector3(0.06f, -0.06f, -0.055f), new Vector3(0.08f, 0.09f, 0.065f)));
+                    return Smin(hips, glutes, 0.03f);
+                }
+                case 1:
+                {
+                    float waist = Cap(p, new Vector3(-0.03f, 0.05f, 0), new Vector3(0.03f, 0.05f, 0), 0.1f, 0.72f);
+                    float rib = RCone(new Vector3(p.x, p.y, p.z / 0.7f), new Vector3(0, 0.08f, 0), new Vector3(0, 0.27f, 0), 0.115f, 0.15f) * 0.7f;
+                    float sh = Cap(p, new Vector3(-0.15f, 0.32f, 0), new Vector3(0.15f, 0.32f, 0), 0.085f, 0.75f);
+                    float pecs = Mathf.Min(Ell(p, new Vector3(-0.065f, 0.25f, 0.055f), new Vector3(0.08f, 0.06f, 0.05f)),
+                                           Ell(p, new Vector3(0.065f, 0.25f, 0.055f), new Vector3(0.08f, 0.06f, 0.05f)));
+                    float traps = Cap(p, new Vector3(-0.07f, 0.37f, -0.02f), new Vector3(0.07f, 0.37f, -0.02f), 0.05f);
+                    float neck = Cap(p, new Vector3(0, 0.36f, 0.005f), new Vector3(0, 0.45f, 0.01f), 0.05f);
+                    return Smin(Smin(Smin(Smin(Smin(waist, rib, 0.06f), sh, 0.05f), pecs, 0.03f), traps, 0.04f), neck, 0.025f);
+                }
+                case 2:
+                {
+                    float skull = Ell(p, new Vector3(0, 0.18f, -0.005f), new Vector3(0.093f, 0.125f, 0.108f));
+                    float jaw = Ell(p, new Vector3(0, 0.1f, 0.03f), new Vector3(0.068f, 0.06f, 0.07f));
+                    float nose = Ell(p, new Vector3(0, 0.155f, 0.105f), new Vector3(0.014f, 0.025f, 0.018f));
+                    float neck = Cap(p, new Vector3(0, -0.05f, 0.005f), new Vector3(0, 0.07f, 0.01f), 0.05f);
+                    return Smin(Smin(Smin(skull, jaw, 0.035f), nose, 0.012f), neck, 0.03f);
+                }
+                case 3:
+                    return Smin(RCone(p, new Vector3(0, -0.005f, 0), new Vector3(0, -0.29f, 0), 0.056f, 0.044f),
+                                Ell(p, new Vector3(-0.006f * sx, -0.06f, 0), new Vector3(0.056f, 0.1f, 0.056f)), 0.035f);   // deltoid
+                case 4:
+                    return Smin(Smin(RCone(p, Vector3.zero, new Vector3(0, -0.27f, 0), 0.046f, 0.032f),
+                                     Ell(p, new Vector3(0, -0.08f, 0.005f), new Vector3(0.048f, 0.09f, 0.044f)), 0.03f),       // forearm muscle
+                                Ell(p, new Vector3(0, -0.34f, 0.005f), new Vector3(0.038f, 0.085f, 0.018f)), 0.02f);          // flat hand
+                case 5:
+                    return Smin(RCone(p, new Vector3(0, 0.02f, 0), new Vector3(0, -0.43f, 0), 0.088f, 0.058f),
+                                Ell(p, new Vector3(0, -0.15f, 0.02f), new Vector3(0.075f, 0.16f, 0.07f)), 0.04f);             // quads
+                default:
+                    return Smin(Smin(RCone(p, Vector3.zero, new Vector3(0, -0.39f, 0), 0.056f, 0.036f),
+                                     Ell(p, new Vector3(0, -0.13f, -0.028f), new Vector3(0.054f, 0.12f, 0.058f)), 0.04f),     // calf
+                                Cap(p, new Vector3(0, -0.405f, -0.045f), new Vector3(0, -0.41f, 0.15f), 0.042f, 0.8f), 0.03f);  // longer foot
+            }
+        }
+
+        static float SdfClassic(int b, Vector3 p)
         {
             switch (Kind(b))
             {
@@ -150,6 +204,7 @@ namespace VITS
 
         public static void Build()
         {
+            System.Array.Clear(TrisPerBone, 0, TrisPerBone.Length);
             InitRest();
             var verts = new List<Vector3>(); var tris = new List<int>();
             Nets(BodySdf, BodyNormal, BodyProject, new Vector3(-0.47f, -0.03f, -0.16f), new Vector3(0.47f, 1.86f, 0.23f), verts, tris);

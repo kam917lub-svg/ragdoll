@@ -89,6 +89,7 @@ namespace VITS
         float bleed, born; Rigidbody rb;
 
         public static void Clear() { all.Clear(); }
+        public static void ResetMats() { skin = null; }
 
         public static void Spawn(Vector3 p, Vector3 v, float s)
         {
@@ -131,7 +132,13 @@ namespace VITS
     {
         public static readonly List<Mannequin> All = new List<Mannequin>();
         static int seq;
-        public static readonly Color SkinColor = new Color(0.84f, 0.73f, 0.62f);
+        public static Color SkinColor => BodyMesh.Model == 1 ? new Color(0.9f, 0.56f, 0.5f) : new Color(0.84f, 0.73f, 0.62f);
+        // the realistic model is a 1.85 m adult: same skeleton, whole body scaled up
+        public static float Scale => BodyMesh.Model == 1 ? 1.08f : 1f;
+        static int builtModel = -1;
+        // after a model change: the body mesh and cached skin materials are rebuilt for the new model
+        public static void ResetStatics() { builtModel = -1; seq = 0; Gib.ResetMats(); }
+        public static void LoadModel() { BodyMesh.Model = PlayerPrefs.GetInt("vits_model", 0); }
         public const int LayerWalk = 8, LayerRag = 9;
 
         // Anim: healthy, animated (kinematic). Active: physical body held up by muscles (hurt, kneeling, down, crawling).
@@ -221,7 +228,8 @@ namespace VITS
                 stumpMat = Mats.Lit(new Color(0.45f, 0.03f, 0.05f), 0.75f);
                 boneMat = Mats.Lit(new Color(0.93f, 0.9f, 0.82f), 0.4f);
             }
-            if (BodyMesh.Body == null) BodyMesh.Build();
+            skinMat.color = SkinColor;
+            if (BodyMesh.Body == null || builtModel != BodyMesh.Model) { BodyMesh.Build(); builtModel = BodyMesh.Model; }
             Build();
             lastPos = transform.position;
             stateT = Random.Range(0.5f, 3f);
@@ -234,6 +242,7 @@ namespace VITS
 
         void Build()
         {
+            transform.localScale = Vector3.one * Scale;
             for (int n = 0; n < DEFS.Length; n++)
             {
                 var d = DEFS[n];
@@ -605,7 +614,7 @@ namespace VITS
 
         // leg swing amplitude grows with speed; one gait cycle covers two steps of real leg length
         float Amp() => Mathf.Lerp(12f, state == S.Flee ? 38f : 26f, Mathf.Clamp01(speed / 2.2f)) * Mathf.Clamp01(speed * 4f);
-        float Stride() => Mathf.Max(0.3f, 4f * 0.9f * Mathf.Sin(Mathf.Max(8f, Amp()) * Mathf.Deg2Rad));
+        float Stride() => Scale * Mathf.Max(0.3f, 4f * 0.9f * Mathf.Sin(Mathf.Max(8f, Amp()) * Mathf.Deg2Rad));
 
         // pushed by the player, other people, flying objects; slipping on blood
         float bumpT, stumble;
@@ -753,7 +762,7 @@ namespace VITS
             qu = qf = Quaternion.identity;
             var ch = parts["chest"]; var ua = parts["uarm" + arm];
             if (clutch == null || clutch.severed) return false;
-            const float L1 = 0.3f, L2 = 0.3f;
+            float L1 = 0.3f * Scale, L2 = 0.3f * Scale;
             Vector3 wn = clutch.transform.TransformDirection(clutch.Normal(clutchLocal));
             Vector3 t = clutch.transform.TransformPoint(clutchLocal) + wn * 0.035f;   // palm pressed on the skin
             Vector3 s = ua.transform.position;
@@ -996,9 +1005,9 @@ namespace VITS
             float s = support;
             if (s < 0.35f) return;
             groundT -= Time.fixedDeltaTime;
-            if (groundT <= 0) { groundT = 0.25f; groundY = Ground(pel.transform.position, pel.transform.position.y - 0.95f); }
+            if (groundT <= 0) { groundT = 0.25f; groundY = Ground(pel.transform.position, pel.transform.position.y - 0.95f * Scale); }
             float kneel = Mathf.InverseLerp(0.72f, 0.45f, s);
-            float targetH = Mathf.Lerp(0.93f, 0.55f, kneel);
+            float targetH = Mathf.Lerp(0.93f, 0.55f, kneel) * Scale;
             float h = pel.transform.position.y - groundY;
             float m = totalMass, g = 9.81f;
             float fy = m * g * 0.9f + (targetH - h) * m * 50f - pel.rb.linearVelocity.y * m * 7f;
@@ -1625,6 +1634,7 @@ namespace VITS
                 else if (!la && !lb && !lc) { up.Add(a); up.Add(b); up.Add(cc); }
             }
             var go = new GameObject(p.key + " (piece)") { layer = LayerRag };
+            go.transform.localScale = p.transform.lossyScale;
             go.transform.SetPositionAndRotation(p.transform.TransformPoint(new Vector3(0, -c, 0)), p.transform.rotation);
             var np = go.AddComponent<Part>();
             np.owner = this; np.key = p.key; np.idx = p.idx; np.isArm = p.isArm; np.isLeg = p.isLeg; np.radius = p.radius;
