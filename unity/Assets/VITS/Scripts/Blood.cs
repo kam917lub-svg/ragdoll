@@ -235,6 +235,7 @@ namespace VITS
                 if (part != null)
                 {
                     Vector3 lp = part.Project(part.transform.InverseTransformPoint(h.point));
+                    if (!part.Exists(lp)) return;   // that meat was shot away: nothing to stain
                     Vector3 ln = part.Normal(lp);
                     Vector3 lu = part.transform.InverseTransformDirection(up);
                     AddSkin(part.transform, el > 1.6f ? 2 : 0, lp, ln, lu, size * 0.9f, size * 0.9f * (el > 1.6f ? el : 1f));
@@ -242,7 +243,7 @@ namespace VITS
                 return;
             }
             // landing in a puddle: the drop just joins it (a bright splat on top of a dark pool is not how liquid behaves)
-            if (n.y > 0.7f)
+            if (n.y > 0.7f && pools.Count > 0)
                 foreach (var P in pools)
                     if (P.t != null && Mathf.Abs(P.p.y - h.point.y) < 0.1f && new Vector2(P.p.x - h.point.x, P.p.z - h.point.z).magnitude < P.r * 0.85f) { Grow(P, vol * 0.5f); return; }
             if (vol < 0.35f && Random.value < 0.6f) { if (n.y > 0.7f) Wet(h.point, vol); return; }   // fine mist: no stain dot for every droplet
@@ -288,11 +289,28 @@ namespace VITS
         void AddSkin(Transform t, int v, Vector3 lp, Vector3 ln, Vector3 lup, float sx, float sy)
         {
             if (t == null) return;
+            var pp = t.GetComponent<Part>();
+            if (pp != null && !pp.Exists(lp)) return;   // no stain on meat that is not there
             if (Mathf.Abs(Vector3.Dot(lup.normalized, ln)) > 0.98f || lup.sqrMagnitude < 1e-6f) lup = RandomTangent(ln);
             int i = skinHead[v]; skinHead[v] = (i + 1) % SKIN_MAX; if (skinN[v] < SKIN_MAX) skinN[v]++;
             skin[v][i] = new SkinDec { t = t, m = Matrix4x4.TRS(lp + ln * 0.0025f, Quaternion.LookRotation(ln, lup), new Vector3(sx, sy, 1f)) };
         }
         // remove skin marks on t whose local position matches (skin carved away, limb cut off)
+        // every skin mark (any body) within r of a world point: one pass over the marks
+        public void CullSkinWorld(Vector3 w, float r)
+        {
+            float r2 = r * r;
+            for (int v = 0; v < skin.Length; v++)
+            {
+                var arr = skin[v];
+                for (int i = 0; i < skinN[v]; i++)
+                {
+                    var t = arr[i].t; if (t == null) continue;
+                    if ((t.TransformPoint(arr[i].m.GetColumn(3)) - w).sqrMagnitude < r2) arr[i].t = null;
+                }
+            }
+        }
+
         public void CullSkin(Transform t, System.Func<Vector3, bool> kill)
         {
             if (t == null) return;

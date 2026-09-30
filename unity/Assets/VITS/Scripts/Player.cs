@@ -47,7 +47,7 @@ namespace VITS
         public Rigidbody held; Vector3 heldLocal; float heldDist; LineRenderer beam;
 
         CharacterController cc;
-        float crouch; public Vector3 moveVel; readonly Blood.Track feetTr = new Blood.Track();
+        float crouch, lookT; public Vector3 moveVel; readonly Blood.Track feetTr = new Blood.Track();
         public void Carry(Vector3 d) { if (cc != null) cc.Move(d); }   // standing on a moving lift
         static Vector3 Flat(Vector3 v) { v.y = 0; return v; }
         float yaw, pitch, vy, cool, recoil, flashT, tracerT, bob;
@@ -274,7 +274,9 @@ namespace VITS
             flashT -= dt; flash.intensity = flashT > 0 ? 6f : 0f;
             tracerT -= dt; tracer.enabled = tracerT > 0;
 
-            // who am I looking at (for the medical monitor)
+            // who am I looking at (for the medical monitor) - 12 times a second is plenty
+            lookT -= dt;
+            if (lookT <= 0f) { lookT = 0.08f;
             looked = null;
             if (Physics.Raycast(cam.transform.position, cam.transform.forward, out RaycastHit lh, 40f, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore))
             {
@@ -288,6 +290,7 @@ namespace VITS
             {
                 if (ld < 40f) looked = lp.owner;
                 aimInfo = lp.owner.displayName + " · " + lp.key.ToUpper() + " · " + ld.ToString("0.0") + " M";
+            }
             }
             hitMarkT -= dt;
             if (impact != null) { impactT -= dt; if (impactT <= 0) impact.gameObject.SetActive(false); }

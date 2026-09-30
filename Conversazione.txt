@@ -507,3 +507,7 @@ Fatto: ogni parte ha integrity (1 intatta -> 0 squarciata). Weaken(): la forza d
 --- PROMPT 66 ---
 Utente: visivamente la carne non c e piu ma fisicamente si comporta come se ci fosse tutta.
 Fatto: dopo ogni asportazione di carne, per ogni segmento si calcola la frazione di pelle/carne persa: i collider capsula si assottigliano (fino a -75%), la massa cala (fino a -70%) e il giunto si indebolisce e si allenta in proporzione (Weaken, danno massimo memorizzato per parte); se e il bacino a essere mangiato, cede il giunto della vita sopra. Cosi il corpo si piega e si affloscia proprio dove manca la carne.
+
+--- PROMPT 67 ---
+Utente (screenshot testa distrutta): il sangue resta sulla superficie di carne che non esiste piu; fps fluidissimi.
+Fatto: ogni parte ricorda i punti asportati (Part.gone) e la zona sopra il collo per il cranio esploso (goneAboveY); Part.Exists(lp) e controllato in AddSkin (ogni macchia, colatura, ferita) e quando una goccia colpisce un corpo: niente sangue su carne che non c e. Carve pulisce le macchie di qualsiasi corpo entro il raggio con un solo passaggio (CullSkinWorld; prima un passaggio per ogni parte). FPS: raggio "chi sto guardando" 12 volte al secondo invece di ogni frame (era una traccia SDF su tutti i Kekko), SkinnedMeshRenderer con bounds fissi invece di ricalcolati ogni frame, controllo pozze saltato se non ce ne sono.

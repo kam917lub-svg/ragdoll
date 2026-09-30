@@ -22,7 +22,16 @@ namespace VITS
         public List<int> tris;
         public Vector3 sdfOff;          // local -> original segment space (for lower pieces of a cut limb)
         public float yMin = -9f, yMax = 9f;
-        public float integrity = 1f, damage; public Vector4 baseLim;   // 1 = intact .. 0 = torn through (joint goes slack and floppy)
+        public float integrity = 1f, damage; public Vector4 baseLim;
+        public readonly List<Vector4> gone = new List<Vector4>();   // carved-away spots (local xyz + radius)
+        public float goneAboveY = 99f;                               // everything above this local height is gone (burst skull)
+        // is there still skin/meat at this local point? blood only sticks to what exists
+        public bool Exists(Vector3 lp)
+        {
+            if (lp.y > goneAboveY) return false;
+            foreach (var g in gone) if ((new Vector3(g.x, g.y, g.z) - lp).sqrMagnitude < g.w * g.w * 1.1f) return false;
+            return true;
+        }   // 1 = intact .. 0 = torn through (joint goes slack and floppy)
         public int triTotal, carved;
         public readonly List<Vector3> wounds = new List<Vector3>();   // where bullets went in/out (local): repeated hits widen the hole
         public readonly List<Vector2> holes = new List<Vector2>(); // (height along the bone, angle around it) of every hole
@@ -364,7 +373,7 @@ namespace VITS
             mesh.boneWeights = bw; mesh.bindposes = bind; mesh.SetTriangles(tris, 0);
             var r = host.AddComponent<SkinnedMeshRenderer>();
             r.sharedMesh = mesh; r.bones = bones; r.rootBone = bones[0] != null ? bones[0] : host.transform;
-            r.updateWhenOffscreen = true;
+            r.updateWhenOffscreen = false; r.localBounds = new Bounds(Vector3.zero, Vector3.one * 5f);   // fixed generous bounds: no per-frame bounds skinning
             var mats = new[] { skinMat, innerMat };
             r.sharedMaterials = XRay.On ? new[] { XRay.Ghost } : mats;
             var sk = new Skin { r = r, mesh = mesh, tris = tris, bw = bw, bones = bones, bind = bind, mats = mats, owner = this };
@@ -1721,7 +1730,9 @@ namespace VITS
             if (removed == 0) return;
             sk.tris = keep; sk.mesh.SetTriangles(keep, 0);
             // stains and runs that sat on the skin that is now gone must go too (no blood floating over a hole)
-            foreach (var q in allParts) if (q != null && q.skin == sk) Blood.I.CullSkin(q.transform, lp => (q.transform.TransformPoint(lp) - world).sqrMagnitude < r2 * 1.2f);
+            // stains and runs on the skin that is now gone go too, and nothing new may stick there later
+            Blood.I.CullSkinWorld(world, r * 1.1f);
+            p.gone.Add(new Vector4(p.transform.InverseTransformPoint(world).x, p.transform.InverseTransformPoint(world).y, p.transform.InverseTransformPoint(world).z, r));
             // the body is as solid as what is left of it: a segment that has lost much of its flesh gets thinner
             // colliders, less mass and a slack joint, so it bends and folds where the meat is gone
             foreach (var q in allParts)
@@ -1747,6 +1758,7 @@ namespace VITS
         {
             headMashed = true;
             Blood.I.CullSkin(p.transform, lp => lp.y > 0.06f);
+            p.goneAboveY = 0.06f;
             var sk = p.skin; var D = BodyMesh.Dom; var V = BodyMesh.BodyVerts;
             var keep = new List<int>(sk.tris.Count);
             for (int t = 0; t < sk.tris.Count; t += 3)
