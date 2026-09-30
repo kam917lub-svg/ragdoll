@@ -475,6 +475,7 @@ namespace VITS
             else if (mode == M.Active) ActiveBrain(dt);
             Bleed(dt);
             RunBlood(dt);
+            Senses(dt);
             if (Blood.I != null) Smears();
             heart += dt * (dead ? 0 : (1.3f + hurt * 0.9f));
             hurt = Mathf.Max(0, hurt - dt * 0.02f);
@@ -829,8 +830,10 @@ namespace VITS
             Set("uarmL", Quaternion.Euler(s * a * 0.7f - crouch * 40f, 0, -4 - crouch * 4f - armOut), k); Set("uarmR", Quaternion.Euler(-s * a * 0.7f - crouch * 40f, 0, 4 + crouch * 4f + armOut), k);
             // elbows bend more as the arm swings forward (lagging a little behind the shoulder), like a relaxed arm
             float elL = Mathf.Max(0f, Mathf.Sin(phase * Mathf.PI * 2f - 0.5f)), elR = Mathf.Max(0f, -Mathf.Sin(phase * Mathf.PI * 2f - 0.5f));
-            Set("farmL", Quaternion.Euler(-8 - a * (0.15f + 0.5f * elL) * gArm - crouch * 35f, 0, 0), k); Set("farmR", Quaternion.Euler(-8 - a * (0.15f + 0.5f * elR) * gArm - crouch * 35f, 0, 0), k);
-            float lean = gLean + breath + hurt * 14f + (state == S.Flee ? (provoked ? 16f : 8f) : 0f) + crouch * 30f + (Hopping ? 10f : 0f);   // running for cover: low and hunched
+            float runArm = Mathf.InverseLerp(2f, 3.4f, speed);   // sprinting: elbows at 90 degrees, arms pump hard
+            Set("farmL", Quaternion.Euler(-8 - a * (0.15f + 0.5f * elL) * gArm - crouch * 35f - runArm * 75f, 0, 0), k); Set("farmR", Quaternion.Euler(-8 - a * (0.15f + 0.5f * elR) * gArm - crouch * 35f - runArm * 75f, 0, 0), k);
+            float run = Mathf.InverseLerp(2f, 3.4f, speed);
+            float lean = run * 12f + fear * (state == S.Cover ? 0f : 6f) + gLean + breath + hurt * 14f + (state == S.Flee ? (provoked ? 16f : 8f) : 0f) + crouch * 30f + (Hopping ? 10f : 0f);   // running for cover: low and hunched
             float sway = s * a * 0.12f;
             lean += stumble * 20f;
             Set("pelvis", Quaternion.Euler(0, -s * a * 0.15f, sway * 0.5f), k);
@@ -1421,6 +1424,69 @@ namespace VITS
         }
 
         // run AWAY from the shooter: a cover farther from him, or just away
+        // ---------- fear: what a person hears and sees makes them panic, freeze, cower or run
+        public float fear; Vector3 threat; float senseT, fearSaid;
+        // something frightening from 'src' (a shot, a scream, someone being hit): fear climbs, and past a point they run from it
+        public void Scare(Vector3 src, float amount, string why)
+        {
+            if (dead || !conscious) return;
+            fear = Mathf.Min(1f, fear + amount);
+            threat = src;
+            if (Time.time > fearSaid && amount > 0.25f) { fearSaid = Time.time + 3f; injuries.Add(why); while (injuries.Count > 12) injuries.RemoveAt(0); }
+            if (fear > 0.3f && mode == M.Anim && state != S.Flee && state != S.Cover) { stumble = Mathf.Max(stumble, 0.5f); FleeFrom(src); }
+        }
+
+        // eyes: 140 degree field, clear line of sight, up to 30 m. Checked a few times a second.
+        bool Sees(Vector3 w)
+        {
+            Vector3 eye = parts["head"].transform.position + Vector3.up * 0.05f, to = w - eye;
+            if (to.magnitude > 30f) return false;
+            if (Vector3.Angle(Flat(parts["head"].transform.forward), Flat(to)) > 70f) return false;
+            return !Physics.Linecast(eye, w, ~((1 << 2) | (1 << LayerWalk) | (1 << LayerRag)), QueryTriggerInteraction.Ignore);
+        }
+
+        void Senses(float dt)
+        {
+            fear = Mathf.Max(0f, fear - dt * 0.03f);
+            if (dead || !conscious || !Game.Brains) return;
+            senseT -= dt; if (senseT > 0f) return;
+            senseT = Random.Range(0.3f, 0.5f);
+            foreach (var o in All)
+            {
+                if (o == this || o == null) continue;
+                Vector3 c = o.parts["chest"].transform.position;
+                if ((c - transform.position).sqrMagnitude > 900f) continue;
+                // a body on the floor, blood, someone screaming in pain: all make you afraid
+                if ((o.dead || o.pain > 0.4f) && Sees(c)) Scare(c, o.dead ? 0.25f : 0.15f, o.dead ? "SAW A BODY" : "SAW SOMEONE HURT");
+            }
+            // the gunman pointing a weapon at you
+            var pl = Game.I != null ? Game.I.player : null;
+            if (pl != null && pl.looked == this && !Player.Knife && Sees(pl.cam.transform.position)) Scare(pl.transform.position, 0.2f, "GUN POINTED AT ME");
+        }
+
+        // someone right next to me got shot / cut: everyone who saw it (or is very close) panics
+        public static void Witness(Mannequin victim, Vector3 at, float loud)
+        {
+            foreach (var o in All)
+            {
+                if (o == victim || o == null || o.dead) continue;
+                float d = (o.transform.position - at).magnitude;
+                if (d < 4f * loud || (d < 30f && o.Sees(at))) o.Scare(at, Mathf.Lerp(0.8f, 0.35f, d / 30f), "SAW SOMEONE SHOT");
+            }
+        }
+
+        void FleeFrom(Vector3 danger)
+        {
+            provoked = true;
+            if (dead || mode != M.Anim) return;
+            Vector3 pos = transform.position;
+            Vector3 c = Game.CoverPoint(pos, Vector3.one * 999f);
+            bool coverAway = (c - danger).magnitude > (pos - danger).magnitude + 1f && (c - pos).magnitude < 16f;
+            Vector3 away = Flat(pos - danger); if (away.sqrMagnitude < 0.01f) away = -transform.forward;
+            Vector3 t = coverAway ? c : Game.Clamp(pos + away.normalized * 16f + Quaternion.Euler(0, Random.Range(-35f, 35f), 0) * away.normalized * 2f);
+            NewGoal(S.Flee, t, Random.Range(10f, 16f));
+        }
+
         public void Flee()
         {
             provoked = true;
@@ -1497,7 +1563,8 @@ namespace VITS
 
         void DoHit(Part p, Vector3 pt, Vector3 dir)
         {
-            provoked = true; getUp = 0f;
+            provoked = true; getUp = 0f; fear = 1f;
+            Witness(this, pt, 1f);
             // pain adds up and each new wound hurts more than the last (exponential), capped at 1
             woundCount++;
             pain = Mathf.Min(1f, pain + 0.07f * Mathf.Pow(1.3f, woundCount - 1) * (p.isHead || p.isTorso ? 1.3f : 1f));
@@ -2135,7 +2202,8 @@ namespace VITS
         {
             try
             {
-                provoked = true; lastHitTime = Time.time; lastDir = view; lastHit = p.key.ToUpper() + " (KNIFE)";
+                provoked = true; lastHitTime = Time.time; lastDir = view; lastHit = p.key.ToUpper() + " (KNIFE)"; fear = 1f;
+                Witness(this, pt, 0.6f);
                 woundCount++; pain = Mathf.Min(1f, pain + 0.12f); hurt = Mathf.Min(1f, hurt + 0.2f);
                 if (!dead) Flinch(p, view);
                 p.hits++;

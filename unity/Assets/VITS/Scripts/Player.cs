@@ -471,6 +471,8 @@ namespace VITS
             cool = 0.42f; slashT = 1f; slashSide = -slashSide;
             if (swishClip == null) swishClip = MakeSwish();
             au.PlayOneShot(swishClip, 0.7f);
+            // a blade swung close by is frightening to anyone who hears or sees it
+            foreach (var m in Mannequin.All) if (m != null && !m.dead && (m.transform.position - transform.position).sqrMagnitude < 36f) m.Scare(transform.position, 0.35f, "KNIFE NEARBY");
             Vector3 o = cam.transform.position, f = cam.transform.forward, r = cam.transform.right * slashSide;
             Part best = null; float bt = 1.8f; Vector3 bn = -f, bd = f;
             // the blade lands where the crosshair is; only if that misses, the rest of the arc can catch him

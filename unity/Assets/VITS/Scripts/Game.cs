@@ -224,13 +224,16 @@ namespace VITS
         // everybody near hears the shot and runs; with brains off only those the bullet passed close to react
         public void Gunshot(Vector3 from, Vector3 end)
         {
+            // a shot is heard far (louder guns further) and a bullet cracking past is terrifying
+            float range = Player.AWP ? 140f : Player.AK ? 90f : 60f;
             foreach (var m in Mannequin.All)
             {
-                if (m.dead || m.ragdoll) continue;
+                if (m.dead) continue;
                 Vector3 c = m.transform.position + Vector3.up * 1.2f, seg = end - from;
                 float t = Mathf.Clamp01(Vector3.Dot(c - from, seg) / Mathf.Max(1e-4f, seg.sqrMagnitude));
-                bool close = (from + seg * t - c).magnitude < 2f;
-                if (close || (Brains && (m.transform.position - from).magnitude < 25f)) m.Flee();
+                float miss = (from + seg * t - c).magnitude;
+                if (miss < 2f) m.Scare(from, 0.9f, "BULLET WHIZZED PAST");
+                else if (Brains) { float d = (m.transform.position - from).magnitude; if (d < range) m.Scare(from, Mathf.Lerp(0.75f, 0.2f, d / range), "HEARD A SHOT"); }
             }
         }
 
