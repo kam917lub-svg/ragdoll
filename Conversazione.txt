@@ -398,3 +398,7 @@ Fatto: BodyMesh.Compute(model) e thread-safe (buffer locale, SdfM per modello); 
 Utente: per cambiare modello ha dovuto chiudere e riaprire; sangue troppo trasparente.
 Causa: Boot (RuntimeInitializeOnLoadMethod) gira solo al primo avvio; dopo RESET/cambio modello la scena ricaricata restava senza Game -> schermata grigia.
 Fatto: SceneManager.sceneLoaded ricrea il Game a ogni caricamento (RESET, Backspace, MODEL funzionano subito). Shader decal: alpha = saturate(t.a*2,2-0,2) -> macchie e pozze piene/opache con bordo netto.
+
+--- PROMPT 42 ---
+Utente: la testa sembra una fonte infinita di sangue, pozza istantanea.
+Fatto: tolto il getto di 140 gocce grosse verso il basso a ogni colpo in testa (ora 18 piccole); ferite testa 3/7 ml/s (erano 12/25); testa esplosa 25 ml/s per 6 s (era 45 per 12). Dopo la morte il cuore si ferma: le ferite drenano solo per gravita, 45% che cala con costante 12 s e si fermano (niente piu sangue infinito dai cadaveri).

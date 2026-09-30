@@ -163,7 +163,7 @@ namespace VITS
         enum S { Idle, Walk, Flee, Cover }
         S state = S.Idle;
         public float pain; int woundCount;
-        float crawlRestT;
+        float crawlRestT, deadTime;
         float turnRate, headYaw, headYawT, lookT, peekT, peek, stateT, phase, speed, heart, writheT, hurt, crawlT, detourT, stuckT, bestDist, foldT, groundY, groundT, deathT, shock;
         int torsoHits, headHits; bool headMashed; float waistDmg;   // tissue shot away around the waist
         readonly int[] carvedBone = new int[BodyMesh.NB];
@@ -1135,7 +1135,7 @@ namespace VITS
         public void Die(string why)
         {
             if (dead) return;
-            dead = true; conscious = false; crawling = false; cause = why; status = "DEAD / " + why;
+            dead = true; deadTime = Time.time; conscious = false; crawling = false; cause = why; status = "DEAD / " + why;
             GoLimp();
         }
 
@@ -1253,14 +1253,14 @@ namespace VITS
             if (exits) B.Spray(outW + outN * 0.01f, dir, (int)((p.isHead ? 320 : 90) * cal), p.isHead ? 6f : 4f, p.isHead ? 0.55f : 0.4f, 0.2f, p.isHead ? 2f : 1.2f);
             if (p.isHead)
             {
-                // a head wound pours: a heavy gush that falls straight down and starts the puddle at once
+                // the scalp bleeds freely but a skull holds only so much: a short run of drops, not a bucket
                 Vector3 src = exits ? outW : inW;
-                B.Spray(src, Vector3.down + dir * 0.3f, (int)(140 * cal), 1.2f, 0.6f, 0.8f, 2.5f);
+                B.Spray(src, Vector3.down + dir * 0.3f, (int)(18 * cal), 0.8f, 0.5f, 0.2f, 0.8f);
             }
             if (exits && (p.isHead || Random.value < 0.35f)) Gib.Spawn(outW, dir * Random.Range(1.5f, 3.5f) + Random.insideUnitSphere + Vector3.up * 0.8f, Random.Range(0.01f, 0.02f));
 
-            AddWound(p, inL, p.Normal(inL), (p.isHead ? 12f : p.isTorso ? 2.5f : 1.5f) * cal, false, 0, "");
-            if (exits) AddWound(p, outL, p.Normal(outL), (p.isHead ? 25f : p.isTorso ? 6f : 4f) * cal, false, 0, "");
+            AddWound(p, inL, p.Normal(inL), (p.isHead ? 3f : p.isTorso ? 2.5f : 1.5f) * cal, false, 0, "");
+            if (exits) AddWound(p, outL, p.Normal(outL), (p.isHead ? 7f : p.isTorso ? 6f : 4f) * cal, false, 0, "");
 
             // arteries: big pulsing jets out of the wound
             int art = ArteryHit(p, inL, exits ? outL : inL + dirL * 0.1f);
@@ -1417,7 +1417,7 @@ namespace VITS
             for (int i = 0; i < 14; i++) Gib.Spawn(hc + Random.insideUnitSphere * 0.06f, lastDir * Random.Range(1f, 4f) + Random.insideUnitSphere * 2.5f + Vector3.up * 1.5f, Random.Range(0.02f, 0.045f));
             Blood.I.Spray(hc, lastDir + Vector3.up * 0.5f, 160, 5f, 0.9f, 0.2f, 1.4f);
             Stump(p.transform, p.transform.TransformPoint(new Vector3(0, 0.06f, 0)), p.transform.up, 0.05f);
-            AddWound(p, new Vector3(0, 0.07f, 0), Vector3.up, 45f, true, 12f, "HEAD DESTROYED");
+            AddWound(p, new Vector3(0, 0.07f, 0), Vector3.up, 25f, true, 6f, "HEAD DESTROYED");
             injuries.Add("HEAD  DESTROYED");
             Die("HEAD DESTROYED");
         }
@@ -1541,7 +1541,10 @@ namespace VITS
                 bool spurt = w.arterial && !dead;
                 // pressure falls with blood volume: jets get weaker as they bleed out
                 float pressure = dead ? 0.25f : Mathf.Clamp01(blood / BloodMax * 1.4f - 0.3f);
-                float rate = w.rate * k * (spurt ? pulse * 1.7f * pressure : (dead ? 0.45f : 1f));
+                // after death the heart stops: wounds only drain by gravity, slower and slower, then stop
+                float post = dead ? 0.45f * Mathf.Exp(-(Time.time - deadTime) / 12f) : 1f;
+                if (dead && post < 0.02f) continue;
+                float rate = w.rate * k * (spurt ? pulse * 1.7f * pressure : post);
                 var t = w.part.transform;
                 Vector3 n = t.TransformDirection(w.ln);
                 w.runT -= dt;
