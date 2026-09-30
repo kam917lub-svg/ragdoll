@@ -22,6 +22,7 @@ namespace VITS
         public List<int> tris;
         public Vector3 sdfOff;          // local -> original segment space (for lower pieces of a cut limb)
         public float yMin = -9f, yMax = 9f;
+        public float integrity = 1f; public Vector4 baseLim;   // 1 = intact .. 0 = torn through (joint goes slack and floppy)
         public int triTotal, carved;
         public readonly List<Vector3> wounds = new List<Vector3>();   // where bullets went in/out (local): repeated hits widen the hole
         public readonly List<Vector2> holes = new List<Vector2>(); // (height along the bone, angle around it) of every hole
@@ -426,7 +427,7 @@ namespace VITS
             j.projectionMode = JointProjectionMode.PositionAndRotation;
             j.projectionDistance = 0.02f; j.projectionAngle = 4f;
             j.enablePreprocessing = false;
-            p.joint = j;
+            p.joint = j; p.baseLim = new Vector4(xLo, xHi, yLim, zLim);
         }
 
         // muscle target: the local rotation the segment should have relative to its parent
@@ -448,7 +449,7 @@ namespace VITS
             foreach (var p in parts.Values)
             {
                 if (p.joint == null) continue;
-                float kk = p.severed ? 0.03f : k;
+                float kk = (p.severed ? 0.03f : k) * p.integrity;   // shot-up tissue can't hold the joint
                 float spring = p.driveK * kk;
                 p.joint.slerpDrive = new JointDrive { positionSpring = spring, positionDamper = spring * 0.06f + 1f, maximumForce = float.MaxValue };
             }
@@ -1596,6 +1597,7 @@ namespace VITS
                             Gib.Spawn(pt - dir * 0.02f, (-dir * 0.6f + Random.insideUnitSphere) * Random.Range(1f, 3f) + Vector3.up, Random.Range(0.012f, 0.024f));
                     }
                     if (waistDmg >= WaistSplit) SplitInHalf(dir);
+                    else Weaken(chW, Mathf.Clamp01(waistDmg / WaistSplit));
                 }
                 if (!dead)
                 {
@@ -1656,6 +1658,7 @@ namespace VITS
                 if (p.isLeg && !p.severed) legFn[p.key.EndsWith("R") ? 1 : 0] -= 0.45f;
                 // the limb comes off where a line of holes goes right across it
                 p.holes.Add(new Vector2(-inL.y, Mathf.Atan2(inL.x, inL.z) * Mathf.Rad2Deg));
+                Weaken(p, Mathf.Clamp01(p.holes.Count / 9f));   // a shot-up limb flops
                 bool cut = CutLine(p, out float cy);
                 if (cut) { SeverAt(p, cy, dir); p.holes.Clear(); }
                 else if (p.isLeg && !dead && !p.severed)
@@ -2016,6 +2019,26 @@ namespace VITS
         }
 
         const float WaistSplit = 55f;
+
+        // a joint whose muscle and bone are being shot away: weaker drive, wider (sagging) limits, until it just hangs
+        void Weaken(Part p, float dmg)
+        {
+            if (p.joint == null) return;
+            p.integrity = Mathf.Min(p.integrity, 1f - dmg * 0.95f);
+            float w = 1f + dmg * 2.2f;
+            var j = p.joint;
+            var L = p.baseLim;
+            j.lowAngularXLimit = new SoftJointLimit { limit = Mathf.Max(-170f, L.x * w) };
+            j.highAngularXLimit = new SoftJointLimit { limit = Mathf.Min(170f, L.y * w) };
+            j.angularYLimit = new SoftJointLimit { limit = Mathf.Min(170f, L.z * w) };
+            j.angularZLimit = new SoftJointLimit { limit = Mathf.Min(170f, L.w * w) };
+            Tone(dead ? 0.05f : 1f);
+            if (p.key == "chest")
+            {
+                if (dmg > 0.3f && !injuries.Contains("SPINE  DAMAGED")) injuries.Add("SPINE  DAMAGED");
+                if (!dead && dmg > 0.5f) { legFn[0] *= 0.5f; legFn[1] *= 0.5f; GoActive(); }
+            }
+        }
 
         // the upper body comes away from the pelvis
         void SplitInHalf(Vector3 dir)

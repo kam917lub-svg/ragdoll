@@ -499,3 +499,7 @@ Fatto: chi ha una gamba sotto il 60% (o poche forze) striscia invece di rialzars
 --- PROMPT 64 ---
 Utente: il sangue non si mescola: macchie rosse vivaci sopra la pozza scura, non sembra reale.
 Fatto: una goccia che cade dentro una pozza non lascia piu una macchia: si unisce alla pozza (ne aumenta il volume). Pozze un po piu alte sul pavimento (6 mm) cosi coprono sempre le macchie vecchie che finiscono sotto quando si allargano.
+
+--- PROMPT 65 ---
+Utente (screenshot: vita crivellata ma il corpo resta rigido): non dovrebbe piegarsi?
+Fatto: ogni parte ha integrity (1 intatta -> 0 squarciata). Weaken(): la forza del giunto scala con integrity e i limiti di rotazione si allargano fino a 3,2x (max 170 gradi) -> la parte si affloscia e pende. Vita: in base al danno accumulato alla vita (verso il taglio a meta), >30% "SPINE DAMAGED", >50% gambe dimezzate e crolla. Arti: si indeboliscono con il numero di fori (9 = completamente molli).
