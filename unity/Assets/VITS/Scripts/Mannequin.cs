@@ -132,7 +132,7 @@ namespace VITS
             var mr = g.AddComponent<MeshRenderer>(); mr.sharedMaterial = Random.value < 0.25f ? skin : meat;
             g.transform.position = p;
             g.transform.rotation = Random.rotation;
-            g.transform.localScale = new Vector3(s * Random.Range(0.9f, 1.5f), s * Random.Range(0.45f, 0.8f), s * Random.Range(0.8f, 1.3f)) * 2f;
+            g.transform.localScale = new Vector3(s * Random.Range(0.9f, 1.5f), s * Random.Range(0.45f, 0.8f), s * Random.Range(0.8f, 1.3f)) * 1.3f;
             g.AddComponent<BoxCollider>().size = new Vector3(0.8f, 0.7f, 0.8f);
             var rb = g.AddComponent<Rigidbody>();
             rb.mass = Mathf.Max(0.03f, s * s * s * 1000f);
@@ -618,6 +618,20 @@ namespace VITS
             }
 
             Vector3 goal = detourT > 0 ? detour : Level.Route(pos, target);
+            // a wall between me and where I want to go: head for its nearest corner instead of walking into it
+            if (detourT <= 0 && speed > 0.05f && Physics.Linecast(pos + Vector3.up * 0.8f, goal + Vector3.up * 0.8f, out RaycastHit wh, ~((1 << 2) | (1 << LayerWalk) | (1 << LayerRag)), QueryTriggerInteraction.Ignore) && (wh.collider.name.StartsWith("COVER") || wh.collider.name.StartsWith("TOWER")))
+            {
+                var b = wh.collider.bounds; b.Expand(new Vector3(1.3f, 0f, 1.3f));
+                float bestC = 1e9f; Vector3 bestP = goal;
+                foreach (var cx in new[] { b.min.x, b.max.x }) foreach (var cz in new[] { b.min.z, b.max.z })
+                {
+                    var c = new Vector3(cx, pos.y, cz);
+                    if (Physics.Linecast(pos + Vector3.up * 0.8f, c + Vector3.up * 0.8f, ~((1 << 2) | (1 << LayerWalk) | (1 << LayerRag)), QueryTriggerInteraction.Ignore)) continue;
+                    float cost = Flat(c - pos).magnitude + Flat(goal - c).magnitude;
+                    if (cost < bestC) { bestC = cost; bestP = c; }
+                }
+                if (bestC < 1e8f) { detour = bestP; detourT = 2.5f; goal = detour; }
+            }
             detourT -= dt;
             Vector3 dir = Flat(goal - pos);
             if (!Free(pos, false))
@@ -632,7 +646,11 @@ namespace VITS
                 // people slow down to turn
                 float turnSlow = Mathf.Clamp01(1f - turn / 100f);
                 float gait = Hopping ? Mathf.Max(0f, Mathf.Sin(phase * Mathf.PI * 2f)) * 2f : 1f; // hop: forward only while airborne
-                Vector3 fwd = transform.forward, step = fwd * speed * Mathf.Max(0.25f, turnSlow) * gait * dt;
+                // walking is driven by the legs: the body moves exactly as far as the planted foot is pushed back
+                // by the animation (root motion), so feet never skate. Hopping keeps its own airborne push.
+                float cadence = speed * Mathf.Max(0.25f, turnSlow);
+                Vector3 fwd = transform.forward, step = Hopping ? fwd * cadence * gait * dt : fwd * rootMove;
+                rootMove = 0f;
                 if (!Free(pos + fwd * 0.35f))
                 {
                     Vector3 to = dir.normalized; float bestA = 999; Vector3 bestD = Vector3.zero;
@@ -654,7 +672,8 @@ namespace VITS
                 else np = pos;
                 transform.position = np;
                 float moved = new Vector3(np.x - pos.x, 0, np.z - pos.z).magnitude;
-                phase += Hopping ? dt * 2.2f : moved / Stride();
+                phase += Hopping ? dt * 2.2f : cadence * dt / Stride();   // the animation runs at the wanted speed; the feet then carry the body
+                _ = moved;
             }
             Gravity(dt);
             vel = Vector3.ClampMagnitude((transform.position - lastPos) / dt, 2.5f); lastPos = transform.position;
@@ -796,6 +815,18 @@ namespace VITS
             Set("pelvis", Quaternion.Euler(0, -s * a * 0.15f, sway * 0.5f), k);
             Set("chest", Quaternion.Euler(lean, headYaw * 0.25f + s * a * 0.2f, -sway * 0.6f), k);
             Set("head", Quaternion.Euler(-lean * 0.5f + (state == S.Idle ? 4f : 0f), headYaw * 0.75f, 0), k);
+            // root motion: how far back the stance foot (the straighter leg) moved relative to the hips this frame
+            {
+                float L = 0.45f * Scale;
+                // from the legs as they are actually posed right now (after smoothing), not the targets
+                float A(string k) => Mathf.DeltaAngle(0f, parts[k].transform.localEulerAngles.x) * Mathf.Deg2Rad;
+                float tl = A("thighL"), tr = A("thighR"), kl = A("shinL"), kr = A("shinR");
+                float zl = -L * Mathf.Sin(tl) - L * Mathf.Sin(tl + kl), zr = -L * Mathf.Sin(tr) - L * Mathf.Sin(tr + kr);
+                int stance = kl <= kr ? 0 : 1;
+                float z = stance == 0 ? zl : zr;
+                if (stance == lastStance && !Hopping) rootMove += Mathf.Max(0f, lastFootZ - z);
+                lastStance = stance; lastFootZ = z;
+            }
             var pv = parts["pelvis"].transform;
             pv.localPosition = Vector3.Lerp(pv.localPosition, new Vector3(0, pelvisY, 0), k);
             if (clutch != null && !clutch.severed)
@@ -1025,7 +1056,7 @@ namespace VITS
             writheT = 0;
         }
 
-        float diveT, lastVy; Vector3 coverFace;
+        float diveT, lastVy; float rootMove, lastFootZ; int lastStance = -1; Vector3 coverFace;
         // hitting the ground hard: ~9 m/s (4 m) breaks legs, ~14 m/s (10 m) and up is usually fatal
         void Landed(float speed)
         {
@@ -1552,8 +1583,8 @@ namespace VITS
             foreach (Transform c in p.transform) if (c.name != "stump") c.gameObject.SetActive(false); // visor, brain...
             foreach (var col in p.GetComponents<Collider>()) col.enabled = false;
             Vector3 hc = p.transform.TransformPoint(new Vector3(0, 0.17f, 0));
-            for (int i = 0; i < 14; i++) Gib.Spawn(hc + Random.insideUnitSphere * 0.06f, lastDir * Random.Range(1f, 4f) + Random.insideUnitSphere * 2.5f + Vector3.up * 1.5f, Random.Range(0.02f, 0.045f));
-            Blood.I.Spray(hc, lastDir + Vector3.up * 0.5f, 160, 5f, 0.9f, 0.2f, 1.4f);
+            for (int i = 0; i < 5; i++) Gib.Spawn(hc + Random.insideUnitSphere * 0.06f, lastDir * Random.Range(1f, 4f) + Random.insideUnitSphere * 2.5f + Vector3.up * 1.5f, Random.Range(0.012f, 0.025f));
+            Blood.I.Spray(hc, lastDir + Vector3.up * 0.5f, 90, 5f, 0.9f, 0.1f, 0.6f);
             Stump(p.transform, p.transform.TransformPoint(new Vector3(0, 0.06f, 0)), p.transform.up, 0.05f);
             AddWound(p, new Vector3(0, 0.07f, 0), Vector3.up, 25f, true, 6f, "HEAD DESTROYED");
             injuries.Add("HEAD  DESTROYED");
