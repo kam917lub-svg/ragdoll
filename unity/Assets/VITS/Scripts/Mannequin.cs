@@ -265,7 +265,7 @@ namespace VITS
                         var c = go.AddComponent<CapsuleCollider>(); c.direction = 1; c.center = new Vector3(0, 0.19f, 0); c.height = 0.5f; c.radius = 0.13f;
                         var s = go.AddComponent<CapsuleCollider>(); s.direction = 0; s.center = new Vector3(0, 0.315f, 0); s.height = 0.46f; s.radius = 0.085f;
                         // neckwear: bow tie, necktie or nothing (black), sitting on the real chest surface
-                        int nw = Random.Range(0, 3);
+                        int nw = Random.Range(0, 2);   // always wears one
                         if (nw == 0)
                         {
                             Mats.Vis(PrimitiveType.Cube, t, Front(part, -0.024f, 0.42f, 0.004f), new Vector3(0.04f, 0.03f, 0.012f), visorMat, false).transform.localRotation = Quaternion.Euler(0, 0, 12);
@@ -309,6 +309,7 @@ namespace VITS
             for (int n = 0; n < DEFS.Length; n++) bones[n] = parts[DEFS[n].k].transform;
             var skin = MakeSkin(gameObject, new List<int>(BodyMesh.BodyTris), (BoneWeight[])BodyMesh.Weights.Clone(), bones, BodyMesh.Bind);
             foreach (var p in parts.Values) p.skin = skin;
+            SnapWear(skin);
             foreach (var p in parts.Values) XRay.AddInternals(p);
         }
 
@@ -326,11 +327,32 @@ namespace VITS
             return sk;
         }
 
+        // eyes, bow tie, necktie: pushed onto the drawn skin (ray from in front of the body onto the real mesh)
+        void SnapWear(Skin sk)
+        {
+            var W = sk.World();
+            foreach (var key in new[] { "chest", "head" })
+            {
+                var t = parts[key].transform;
+                foreach (Transform c in t)
+                {
+                    if (c.name == "stump" || c.GetComponent<Part>() != null) continue;
+                    Vector3 lp = c.localPosition;
+                    Vector3 o = t.TransformPoint(new Vector3(lp.x, lp.y, 0.4f)), d = -t.forward;
+                    float hit = 0.6f;
+                    if (RayTris(W, sk.tris, o, d, ref hit) < 0) continue;
+                    Vector3 surf = t.InverseTransformPoint(o + d * hit);
+                    c.localPosition = new Vector3(lp.x, lp.y, surf.z + c.localScale.z * 0.35f);
+                }
+            }
+        }
+
         // a point on the front surface of the body at (x, y), 'out' metres proud of the skin
         static Vector3 Front(Part p, float x, float y, float @out)
         {
             var q = p.Project(new Vector3(x, y, 0.3f));
-            return new Vector3(x, y, q.z + @out);
+            // the drawn skin is the smooth blend of all segments, a bit fuller than one segment alone
+            return new Vector3(x, y, q.z + @out + (p.isTorso ? 0.018f : 0.004f));
         }
 
         static void AddLimbColliders(Part p, float from, float to)

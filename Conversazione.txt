@@ -371,3 +371,8 @@ Fatto:
 --- PROMPT 35 ---
 Utente: la scritta deve essere "elliotalderson1338_30647 on Discord!".
 Fatto: watermark e menu Esc ora mostrano "elliotalderson1338_30647 on Discord!".
+
+--- PROMPT 36 ---
+Utente: non vede papillon e cravatte.
+Causa: erano posizionati sulla superficie di un solo segmento, ma la pelle disegnata (fusione di tutti i segmenti) e piu piena -> finivano dentro il corpo.
+Fatto: SnapWear() dopo la creazione della pelle: raggio da davanti sul mesh vero (skinning CPU) e appoggio di occhi/papillon/cravatta sulla pelle; ogni Kekko ha sempre papillon o cravatta.
