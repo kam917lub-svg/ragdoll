@@ -376,3 +376,7 @@ Fatto: watermark e menu Esc ora mostrano "elliotalderson1338_30647 on Discord!".
 Utente: non vede papillon e cravatte.
 Causa: erano posizionati sulla superficie di un solo segmento, ma la pelle disegnata (fusione di tutti i segmenti) e piu piena -> finivano dentro il corpo.
 Fatto: SnapWear() dopo la creazione della pelle: raggio da davanti sul mesh vero (skinning CPU) e appoggio di occhi/papillon/cravatta sulla pelle; ogni Kekko ha sempre papillon o cravatta.
+
+--- PROMPT 37 ---
+Utente (screenshot trascinando un Kekko): sangue trascinato non realistico (bande rosa continue, migliaia di aghi sottili).
+Fatto: strisce delle gocce solo per gocce grosse e veloci (35%), corte (4-22 cm) e larghe 1/3 della goccia (niente aghi). Strisciate: macchie spezzate e irregolari (probabilita, larghezza, spostamento laterale e direzione casuali), carico cala x0,78, colore rosso scuro (non rosa), texture con chiazze bagnate e vuoti (Perlin); la ferita che sanguina lascia gocce tonde lungo la scia.

@@ -56,10 +56,10 @@ namespace VITS
                 Mats.Decal(Tex(2), new Color(0.32f, 0.008f, 0.02f, 0.95f)), // wall drip (darker)
                 Mats.Decal(Tex(5), new Color(0.42f, 0.02f, 0.035f, 1f)),     // bullet wound on skin
                 // smeared blood is a thin film: lighter and more see-through than a drop or a pool
-                Mats.Decal(Tex(6), new Color(0.6f, 0.07f, 0.08f, 0.6f)),     // smear (dragged body, crawling)
+                Mats.Decal(Tex(6), new Color(0.5f, 0.0f, 0.03f, 0.72f)),     // smear (dragged body, crawling)
                 Mats.Decal(Tex(7), new Color(0.52f, 0.05f, 0.06f, 0.75f)),   // bloody footprint
                 Mats.Decal(Tex(7), new Color(0.64f, 0.12f, 0.12f, 0.32f)),   // fading footprint
-                Mats.Decal(Tex(6), new Color(0.66f, 0.12f, 0.12f, 0.3f)),    // thin smear
+                Mats.Decal(Tex(6), new Color(0.55f, 0.02f, 0.05f, 0.38f)),    // thin smear
             };
             for (int v = 0; v < 6; v++) skin[v] = new SkinDec[SKIN_MAX];
             skinBatches = new Matrix4x4[12][]; for (int q = 0; q < 12; q++) skinBatches[q] = new Matrix4x4[B];
@@ -135,7 +135,8 @@ namespace VITS
                     float edge = Mathf.Clamp01((0.92f - fx - col[(x * 7 + y / 9) % S] * 0.3f) * 6f);
                     float fy = y / (float)S;
                     float ends = Mathf.Clamp01(fy * 6f) * Mathf.Clamp01((1f - fy) * 5f);
-                    a[y * S + x] = Mathf.Clamp01(edge * ends * (0.45f + 0.55f * col[x]) * 1.3f);
+                    float blot = Mathf.Clamp01(Mathf.PerlinNoise(x * 0.06f + kind, y * 0.05f) * 1.9f - 0.45f);   // wet patches and dry gaps
+                    a[y * S + x] = Mathf.Clamp01(edge * ends * (0.45f + 0.55f * col[x]) * blot * 1.5f);
                 }
             }
             else if (kind == 7)
@@ -243,10 +244,11 @@ namespace VITS
             AddDecal(variant, h.point, n, up, size, size * el);
             // a drop hitting at speed runs on in a long thin line (the radiating streaks around a real spatter)
             float slide = vt.magnitude;
-            if (slide > 1.2f)
+            if (slide > 2f && vol > 0.6f && Random.value < 0.35f)
             {
-                float len = Mathf.Clamp(slide * 0.1f * (0.6f + vol), 0.06f, 0.7f);
-                AddDecal(2, h.point + up * len * 0.5f, n, up, Mathf.Max(0.004f, size * 0.22f), len);
+                // a tail, not a needle: short, as wide as a third of the drop
+                float len = Mathf.Clamp(slide * 0.035f * (0.5f + vol * 0.5f), 0.04f, 0.22f);
+                AddDecal(2, h.point + up * len * 0.45f, n, up, Mathf.Max(0.008f, size * 0.35f), len);
             }
             if (n.y > 0.7f) { Wet(h.point, vol); var sc = Cell(h.point); stain.TryGetValue(sc, out float sv); stain[sc] = sv + vol; }
             else if (Mathf.Abs(n.y) < 0.35f && vol > 0.25f && Random.value < 0.5f)
@@ -373,10 +375,14 @@ namespace VITS
             Vector3 from = t.last; t.last = p;
             if (L > 1.2f) return;   // flew through the air
             if (!Physics.Raycast(p + Vector3.up * 0.3f, Vector3.down, out RaycastHit h, 0.3f + reach, WORLD, QueryTriggerInteraction.Ignore) || h.normal.y < 0.7f) return;
-            t.load = Mathf.Min(1f, t.load * 0.9f + Take(h.point) / 10f + bleed);
-            if (t.load < 0.05f) return;
-            Vector3 mid = (from + p) * 0.5f; mid.y = h.point.y;
-            AddDecal(t.load > 0.3f ? 6 : 9, mid, h.normal, mv / L, width * (0.7f + 0.3f * t.load), L * 1.35f);
+            // real drag marks are broken and uneven: wet patches where the body pressed, gaps, thinning out fast
+            t.load = Mathf.Min(1f, t.load * 0.78f + Take(h.point) / 12f + bleed * 0.3f);
+            if (t.load < 0.08f || Random.value > 0.35f + t.load * 0.6f) return;
+            Vector3 mid = Vector3.Lerp(from, p, Random.value); mid.y = h.point.y;
+            Vector3 side = Vector3.Cross(Vector3.up, mv / L) * Random.Range(-0.3f, 0.3f) * width;
+            float wdt = width * Random.Range(0.35f, 0.85f) * (0.5f + 0.5f * t.load);
+            AddDecal(t.load > 0.45f ? 6 : 9, mid + side, h.normal, (mv / L + Random.insideUnitSphere * 0.15f).normalized, wdt, L * Random.Range(0.7f, 1.3f));
+            if (bleed > 0f && Random.value < 0.3f) AddDecal(0, mid + side * 2f, h.normal, RandomTangent(h.normal), wdt * 0.4f, wdt * 0.4f);
         }
 
         // ---------- drawing
