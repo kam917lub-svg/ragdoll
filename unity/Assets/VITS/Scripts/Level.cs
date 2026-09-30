@@ -55,6 +55,8 @@ namespace VITS
             var sun = new GameObject("Sun").AddComponent<Light>();
             sun.type = LightType.Directional; sun.intensity = 1.15f; sun.color = new Color(1f, 0.98f, 0.95f);
             sun.shadows = LightShadows.Soft; sun.shadowStrength = 0.75f;
+            sun.shadowBias = 0.08f; sun.shadowNormalBias = 0.6f;   // no shadow acne stripes on stairs and pit walls
+            QualitySettings.shadowDistance = 45f;
             sun.transform.rotation = Quaternion.Euler(52f, -35f, 0);
 
             plat = Mats.Lit(new Color(0.95f, 0.95f, 0.94f), 0.1f);
@@ -199,6 +201,7 @@ namespace VITS
         {
             float D = PitDepth, cx = r.center.x, cz = r.center.y, w = r.width, l = r.height;
             var dark = Mats.Lit(new Color(0.12f, 0.12f, 0.12f), 0.1f);
+            var stairMat = Mats.Lit(new Color(0.28f, 0.28f, 0.28f), 0.1f);
             Box(new Vector3(cx, -D - 0.5f, cz), new Vector3(w + 1f, 1f, l + 1f), dark, false);                                    // bottom
             // walls stop 2 cm under the floor surface: no two faces at the same height (that flickered)
             Box(new Vector3(r.xMin - 0.25f, -D / 2f - 0.51f, cz), new Vector3(0.5f, D + 0.98f, l + 1f), dark, false);
@@ -226,7 +229,7 @@ namespace VITS
                     float top = -rise * i;
                     float z = r.yMin + tread * (i - 0.5f);
                     if (z > r.yMax - 0.2f) break;
-                    Box(new Vector3(r.xMin + 0.5f, (top - D) / 2f, z), new Vector3(1f, top + D, tread), plat, false);
+                    Box(new Vector3(r.xMin + 0.5f, (top - D) / 2f - 0.001f * i, z), new Vector3(1f, top + D, tread), stairMat, false);
                 }
             }
             if (grinder)

@@ -516,6 +516,7 @@ namespace VITS
         // the highest solid surface under a point (no bodies, no pieces, not the player)
         // bloody footprints while walking; smears where the body (or a piece) slides over the floor
         readonly Blood.Track feetTr = new Blood.Track();
+        readonly Dictionary<Part, Collider> colCache = new Dictionary<Part, Collider>();
         readonly Dictionary<Part, Blood.Track> dragTr = new Dictionary<Part, Blood.Track>();
         void Smears()
         {
@@ -527,7 +528,7 @@ namespace VITS
                 if (!dragTr.TryGetValue(p, out var t)) dragTr[p] = t = new Blood.Track();
                 float bleed = 0;
                 foreach (var w in wounds) if (w.part == p && w.rate > 0.5f) { bleed = 0.12f; break; }
-                var col = p.GetComponent<Collider>();
+                if (!colCache.TryGetValue(p, out var col)) colCache[p] = col = p.GetComponent<Collider>();
                 Vector3 c = col != null && col.enabled ? col.bounds.center : p.transform.position;
                 Blood.I.Drag(t, c, Mathf.Max(0.06f, p.radius * 1.6f), p.radius + 0.06f, bleed);
             }
@@ -550,7 +551,8 @@ namespace VITS
         void Gravity(float dt)
         {
             Vector3 p = transform.position;
-            float g = GroundBelow(p);
+            if (Time.time > gGroundT || fallV > 0f) { gGroundT = Time.time + 0.12f; gGround = GroundBelow(p); }
+            float g = gGround;
             if (p.y > g + 0.7f)
             {
                 // real drop (off an edge, spawned or let go in the air): the body goes physical and falls as a body
@@ -1058,7 +1060,7 @@ namespace VITS
             writheT = 0;
         }
 
-        float diveT, lastVy; float rootMove, lastFootZ, lastFootZR; int lastStance = -1; Vector3 coverFace;
+        float diveT, lastVy, airT = -9f, gbT, gbY; float gGround, gGroundT; float rootMove, lastFootZ, lastFootZR; int lastStance = -1; Vector3 coverFace;
         // hitting the ground hard: ~9 m/s (4 m) breaks legs, ~14 m/s (10 m) and up is usually fatal
         void Landed(float speed)
         {
@@ -1104,8 +1106,22 @@ namespace VITS
             var pel = parts["pelvis"]; var ch = parts["chest"];
             if (Held) { anchor = pel.transform.position; if (conscious) Writhe(Time.fixedDeltaTime * 2f); return; }   // dangling in your grip, kicking
             // falling: no muscle can hold you up in the air (this was the 'gliding' after a drop)
-            float fallH = pel.transform.position.y - GroundBelow(pel.transform.position + Vector3.up * 0.2f);
+            // ground under the hips (re-measured 10x a second, or every step while moving fast): cheap enough for many bodies
+            if (Time.time > gbT || pel.rb.linearVelocity.sqrMagnitude > 4f) { gbT = Time.time + 0.1f; gbY = GroundBelow(pel.transform.position + Vector3.up * 0.2f); }
+            float fallH = pel.transform.position.y - gbY;
             float vy = pel.rb.linearVelocity.y;
+            // thrown / flung / dropped: nobody lands on their feet from that. No muscles hold him up until he has
+            // hit the ground and come to rest for a moment; then he gets up like anyone knocked down.
+            if (fallH > 0.35f || Flat(pel.rb.linearVelocity).magnitude > 2.5f || vy < -2.5f) { airT = Time.time; support = Mathf.Min(support, 0.15f); }
+            if (Time.time - airT < 0.9f)
+            {
+                if (conscious && fallH > 0.35f && Random.value < 0.15f)
+                    foreach (var q in parts.Values)
+                        if (!q.severed && (q.isArm || q.isLeg) && q.rb != null) q.rb.AddTorque(Random.insideUnitSphere * q.rb.mass * 1.2f, ForceMode.Impulse);
+                if (lastVy < -9f && vy > lastVy + 6f && fallH < 1.3f) Landed(-lastVy);
+                lastVy = vy;
+                return;
+            }
             if (lastVy < -9f && vy > lastVy + 6f && fallH < 1.3f) Landed(-lastVy);
             lastVy = vy;
             if (fallH > 1.4f)

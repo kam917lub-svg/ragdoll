@@ -37,7 +37,7 @@ namespace VITS
             foreach (var c in FindObjectsByType<Camera>(FindObjectsSortMode.None)) c.gameObject.SetActive(false);
             foreach (var l in FindObjectsByType<Light>(FindObjectsSortMode.None)) l.gameObject.SetActive(false);
 
-            Physics.defaultSolverIterations = 20; Physics.defaultSolverVelocityIterations = 8;
+            Physics.defaultSolverIterations = 12; Physics.defaultSolverVelocityIterations = 4;   // plenty for these joints, much cheaper
             // walking (animated) people must not bulldoze bodies and pieces lying around
             Physics.IgnoreLayerCollision(Mannequin.LayerWalk, Mannequin.LayerRag, true);
             Physics.IgnoreLayerCollision(Mannequin.LayerWalk, 2, false);   // the player (layer 2) must bump into walking Carls
@@ -53,6 +53,50 @@ namespace VITS
             try { Level.Build(); } catch (System.Exception e) { Debug.LogException(e); }
             try { new GameObject("Blood").AddComponent<Blood>(); } catch (System.Exception e) { Debug.LogException(e); }
             for (int i = 0; i < 10; i++) { try { Spawn(); } catch (System.Exception e) { Debug.LogException(e); } }
+        }
+
+        // ---------- video: frame limiter and motion blur (saved)
+        static readonly int[] FpsSteps = { 60, 120, 144, 165, 240, 0 };
+        public static int FpsIdx = 5; public static float Blur;
+        public static void ApplyVideo()
+        {
+            FpsIdx = PlayerPrefs.GetInt("vits_fps", 5); Blur = PlayerPrefs.GetFloat("vits_blur", 0f);
+            QualitySettings.vSyncCount = 0;
+            Application.targetFrameRate = FpsSteps[Mathf.Clamp(FpsIdx, 0, FpsSteps.Length - 1)] == 0 ? -1 : FpsSteps[FpsIdx];
+            SetMotionBlur(Blur);
+        }
+        static Component blurVol; static object blurComp;
+        static void SetMotionBlur(float v)
+        {
+            try
+            {
+                var volT = System.Type.GetType("UnityEngine.Rendering.Volume, Unity.RenderPipelines.Core.Runtime");
+                var profT = System.Type.GetType("UnityEngine.Rendering.VolumeProfile, Unity.RenderPipelines.Core.Runtime");
+                var mbT = System.Type.GetType("UnityEngine.Rendering.Universal.MotionBlur, Unity.RenderPipelines.Universal.Runtime");
+                if (volT == null || profT == null || mbT == null) return;
+                if (blurVol == null)
+                {
+                    var go = new GameObject("VITS Motion Blur");
+                    blurVol = go.AddComponent(volT);
+                    volT.GetField("isGlobal")?.SetValue(blurVol, true);
+                    volT.GetField("priority")?.SetValue(blurVol, 100f);
+                    var prof = ScriptableObject.CreateInstance(profT);
+                    blurComp = profT.GetMethod("Add", new[] { typeof(System.Type), typeof(bool) }).Invoke(prof, new object[] { mbT, true });
+                    volT.GetProperty("profile")?.SetValue(blurVol, prof);
+                }
+                var inten = mbT.GetField("intensity").GetValue(blurComp);
+                inten.GetType().GetMethod("Override", new[] { typeof(float) })?.Invoke(inten, new object[] { v });
+                mbT.GetField("active")?.SetValue(blurComp, v > 0.001f);
+                // the camera must render post effects for the blur to show
+                var camT = System.Type.GetType("UnityEngine.Rendering.Universal.UniversalAdditionalCameraData, Unity.RenderPipelines.Universal.Runtime");
+                var cam = Camera.main;
+                if (camT != null && cam != null)
+                {
+                    var data = cam.GetComponent(camT) ?? cam.gameObject.AddComponent(camT);
+                    camT.GetProperty("renderPostProcessing")?.SetValue(data, v > 0.001f);
+                }
+            }
+            catch (System.Exception e) { Debug.LogWarning("motion blur: " + e.Message); }
         }
 
         public static string LastError = "";
@@ -291,7 +335,7 @@ namespace VITS
             if (player.menu)
             {
                 GUI.color = Color.white;
-                var box = new Rect(W / 2f - 190 * s, H / 2f - 355 * s, 380 * s, 730 * s);
+                var box = new Rect(W / 2f - 190 * s, H / 2f - 410 * s, 380 * s, 840 * s);
                 GUI.DrawTexture(box, panelTex);
                 Label(new Rect(box.x, box.y + 14 * s, box.width, 30 * s), "VERTICAL IMPACT TESTSITE", (int)(20 * s), TextAnchor.UpperCenter);
                 var bs = new GUIStyle(GUI.skin.button) { fontSize = (int)(18 * s), fontStyle = FontStyle.Bold };
@@ -321,7 +365,14 @@ namespace VITS
                 }
                 if (GUI.Button(new Rect(bx, sy + 160 * s, bw, bh), "RESUME  (Esc)", bs)) player.SetMenu(false);
                 if (GUI.Button(new Rect(bx, sy + 210 * s, bw, bh), "RESET  (everything)", bs)) { player.SetMenu(false); ResetAll(); }
-                Label(new Rect(bx, sy + 258 * s, bw, 22 * s), Discord + " on Discord!", (int)(15 * s), TextAnchor.UpperCenter, 0.9f);
+                // video
+                string fpsTxt = FpsSteps[FpsIdx] == 0 ? "UNLIMITED" : FpsSteps[FpsIdx] + " FPS";
+                if (GUI.Button(new Rect(bx, sy + 290 * s, bw * 0.48f, bh), "LIMIT: " + fpsTxt, bs)) { FpsIdx = (FpsIdx + 1) % FpsSteps.Length; PlayerPrefs.SetInt("vits_fps", FpsIdx); PlayerPrefs.Save(); ApplyVideo(); }
+                Label(new Rect(bx + bw * 0.52f, sy + 286 * s, bw * 0.48f, 22 * s), $"MOTION BLUR  {Blur * 100f:0}%", (int)(14 * s), TextAnchor.UpperLeft);
+                float nb = GUI.HorizontalSlider(new Rect(bx + bw * 0.52f, sy + 312 * s, bw * 0.48f, 20 * s), Blur, 0f, 1f);
+                if (Mathf.Abs(nb - Blur) > 0.009f) { Blur = Mathf.Round(nb * 20f) / 20f; PlayerPrefs.SetFloat("vits_blur", Blur); PlayerPrefs.Save(); SetMotionBlur(Blur); }
+                Label(new Rect(bx, sy + 340 * s, bw, 20 * s), $"{1f / Mathf.Max(0.0001f, Time.unscaledDeltaTime):0} FPS NOW", (int)(13 * s), TextAnchor.UpperCenter, 0.7f);
+                Label(new Rect(bx, sy + 362 * s, bw, 22 * s), Discord + " on Discord!", (int)(15 * s), TextAnchor.UpperCenter, 0.9f);
                 return;
             }
             if (!player.locked) Label(new Rect(0, H * 0.55f, W, 30 * s), "CLICK TO PLAY", (int)(22 * s), TextAnchor.UpperCenter);

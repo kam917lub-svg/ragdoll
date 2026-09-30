@@ -72,6 +72,7 @@ namespace VITS
             yaw = transform.eulerAngles.y;
 
             BuildGun();
+            Game.ApplyVideo();   // frame limit + motion blur (needs this camera)
             au = cgo.AddComponent<AudioSource>(); au.spatialBlend = 0;
             shotClip = MakeShot(70f, 0.35f); awpClip = MakeShot(45f, 0.9f); clickClip = MakeClick();
         }
