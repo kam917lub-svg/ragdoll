@@ -264,13 +264,31 @@ namespace VITS
                     {
                         var c = go.AddComponent<CapsuleCollider>(); c.direction = 1; c.center = new Vector3(0, 0.19f, 0); c.height = 0.5f; c.radius = 0.13f;
                         var s = go.AddComponent<CapsuleCollider>(); s.direction = 0; s.center = new Vector3(0, 0.315f, 0); s.height = 0.46f; s.radius = 0.085f;
-                        Mats.Vis(PrimitiveType.Cube, t, new Vector3(-0.06f, 0.27f, 0.098f), new Vector3(0.05f, 0.016f, 0.004f), tagMat, false);
+                        // neckwear: bow tie, necktie or nothing (black), sitting on the real chest surface
+                        int nw = Random.Range(0, 3);
+                        if (nw == 0)
+                        {
+                            Mats.Vis(PrimitiveType.Cube, t, Front(part, -0.024f, 0.42f, 0.004f), new Vector3(0.04f, 0.03f, 0.012f), visorMat, false).transform.localRotation = Quaternion.Euler(0, 0, 12);
+                            Mats.Vis(PrimitiveType.Cube, t, Front(part, 0.024f, 0.42f, 0.004f), new Vector3(0.04f, 0.03f, 0.012f), visorMat, false).transform.localRotation = Quaternion.Euler(0, 0, -12);
+                            Mats.Vis(PrimitiveType.Cube, t, Front(part, 0f, 0.42f, 0.007f), new Vector3(0.015f, 0.017f, 0.014f), visorMat, false);
+                        }
+                        else if (nw == 1)
+                        {
+                            Mats.Vis(PrimitiveType.Cube, t, Front(part, 0f, 0.415f, 0.005f), new Vector3(0.022f, 0.02f, 0.012f), visorMat, false);
+                            for (int k = 0; k < 6; k++)
+                            {
+                                float yy = 0.39f - k * 0.035f, wdt = 0.026f + k * 0.003f;
+                                Mats.Vis(PrimitiveType.Cube, t, Front(part, 0f, yy, 0.002f), new Vector3(wdt, 0.038f, 0.005f), visorMat, false);
+                            }
+                        }
                         break;
                     }
                     case "head":
                     {
                         var c = go.AddComponent<SphereCollider>(); c.center = new Vector3(0, 0.17f, 0.005f); c.radius = 0.12f;
-                        Mats.Vis(PrimitiveType.Cube, t, new Vector3(0, 0.19f, 0.108f), new Vector3(0.17f, 0.032f, 0.04f), visorMat, false);
+                        // two small black eyes on the face
+                        Mats.Vis(PrimitiveType.Sphere, t, Front(part, -0.035f, 0.19f, 0.002f), new Vector3(0.022f, 0.026f, 0.012f), visorMat, false);
+                        Mats.Vis(PrimitiveType.Sphere, t, Front(part, 0.035f, 0.19f, 0.002f), new Vector3(0.022f, 0.026f, 0.012f), visorMat, false);
                         break;
                     }
                     default: AddLimbColliders(part, 0f, d.len); break;
@@ -306,6 +324,13 @@ namespace VITS
             var sk = new Skin { r = r, mesh = mesh, tris = tris, bw = bw, bones = bones, bind = bind, mats = mats, owner = this };
             Skin.All.Add(sk);
             return sk;
+        }
+
+        // a point on the front surface of the body at (x, y), 'out' metres proud of the skin
+        static Vector3 Front(Part p, float x, float y, float @out)
+        {
+            var q = p.Project(new Vector3(x, y, 0.3f));
+            return new Vector3(x, y, q.z + @out);
         }
 
         static void AddLimbColliders(Part p, float from, float to)

@@ -33,7 +33,7 @@ namespace VITS
         readonly List<Pool> pools = new List<Pool>();
         readonly Dictionary<Vector2Int, float> wet = new Dictionary<Vector2Int, float>();
 
-        public static readonly Color Fresh = new Color(0.4f, 0.012f, 0.025f, 0.97f);   // real blood is dark red, almost maroon when it lies thick
+        public static readonly Color Fresh = new Color(0.62f, 0.0f, 0.02f, 0.97f);   // saturated arterial red   // real blood is dark red, almost maroon when it lies thick
 
         void Awake()
         {
@@ -46,7 +46,7 @@ namespace VITS
             quad.RecalculateNormals(); quad.RecalculateBounds();
             quad.bounds = new Bounds(Vector3.zero, Vector3.one * 2f);
 
-            dropMat = Mats.Lit(new Color(0.42f, 0.015f, 0.03f), 0.8f);
+            dropMat = Mats.Lit(new Color(0.6f, 0.0f, 0.02f), 0.9f);
             decMat = new[]
             {
                 Mats.Decal(Tex(0), Fresh),                           // round splat
@@ -63,7 +63,7 @@ namespace VITS
             };
             for (int v = 0; v < 6; v++) skin[v] = new SkinDec[SKIN_MAX];
             skinBatches = new Matrix4x4[12][]; for (int q = 0; q < 12; q++) skinBatches[q] = new Matrix4x4[B];
-            poolMat = Mats.Decal(Tex(4), new Color(0.27f, 0.006f, 0.016f, 0.98f), 3001);
+            poolMat = Mats.Decal(Tex(4), new Color(0.5f, 0.0f, 0.02f, 0.98f), 3001);
             int nv = decMat.Length;
             dec = new Matrix4x4[nv][][]; decN = new int[nv]; decHead = new int[nv];
             for (int v = 0; v < nv; v++) { dec[v] = new Matrix4x4[DEC_BATCHES][]; for (int b = 0; b < DEC_BATCHES; b++) dec[v][b] = new Matrix4x4[B]; }
@@ -241,6 +241,13 @@ namespace VITS
             }
             int variant = sp > 4.5f ? 1 : (el > 1.6f ? 2 : 0);
             AddDecal(variant, h.point, n, up, size, size * el);
+            // a drop hitting at speed runs on in a long thin line (the radiating streaks around a real spatter)
+            float slide = vt.magnitude;
+            if (slide > 1.2f)
+            {
+                float len = Mathf.Clamp(slide * 0.1f * (0.6f + vol), 0.06f, 0.7f);
+                AddDecal(2, h.point + up * len * 0.5f, n, up, Mathf.Max(0.004f, size * 0.22f), len);
+            }
             if (n.y > 0.7f) { Wet(h.point, vol); var sc = Cell(h.point); stain.TryGetValue(sc, out float sv); stain[sc] = sv + vol; }
             else if (Mathf.Abs(n.y) < 0.35f && vol > 0.25f && Random.value < 0.5f)
             {

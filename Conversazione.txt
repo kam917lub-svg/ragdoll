@@ -361,3 +361,9 @@ Fatto:
 - Panico: in fuga dopo essere stati provocati corrono a 3,4 m/s (prima 0,8-2); a 0,9-1,8 m dal riparo si tuffano (Dive: corpo fisico lanciato a 4 m/s avanti + 2,2 in alto, rotazione), poi si rialzano dietro il muro. Con una gamba ferita saltellano come prima.
 - Caduta: in modalita fisica le forze che tengono in piedi si spengono se il bacino e a piu di 1,4 m dal suolo (era questo il "planare": Ground non trovava il pavimento e il sostegno teneva il corpo in aria). Atterraggio: >9 m/s gambe fratturate in proporzione, >14 m/s (circa 10 m) morte all 85%; spruzzo di sangue e dolore.
 - Colpi vicini: il raggio del mondo ignora qualsiasi cosa entro 25 cm dall occhio (pedana ascensore, bordo della torre su cui ti sporgi) e la capsula del giocatore.
+
+--- PROMPT 34 ---
+Utente: niente fascia nera sugli occhi e targhetta sul petto (copyright); aggiungere varianti papillon / cravatta e occhi neri; sangue come nello screenshot di un altro gioco (rosso vivo, lunghe striature radiali, pozza grande).
+Fatto:
+- Via visiera e targhetta. Occhi: due ovali neri sul viso. Collo: a caso papillon (due ali + nodo), cravatta (nodo + 6 segmenti che si allargano) o niente. Tutto appoggiato sulla superficie vera del corpo (Front() proietta sulla SDF del segmento).
+- Sangue: rosso saturo (0,62 0 0,02), gocce (0,6 0 0,02) lucide, pozze (0,5 0 0,02). Ogni goccia che arriva a terra con velocita tangenziale >1,2 m/s lascia una lunga striscia sottile (6-70 cm) nella direzione del moto = striature radiali attorno agli schizzi.
