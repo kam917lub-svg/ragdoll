@@ -9,7 +9,8 @@ namespace VITS
     {
         public static readonly Color Sky = new Color(0.66f, 0.73f, 0.82f);
         public const float HX = 26f, HZ = 26f;
-        public static readonly System.Collections.Generic.List<Vector3> Covers = new System.Collections.Generic.List<Vector3>();
+        public struct CoverWall { public Vector3 pos, normal, along; }
+        public static readonly System.Collections.Generic.List<CoverWall> Covers = new System.Collections.Generic.List<CoverWall>();
         static Material plat, orange, wall;
 
         public static void Build()
@@ -83,7 +84,7 @@ namespace VITS
             string label = "COVER / " + n.ToString("00");
             Text(label, p + Vector3.up * 0.75f + rot * new Vector3(0, 0, -0.18f), rot, 0.28f, new Color(1f, 1f, 1f, 0.95f));
             Text(label, p + Vector3.up * 0.75f + rot * new Vector3(0, 0, 0.18f), rot * Quaternion.Euler(0, 180, 0), 0.28f, new Color(1f, 1f, 1f, 0.95f));
-            Covers.Add(p);
+            Covers.Add(new CoverWall { pos = p, normal = rot * Vector3.forward, along = rot * Vector3.right });
         }
 
         static void Box(Vector3 c, Vector3 s, Material m, bool edge)
@@ -108,7 +109,7 @@ namespace VITS
             var font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
             tm.font = font; tm.text = s; tm.fontSize = 64; tm.characterSize = size * 0.1f; tm.color = c;
             tm.anchor = TextAnchor.MiddleCenter; tm.fontStyle = FontStyle.Bold;
-            go.GetComponent<MeshRenderer>().sharedMaterial = font.material;
+            go.GetComponent<MeshRenderer>().sharedMaterial = Mats.Text(font);
         }
 
         static Texture2D GridTex()

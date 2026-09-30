@@ -49,21 +49,32 @@ namespace VITS
 
     public static class Mats
     {
-        static Shader lit, spr;
+        static Shader lit, dec, txt, flesh;
+        static Shader Find(string a, string b) { var s = Shader.Find(a); return s != null ? s : Shader.Find(b); }
         public static Material Lit(Color c, float smooth = 0.25f)
         {
-            if (lit == null) { lit = Shader.Find("Universal Render Pipeline/Lit"); if (lit == null) lit = Shader.Find("Standard"); }
+            if (lit == null) lit = Find("Universal Render Pipeline/Lit", "Standard");
             var m = new Material(lit) { color = c, enableInstancing = true };
             if (m.HasProperty("_Smoothness")) m.SetFloat("_Smoothness", smooth);
             if (m.HasProperty("_Glossiness")) m.SetFloat("_Glossiness", smooth);
             return m;
         }
-        // unlit transparent, tinted (used for blood decals / pools / tracer)
+        // unlit transparent, tinted (blood decals / pools / holes / tracer)
         public static Material Decal(Texture2D t, Color c, int queue = 3000)
         {
-            if (spr == null) { spr = Shader.Find("Sprites/Default"); if (spr == null) spr = Shader.Find("Unlit/Transparent"); }
-            var m = new Material(spr) { mainTexture = t, color = c, enableInstancing = true, renderQueue = queue };
-            return m;
+            if (dec == null) dec = Find("VITS/Decal", "Sprites/Default");
+            return new Material(dec) { mainTexture = t, color = c, enableInstancing = true, renderQueue = queue };
+        }
+        public static Material Flesh(Color c)
+        {
+            if (flesh == null) flesh = Find("VITS/Flesh", "Unlit/Color");
+            return new Material(flesh) { color = c, enableInstancing = true };
+        }
+        public static Material Text(Font f)
+        {
+            if (txt == null) txt = Shader.Find("VITS/Text");
+            if (txt == null) return f.material;
+            return new Material(txt) { mainTexture = f.material.mainTexture, renderQueue = 3002 };
         }
         public static GameObject Vis(PrimitiveType type, Transform parent, Vector3 lp, Vector3 ls, Material m, bool shadow = true)
         {

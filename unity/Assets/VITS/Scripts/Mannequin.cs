@@ -7,32 +7,41 @@ namespace VITS
     {
         public Mannequin owner;
         public string key;
+        public int idx;                 // body segment (BodyMesh bone index)
         public Rigidbody rb;
         public CharacterJoint joint;
         public Part parentPart;
         public float radius, length;
         public int hits;
         public bool severed, isHead, isLeg, isArm, isTorso;
-        public int idx;
-        public Skin skin;
-    }
-
-    public class Skin
-    {
-        public SkinnedMeshRenderer r;
-        public Mesh mesh;
+        public MeshFilter mf;
+        public Mesh mesh;               // own copy once modified
+        public Vector3[] verts;
         public List<int> tris;
+        public Vector3 sdfOff;          // local -> original segment space (for lower pieces of a cut limb)
+        public float yMin = -9f, yMax = 9f;
+        public int triTotal, carved;
+
+        public float Sdf(Vector3 local) => BodyMesh.Sdf(idx, local + sdfOff);
+        public Vector3 Normal(Vector3 local) => BodyMesh.Normal(idx, local + sdfOff);
+        public Vector3 Project(Vector3 local) => BodyMesh.Project(idx, local + sdfOff) - sdfOff;
     }
 
     public class Wound
     {
-        public Transform t; public Rigidbody rb;
-        public Vector3 lp, ln;
-        public float rate, acc, age, life; // rate in ml/s, life 0 = until clotted by decay
+        public Part part;
+        public Vector3 lp, ln;          // local to the part
+        public float rate, acc, age, life, runT;
         public bool arterial;
     }
 
-    // Meat chunk torn off by a bullet or an amputation. Real rigidbody, bleeds for a moment.
+    // blood running down the skin, following gravity across segments
+    public class Runner
+    {
+        public Part part; public Vector3 lp; public float left, acc;
+    }
+
+    // Meat chunk torn off by a bullet or an amputation. Real rigidbody, bleeds for a moment. Not hit by bullets.
     public class Gib : MonoBehaviour
     {
         static readonly Queue<GameObject> all = new Queue<GameObject>();
@@ -44,19 +53,20 @@ namespace VITS
         public static void Spawn(Vector3 p, Vector3 v, float s)
         {
             if (skin == null) { skin = Mats.Lit(Mannequin.SkinColor, 0.3f); meat = Mats.Lit(new Color(0.5f, 0.04f, 0.06f), 0.6f); }
-            var g = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            g.name = "gib";
+            var g = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+            g.name = "gib"; g.layer = 2; // Ignore Raycast: bullets pass through chunks
             g.transform.position = p;
             g.transform.rotation = Random.rotation;
-            g.transform.localScale = new Vector3(s * Random.Range(0.8f, 1.5f), s * Random.Range(0.5f, 1f), s * Random.Range(0.8f, 1.3f));
-            g.GetComponent<Renderer>().sharedMaterial = skin;
-            var inner = Mats.Vis(PrimitiveType.Sphere, g.transform, new Vector3(0, 0, 0.35f), new Vector3(0.95f, 0.95f, 0.8f), meat);
-            inner.name = "meat";
+            g.transform.localScale = new Vector3(s * Random.Range(0.8f, 1.4f), s * Random.Range(0.5f, 0.9f), s * Random.Range(0.8f, 1.2f));
+            g.GetComponent<Renderer>().sharedMaterial = Random.value < 0.5f ? skin : meat;
+            var inner = Mats.Vis(PrimitiveType.Sphere, g.transform, new Vector3(0, 0.25f, 0.2f), new Vector3(0.8f, 0.8f, 0.8f), meat);
+            inner.layer = 2;
             var rb = g.AddComponent<Rigidbody>();
-            rb.mass = Mathf.Max(0.05f, s * s * s * 1000f);
-            rb.linearVelocity = v; rb.angularVelocity = Random.insideUnitSphere * 15f;
+            rb.mass = Mathf.Max(0.03f, s * s * s * 1000f);
+            rb.linearVelocity = v; rb.angularVelocity = Random.insideUnitSphere * 12f;
+            rb.maxDepenetrationVelocity = 1f;
             rb.collisionDetectionMode = CollisionDetectionMode.ContinuousSpeculative;
-            var gb = g.AddComponent<Gib>(); gb.rb = rb; gb.bleed = Random.Range(1.5f, 3f);
+            var gb = g.AddComponent<Gib>(); gb.rb = rb; gb.bleed = Random.Range(1f, 2.5f);
             all.Enqueue(g);
             while (all.Count > 140) { var o = all.Dequeue(); if (o != null) Destroy(o); }
         }
@@ -65,8 +75,8 @@ namespace VITS
         {
             if (bleed <= 0) return;
             bleed -= Time.deltaTime;
-            if (Random.value < Time.deltaTime * 18f && Blood.I != null)
-                Blood.I.Emit(transform.position, rb.linearVelocity * 0.3f + Random.insideUnitSphere * 0.3f, Random.Range(0.2f, 0.5f));
+            if (Random.value < Time.deltaTime * 14f && Blood.I != null)
+                Blood.I.Emit(transform.position, rb.linearVelocity * 0.3f + Random.insideUnitSphere * 0.3f, Random.Range(0.2f, 0.6f));
         }
     }
 
@@ -84,40 +94,39 @@ namespace VITS
         public float lastHitTime = -99;
         public readonly List<string> injuries = new List<string>();
         public readonly Dictionary<string, Part> parts = new Dictionary<string, Part>();
-        readonly Part[] byIdx = new Part[BodyMesh.NB];
+        readonly List<Part> allParts = new List<Part>();   // includes detached pieces
         readonly List<Wound> wounds = new List<Wound>();
-        readonly int[] carved = new int[BodyMesh.NB];
-        Transform[] bones;
-        Mesh bake;
+        readonly List<Runner> runners = new List<Runner>();
 
         enum S { Idle, Walk, Flee, Cover }
         S state = S.Idle;
-        float stateT, phase, speed, heart, writheT, hurt, crawlT, streakT;
-        int torsoHits;
-        Vector3 target, lastPos, vel, lastDir = Vector3.forward;
+        float stateT, phase, speed, heart, writheT, hurt, crawlT, detourT, stuckT, bestDist;
+        int torsoHits, headHits;
+        Vector3 target, lastPos, vel, detour, lastDir = Vector3.forward;
         Part clutch;
+        static readonly Collider[] buf = new Collider[32];
 
         static Material skinMat, innerMat, visorMat, tagMat, stumpMat, boneMat;
 
         struct D
         {
-            public string k, p; public Vector3 pos; public float len, rad, mass; public int sh;
-            public D(string k, string p, Vector3 pos, float len, float rad, float mass, int sh) { this.k = k; this.p = p; this.pos = pos; this.len = len; this.rad = rad; this.mass = mass; this.sh = sh; }
+            public string k, p; public Vector3 pos; public float len, rad, mass;
+            public D(string k, string p, Vector3 pos, float len, float rad, float mass) { this.k = k; this.p = p; this.pos = pos; this.len = len; this.rad = rad; this.mass = mass; }
         }
-        // order = bone index in BodyMesh. Facing +Z, left side is -X.
+        // order = BodyMesh bone index. Facing +Z, left side is -X.
         static readonly D[] DEFS =
         {
-            new D("pelvis", null,     new Vector3(0, 0.95f, 0),        0.2f,  0.14f, 12f,  3),
-            new D("chest",  "pelvis", new Vector3(0, 0.10f, 0),        0.46f, 0.15f, 16f,  1),
-            new D("head",   "chest",  new Vector3(0, 0.46f, 0),        0.3f,  0.12f, 5f,   2),
-            new D("uarmL",  "chest",  new Vector3(-0.245f, 0.39f, 0),  0.3f,  0.056f, 2.5f, 0),
-            new D("farmL",  "uarmL",  new Vector3(0, -0.3f, 0),        0.33f, 0.05f, 2f,   0),
-            new D("uarmR",  "chest",  new Vector3(0.245f, 0.39f, 0),   0.3f,  0.056f, 2.5f, 0),
-            new D("farmR",  "uarmR",  new Vector3(0, -0.3f, 0),        0.33f, 0.05f, 2f,   0),
-            new D("thighL", "pelvis", new Vector3(-0.1f, -0.05f, 0),   0.45f, 0.08f, 8f,   0),
-            new D("shinL",  "thighL", new Vector3(0, -0.45f, 0),       0.45f, 0.062f, 4.5f, 0),
-            new D("thighR", "pelvis", new Vector3(0.1f, -0.05f, 0),    0.45f, 0.08f, 8f,   0),
-            new D("shinR",  "thighR", new Vector3(0, -0.45f, 0),       0.45f, 0.062f, 4.5f, 0),
+            new D("pelvis", null,     new Vector3(0, 0.95f, 0),        0.2f,  0.13f, 12f),
+            new D("chest",  "pelvis", new Vector3(0, 0.10f, 0),        0.46f, 0.14f, 16f),
+            new D("head",   "chest",  new Vector3(0, 0.46f, 0),        0.3f,  0.11f, 5f),
+            new D("uarmL",  "chest",  new Vector3(-0.235f, 0.39f, 0),  0.3f,  0.06f, 2.5f),
+            new D("farmL",  "uarmL",  new Vector3(0, -0.3f, 0),        0.37f, 0.048f, 2f),
+            new D("uarmR",  "chest",  new Vector3(0.235f, 0.39f, 0),   0.3f,  0.06f, 2.5f),
+            new D("farmR",  "uarmR",  new Vector3(0, -0.3f, 0),        0.37f, 0.048f, 2f),
+            new D("thighL", "pelvis", new Vector3(-0.1f, -0.05f, 0),   0.45f, 0.085f, 8f),
+            new D("shinL",  "thighL", new Vector3(0, -0.45f, 0),       0.45f, 0.062f, 4.5f),
+            new D("thighR", "pelvis", new Vector3(0.1f, -0.05f, 0),    0.45f, 0.085f, 8f),
+            new D("shinR",  "thighR", new Vector3(0, -0.45f, 0),       0.45f, 0.062f, 4.5f),
         };
 
         void Awake()
@@ -129,14 +138,13 @@ namespace VITS
             if (skinMat == null)
             {
                 skinMat = Mats.Lit(SkinColor, 0.35f);
-                innerMat = Mats.Lit(new Color(0.55f, 0.05f, 0.07f), 0.7f);
-                if (innerMat.HasProperty("_Cull")) innerMat.SetFloat("_Cull", 1f); // back faces: the inside of the flesh
+                innerMat = Mats.Flesh(new Color(0.6f, 0.06f, 0.08f));
                 visorMat = Mats.Lit(new Color(0.07f, 0.07f, 0.08f), 0.6f);
                 tagMat = Mats.Lit(new Color(0.95f, 0.38f, 0.12f), 0.3f);
-                stumpMat = Mats.Lit(new Color(0.42f, 0.02f, 0.04f), 0.75f);
+                stumpMat = Mats.Lit(new Color(0.45f, 0.03f, 0.05f), 0.75f);
                 boneMat = Mats.Lit(new Color(0.93f, 0.9f, 0.82f), 0.4f);
             }
-            if (BodyMesh.Mesh == null) BodyMesh.Build();
+            if (BodyMesh.Meshes[0] == null) BodyMesh.Build();
             Build();
             lastPos = transform.position;
             stateT = Random.Range(0.5f, 3f);
@@ -147,7 +155,6 @@ namespace VITS
 
         void Build()
         {
-            bones = new Transform[DEFS.Length];
             for (int n = 0; n < DEFS.Length; n++)
             {
                 var d = DEFS[n];
@@ -167,64 +174,59 @@ namespace VITS
                 rb.collisionDetectionMode = CollisionDetectionMode.ContinuousSpeculative;
                 rb.solverIterations = 12; rb.solverVelocityIterations = 4;
                 rb.linearDamping = 0.05f; rb.angularDamping = 0.8f;
+                rb.maxDepenetrationVelocity = 1.5f;
                 part.rb = rb;
 
-                switch (d.sh)
+                // visible segment
+                part.mf = go.AddComponent<MeshFilter>(); part.mf.sharedMesh = BodyMesh.Meshes[n];
+                var mr = go.AddComponent<MeshRenderer>(); mr.sharedMaterials = new[] { skinMat, innerMat };
+                part.verts = BodyMesh.Verts[n]; part.triTotal = BodyMesh.Tris[n].Length / 3;
+
+                switch (d.k)
                 {
-                    case 0:
+                    case "pelvis": { var c = go.AddComponent<CapsuleCollider>(); c.direction = 0; c.center = new Vector3(0, -0.02f, 0); c.height = 0.36f; c.radius = 0.12f; break; }
+                    case "chest":
                     {
-                        var c = go.AddComponent<CapsuleCollider>(); c.direction = 1; c.center = new Vector3(0, -d.len / 2, 0); c.height = d.len; c.radius = d.rad;
-                        if (d.k.StartsWith("shin")) { var f = go.AddComponent<BoxCollider>(); f.center = new Vector3(0, -d.len + 0.04f, 0.05f); f.size = new Vector3(0.09f, 0.08f, 0.22f); }
+                        var c = go.AddComponent<CapsuleCollider>(); c.direction = 1; c.center = new Vector3(0, 0.19f, 0); c.height = 0.5f; c.radius = 0.13f;
+                        var s = go.AddComponent<CapsuleCollider>(); s.direction = 0; s.center = new Vector3(0, 0.315f, 0); s.height = 0.46f; s.radius = 0.085f;
+                        Mats.Vis(PrimitiveType.Cube, t, new Vector3(-0.07f, 0.27f, 0.104f), new Vector3(0.08f, 0.028f, 0.01f), tagMat, false);
                         break;
                     }
-                    case 1:
+                    case "head":
                     {
-                        var c = go.AddComponent<CapsuleCollider>(); c.direction = 1; c.center = new Vector3(0, 0.2f, 0); c.height = 0.46f; c.radius = 0.14f;
-                        Mats.Vis(PrimitiveType.Cube, t, new Vector3(-0.08f, 0.28f, 0.103f), new Vector3(0.08f, 0.028f, 0.012f), tagMat, false);
-                        break;
-                    }
-                    case 2:
-                    {
-                        var c = go.AddComponent<SphereCollider>(); c.center = new Vector3(0, 0.15f, 0); c.radius = 0.12f;
-                        Mats.Vis(PrimitiveType.Cube, t, new Vector3(0, 0.185f, 0.1f), new Vector3(0.17f, 0.032f, 0.05f), visorMat, false);
+                        var c = go.AddComponent<SphereCollider>(); c.center = new Vector3(0, 0.17f, 0.005f); c.radius = 0.12f;
+                        Mats.Vis(PrimitiveType.Cube, t, new Vector3(0, 0.19f, 0.108f), new Vector3(0.17f, 0.032f, 0.04f), visorMat, false);
                         break;
                     }
                     default:
-                    {
-                        var c = go.AddComponent<BoxCollider>(); c.center = Vector3.zero; c.size = new Vector3(0.3f, 0.22f, 0.2f);
+                        AddLimbColliders(part, 0f, d.len);
                         break;
-                    }
                 }
-                parts[d.k] = part; byIdx[n] = part; bones[n] = t;
+                parts[d.k] = part; allParts.Add(part);
             }
-            Joint("chest", -25, 25, 15, 15);
-            Joint("head", -40, 40, 30, 30);
-            Joint("uarmL", -140, 50, 70, 40); Joint("uarmR", -140, 50, 70, 40);
-            Joint("farmL", -140, 3, 5, 5); Joint("farmR", -140, 3, 5, 5);
-            Joint("thighL", -100, 30, 35, 20); Joint("thighR", -100, 30, 35, 20);
-            Joint("shinL", 0, 130, 4, 4); Joint("shinR", 0, 130, 4, 4);
-
-            // single smooth skinned body
-            var skin = MakeSkin(gameObject, new List<int>(BodyMesh.Mesh.triangles));
-            foreach (var p in parts.Values) p.skin = skin;
-            bake = new Mesh();
+            Joint(parts["chest"], -25, 25, 15, 15);
+            Joint(parts["head"], -40, 40, 30, 30);
+            Joint(parts["uarmL"], -140, 50, 70, 40); Joint(parts["uarmR"], -140, 50, 70, 40);
+            Joint(parts["farmL"], -140, 3, 5, 5); Joint(parts["farmR"], -140, 3, 5, 5);
+            Joint(parts["thighL"], -100, 30, 35, 20); Joint(parts["thighR"], -100, 30, 35, 20);
+            Joint(parts["shinL"], 0, 130, 4, 4); Joint(parts["shinR"], 0, 130, 4, 4);
         }
 
-        Skin MakeSkin(GameObject host, List<int> tris)
+        // capsule along the limb between local y = -from and -to (+ foot box for the shin)
+        static void AddLimbColliders(Part p, float from, float to)
         {
-            var mesh = Object.Instantiate(BodyMesh.Mesh);
-            mesh.SetTriangles(tris, 0);
-            var r = host.AddComponent<SkinnedMeshRenderer>();
-            r.sharedMesh = mesh; r.bones = bones; r.rootBone = bones[0];
-            r.updateWhenOffscreen = true;
-            r.sharedMaterials = new[] { skinMat, innerMat };
-            r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.On;
-            return new Skin { r = r, mesh = mesh, tris = tris };
+            float h = Mathf.Max(to - from, 0.02f), r = Mathf.Min(p.radius, h * 0.5f);
+            var c = p.gameObject.AddComponent<CapsuleCollider>(); c.direction = 1;
+            c.center = new Vector3(0, -(from + to) * 0.5f, 0); c.height = h; c.radius = r;
+            if (p.key.StartsWith("shin") && to >= p.length - 0.001f)
+            {
+                var f = p.gameObject.AddComponent<BoxCollider>();
+                f.center = new Vector3(0, -0.4f, 0.045f) - p.sdfOff; f.size = new Vector3(0.1f, 0.1f, 0.26f);
+            }
         }
 
-        void Joint(string k, float lo, float hi, float s1, float s2)
+        static void Joint(Part p, float lo, float hi, float s1, float s2)
         {
-            var p = parts[k];
             var j = p.gameObject.AddComponent<CharacterJoint>();
             j.connectedBody = p.parentPart.rb;
             j.axis = Vector3.right; j.swingAxis = Vector3.forward;
@@ -244,6 +246,7 @@ namespace VITS
             if (!ragdoll) { Locomotion(dt); Pose(dt); }
             else if (!dead && conscious && !crawling) Writhe(dt);
             Bleed(dt);
+            RunBlood(dt);
             heart += dt * (dead ? 0 : (1.3f + hurt * 0.8f));
             hurt = Mathf.Max(0, hurt - dt * 0.03f);
             if (!dead)
@@ -253,23 +256,28 @@ namespace VITS
             }
         }
 
-        bool Blocked(Vector3 pos, Vector3 dir, float dist)
+        // is the standing body (capsule from knee to head) free at pos? steps lower than 0.45 m are ignored
+        bool Free(Vector3 pos, bool carls = true)
         {
-            var hits = Physics.CapsuleCastAll(pos + Vector3.up * 0.55f, pos + Vector3.up * 1.5f, 0.24f, dir, dist, ~0, QueryTriggerInteraction.Ignore);
-            foreach (var h in hits)
+            int n = Physics.OverlapCapsuleNonAlloc(pos + Vector3.up * 0.7f, pos + Vector3.up * 1.5f, 0.24f, buf, ~0, QueryTriggerInteraction.Ignore);
+            for (int i = 0; i < n; i++)
             {
-                if (h.distance <= 0f) continue;
-                if (h.collider.GetComponentInParent<Mannequin>() == this) continue;
-                if (h.collider.GetComponent<Gib>() != null) continue;
-                return true;
+                var c = buf[i];
+                if (c.transform.IsChildOf(transform)) continue;
+                if (c.gameObject.layer == 2) continue;
+                var ar = c.attachedRigidbody;
+                if (ar != null && !ar.isKinematic) continue; // corpses and pieces on the floor: step over
+                if (!carls && c.GetComponentInParent<Mannequin>() != null) continue;
+                return false;
             }
-            return false;
+            return true;
         }
 
         float Ground(Vector3 p, float cur)
         {
-            float best = cur - 1.2f; bool any = false;
-            foreach (var h in Physics.RaycastAll(p + Vector3.up * 0.6f, Vector3.down, 2f, ~0, QueryTriggerInteraction.Ignore))
+            float best = cur - 1.5f; bool any = false;
+            var hs = Physics.RaycastAll(p + Vector3.up * 0.6f, Vector3.down, 2f, ~0, QueryTriggerInteraction.Ignore);
+            foreach (var h in hs)
             {
                 if (h.rigidbody != null) continue;
                 if (!any || h.point.y > best) { best = h.point.y; any = true; }
@@ -286,7 +294,7 @@ namespace VITS
             {
                 case S.Idle:
                     status = hurt > 0.3f ? "HURT / STANDING" : "IDLE";
-                    if (stateT <= 0) { state = S.Walk; target = Game.RandomPoint(); stateT = Random.Range(6f, 12f); }
+                    if (stateT <= 0) NewGoal(S.Walk, Game.RandomPoint(), Random.Range(8f, 14f));
                     break;
                 case S.Walk:
                     status = hurt > 0.3f ? "HURT / LIMPING" : "WANDERING";
@@ -297,35 +305,62 @@ namespace VITS
                     status = "RUNNING TO COVER";
                     want = hurt > 0.6f ? 0.9f : 2.2f;
                     if (Flat(target - pos).magnitude < 0.6f) { state = S.Cover; stateT = Random.Range(8f, 16f); }
-                    if (stateT <= 0) { state = S.Walk; target = Game.RandomPoint(); stateT = 8f; }
+                    if (stateT <= 0) NewGoal(S.Walk, Game.RandomPoint(), 10f);
                     break;
                 case S.Cover:
                     status = "IN COVER";
-                    if (stateT <= 0) { state = S.Walk; target = Game.RandomPoint(); stateT = 8f; }
+                    if (stateT <= 0) NewGoal(S.Walk, Game.RandomPoint(), 10f);
                     break;
             }
             speed = Mathf.MoveTowards(speed, want, dt * 4f);
-            Vector3 dir = Flat(target - pos);
-            if (speed > 0.01f && dir.sqrMagnitude > 0.01f)
+
+            // stuck detection: no progress toward the goal for 3 s -> another goal
+            float dist = Flat(target - pos).magnitude;
+            if (dist < bestDist - 0.3f) { bestDist = dist; stuckT = 0; } else if (want > 0) stuckT += dt;
+            if (stuckT > 3f)
             {
-                var want2 = Quaternion.LookRotation(dir.normalized);
-                transform.rotation = Quaternion.RotateTowards(transform.rotation, want2, 120f * dt);
-                Vector3 step = transform.forward * speed * dt;
-                if (Blocked(pos, transform.forward, step.magnitude + 0.25f))
+                if (state == S.Flee) NewGoal(S.Flee, Game.CoverPoint(pos, target), stateT);
+                else NewGoal(S.Walk, Game.RandomPoint(), 10f);
+            }
+
+            Vector3 goal = detourT > 0 ? detour : target;
+            detourT -= dt;
+            Vector3 dir = Flat(goal - pos);
+            if (!Free(pos, false))
+            {
+                // pushed into something (spawned, shoved): step out
+                for (int a = 0; a < 8; a++) { var o = Quaternion.Euler(0, a * 45f, 0) * Vector3.forward * 0.3f; if (Free(pos + o, false)) { transform.position = pos + o; break; } }
+            }
+            else if (speed > 0.01f && dir.sqrMagnitude > 0.01f)
+            {
+                transform.rotation = Quaternion.RotateTowards(transform.rotation, Quaternion.LookRotation(dir.normalized), 150f * dt);
+                Vector3 fwd = transform.forward, step = fwd * speed * dt;
+                if (!Free(pos + fwd * 0.35f))
                 {
-                    // walk around: try turning, else pick another destination
-                    var side = Quaternion.Euler(0, Random.value < 0.5f ? 60f : -60f, 0) * transform.forward;
-                    if (!Blocked(pos, side, 0.6f)) transform.rotation = Quaternion.LookRotation(side);
-                    else if (state == S.Walk) target = Game.RandomPoint();
+                    // walk around the obstacle: first free direction closest to the goal
+                    Vector3 to = dir.normalized; float bestA = 999; Vector3 bestD = Vector3.zero;
+                    for (int a = 1; a <= 5; a++) foreach (int sg in new[] { 1, -1 })
+                    {
+                        var dd = Quaternion.Euler(0, sg * a * 30f, 0) * fwd;
+                        if (!Free(pos + dd * 0.5f) || !Free(pos + dd * 1.0f)) continue;
+                        float ang = Vector3.Angle(dd, to);
+                        if (ang < bestA) { bestA = ang; bestD = dd; }
+                    }
+                    if (bestA < 999) { detour = pos + bestD * 1.2f; detourT = 1.0f; transform.rotation = Quaternion.LookRotation(bestD); }
                     step = Vector3.zero;
                 }
                 Vector3 np = Game.Clamp(pos + step);
                 float gy = Ground(np, pos.y);
-                if (gy - pos.y < 0.5f) np.y = Mathf.MoveTowards(pos.y, gy, dt * 3f); else np = pos; // steps: ok, walls: no
+                if (gy - pos.y < 0.5f) np.y = Mathf.MoveTowards(pos.y, gy, dt * 3f); else np = pos;
                 transform.position = np;
                 phase += dt * (0.35f + speed * 0.65f);
             }
-            vel = (transform.position - lastPos) / dt; lastPos = transform.position;
+            vel = Vector3.ClampMagnitude((transform.position - lastPos) / dt, 3f); lastPos = transform.position;
+        }
+
+        void NewGoal(S s, Vector3 t, float time)
+        {
+            state = s; target = t; stateT = time; stuckT = 0; detourT = 0; bestDist = Flat(t - transform.position).magnitude;
         }
 
         static Vector3 Flat(Vector3 v) { v.y = 0; return v; }
@@ -339,25 +374,29 @@ namespace VITS
             float crouch = state == S.Cover ? 1f : 0f;
             Set("thighL", Quaternion.Euler(-s * a - crouch * 60f, 0, 0), k); Set("thighR", Quaternion.Euler(s * a - crouch * 60f, 0, 0), k);
             Set("shinL", Quaternion.Euler(kneeL + crouch * 100f, 0, 0), k); Set("shinR", Quaternion.Euler(kneeR + crouch * 100f, 0, 0), k);
-            Set("uarmL", Quaternion.Euler(s * a * 0.8f, 0, -5), k); Set("uarmR", Quaternion.Euler(-s * a * 0.8f, 0, 5), k);
-            Set("farmL", Quaternion.Euler(-15 - a * 0.3f, 0, 0), k); Set("farmR", Quaternion.Euler(-15 - a * 0.3f, 0, 0), k);
+            Set("uarmL", Quaternion.Euler(s * a * 0.8f, 0, -4), k); Set("uarmR", Quaternion.Euler(-s * a * 0.8f, 0, 4), k);
+            Set("farmL", Quaternion.Euler(-12 - a * 0.3f, 0, 0), k); Set("farmR", Quaternion.Euler(-12 - a * 0.3f, 0, 0), k);
             float lean = hurt * 18f + (state == S.Flee ? 10f : 0f) + crouch * 30f;
             Set("chest", Quaternion.Euler(lean, 0, 0), k);
             Set("head", Quaternion.Euler(-lean * 0.4f, 0, 0), k);
-            if (parts.TryGetValue("pelvis", out var pv)) pv.transform.localPosition = Vector3.Lerp(pv.transform.localPosition, new Vector3(0, 0.95f - crouch * 0.38f, 0), k);
+            var pv = parts["pelvis"].transform;
+            pv.localPosition = Vector3.Lerp(pv.localPosition, new Vector3(0, 0.95f - crouch * 0.38f, 0), k);
             if (clutch != null && !clutch.severed)
             {
                 string arm = clutch.key.EndsWith("R") ? "L" : "R";
-                float side = arm == "R" ? -1 : 1;
-                Set("uarm" + arm, Quaternion.Euler(-55, 0, side * 28), k);
-                Set("farm" + arm, Quaternion.Euler(-105, 0, 0), k);
+                if (!parts["farm" + arm].severed && !parts["uarm" + arm].severed)
+                {
+                    float side = arm == "R" ? -1 : 1;
+                    Set("uarm" + arm, Quaternion.Euler(-55, 0, side * 28), k);
+                    Set("farm" + arm, Quaternion.Euler(-105, 0, 0), k);
+                }
             }
         }
 
         void Set(string key, Quaternion q, float k)
         {
-            if (parts.TryGetValue(key, out var p) && !p.severed)
-                p.transform.localRotation = Quaternion.Slerp(p.transform.localRotation, q, k);
+            var p = parts[key];
+            if (!p.severed) p.transform.localRotation = Quaternion.Slerp(p.transform.localRotation, q, k);
         }
 
         void Writhe(float dt)
@@ -370,7 +409,7 @@ namespace VITS
             foreach (var p in parts.Values) if (!p.severed && (p.isArm || p.isLeg || p.isHead)) list.Add(p);
             if (list.Count == 0) return;
             var pick = list[Random.Range(0, list.Count)];
-            pick.rb.AddForce((Random.insideUnitSphere + Vector3.up * 0.6f) * pick.rb.mass * 1.4f, ForceMode.Impulse);
+            pick.rb.AddForce((Random.insideUnitSphere + Vector3.up * 0.6f) * pick.rb.mass * 1.2f, ForceMode.Impulse);
         }
 
         // shot in the legs but awake: drag yourself with the arms toward cover
@@ -382,9 +421,9 @@ namespace VITS
             if (to.magnitude < 0.7f) { crawling = false; status = "IN COVER / DOWN"; return; }
             status = "CRAWLING TO COVER";
             Vector3 d = to.normalized;
-            float k = Mathf.Clamp01(blood / BloodMax * 2f - 0.8f) * Mathf.Clamp01(hurt < 0.95f ? 1f : 0.6f);
+            float k = Mathf.Clamp01(blood / BloodMax * 2f - 0.8f);
             crawlT += Time.fixedDeltaTime;
-            float pull = Mathf.Max(0, Mathf.Sin(crawlT * 4f)); // arm strokes
+            float pull = Mathf.Max(0, Mathf.Sin(crawlT * 4f));
             ch.rb.AddForce(d * 170f * k * pull + Vector3.up * 70f * k);
             parts["pelvis"].rb.AddForce(d * 40f * k * pull);
             if (!parts["head"].severed) parts["head"].rb.AddForce(Vector3.up * 35f * k);
@@ -418,192 +457,297 @@ namespace VITS
         public void Flee()
         {
             if (dead || ragdoll) return;
-            state = S.Flee; stateT = Random.Range(8f, 14f);
-            target = Game.CoverPoint(transform.position);
+            NewGoal(S.Flee, Game.CoverPoint(transform.position, Vector3.one * 999f), Random.Range(10f, 16f));
         }
 
         // ======================= damage =======================
+        // sphere-trace the real skin surface along the bullet (colliders are only approximate)
+        static bool Trace(Part p, Vector3 worldFrom, Vector3 dir, float maxT, out Vector3 local)
+        {
+            Vector3 o = p.transform.InverseTransformPoint(worldFrom), d = p.transform.InverseTransformDirection(dir);
+            float t = 0; local = o;
+            for (int i = 0; i < 64 && t < maxT; i++)
+            {
+                Vector3 q = o + d * t;
+                float s = p.Sdf(q);
+                if (s < 0.0008f) { local = q; return q.y >= p.yMin - 0.02f && q.y <= p.yMax + 0.02f; }
+                t += Mathf.Max(s, 0.002f);
+            }
+            return false;
+        }
+
         public void Hit(Part p, Collider col, Vector3 pt, Vector3 dir, Vector3 nrm)
+        {
+            try { DoHit(p, pt, dir); }
+            catch (System.Exception e) { Debug.LogException(e); }
+        }
+
+        void DoHit(Part p, Vector3 pt, Vector3 dir)
         {
             p.hits++; lastHit = p.key.ToUpper(); lastHitTime = Time.time; lastDir = dir;
             hurt = Mathf.Min(1, hurt + 0.3f);
             var B = Blood.I;
 
-            Vector3 exitP = pt + dir * p.radius * 2f, exitN = dir;
-            bool exits = col.Raycast(new Ray(pt + dir * 0.6f, -dir), out RaycastHit eh, 0.6f);
-            if (exits) { exitP = eh.point; exitN = eh.normal; }
+            // entry / exit on the visible skin
+            Vector3 inL = p.transform.InverseTransformPoint(pt);
+            if (Trace(p, pt - dir * 0.2f, dir, 0.4f, out Vector3 tl)) inL = tl;
+            bool exits = Trace(p, pt + dir * 0.7f, -dir, 0.75f, out Vector3 outL);
+            Vector3 inW = p.transform.TransformPoint(inL), inN = p.transform.TransformDirection(p.Normal(inL));
+            Vector3 outW = exits ? p.transform.TransformPoint(outL) : inW, outN = exits ? p.transform.TransformDirection(p.Normal(outL)) : dir;
 
-            // blood: small back-spatter at the entry, a cone of spray out of the exit
-            B.Spray(pt + nrm * 0.01f, (-dir + nrm) * 0.5f, 10, 1.4f, 0.4f, 0.05f, 0.3f);
-            if (exits) B.Spray(exitP + exitN * 0.01f, dir, p.isHead ? 70 : 40, p.isHead ? 5f : 3.8f, 0.4f, 0.1f, 0.8f);
+            // small entry wound, bigger torn exit
+            B.SkinDecal(p.transform, inL, p.Normal(inL), 0.012f, 5);
+            if (exits) B.SkinDecal(p.transform, outL, p.Normal(outL), 0.022f, 5);
+            if (exits) Carve(p, outL, p.isHead ? 0.028f : p.isTorso ? 0.02f : 0.016f);
 
-            // flesh is removed along the wound; enough removed = the piece comes off
-            bool limb = p.isArm || p.isLeg;
-            Carve(p, pt, limb ? 0.03f : 0.025f);
-            if (exits) Carve(p, exitP, p.isHead ? 0.05f : limb ? 0.045f : 0.04f);
-            if (exits && Random.value < 0.8f) Gib.Spawn(exitP, dir * Random.Range(1.5f, 3.5f) + Random.insideUnitSphere + Vector3.up * 0.8f, Random.Range(0.02f, 0.035f));
+            // spatter: a little back toward the shooter, a cone out of the exit
+            B.Spray(inW + inN * 0.01f, (-dir + inN) * 0.5f, 10, 1.4f, 0.45f, 0.05f, 0.35f);
+            if (exits) B.Spray(outW + outN * 0.01f, dir, p.isHead ? 80 : 45, p.isHead ? 5f : 3.8f, 0.4f, 0.15f, 1.0f);
+            if (exits && Random.value < 0.5f) Gib.Spawn(outW, dir * Random.Range(1.5f, 3.5f) + Random.insideUnitSphere + Vector3.up * 0.8f, Random.Range(0.012f, 0.022f));
 
-            AddWound(p.transform, pt, nrm, p.isHead ? 8f : p.isTorso ? 8f : 6f, false, 0);
-            if (exits) AddWound(p.transform, exitP, exitN, p.isHead ? 22f : p.isTorso ? 16f : 12f, !p.isHead && Random.value < 0.35f, 0);
+            AddWound(p, inL, p.Normal(inL), p.isHead ? 9f : p.isTorso ? 9f : 7f, false, 0);
+            if (exits) AddWound(p, outL, p.Normal(outL), p.isHead ? 24f : p.isTorso ? 18f : 14f, !p.isHead && Random.value < 0.35f, 0);
 
-            if (!p.severed)
+            if (p.isHead && !p.severed)
             {
-                if (p.isHead) { injuries.Add("HEAD  GUNSHOT  FATAL"); Die("HEADSHOT"); }
-                else if (p.isTorso)
-                {
-                    torsoHits++;
-                    injuries.Add((p.key == "chest" ? "CHEST" : "ABDOMEN") + "  GUNSHOT" + (exits ? "  THROUGH" : ""));
-                    if (torsoHits >= 5) Die("MASSIVE TRAUMA");
-                    else if (!ragdoll) { clutch = p; if (Random.value < 0.15f * torsoHits) GoRagdoll(); }
-                }
-                else
-                {
-                    injuries.Add(p.key.ToUpper() + "  GUNSHOT");
-                    clutch = p;
-                    if (p.isLeg && !dead)
-                    {
-                        GoRagdoll();
-                        if (conscious) { crawling = true; target = Game.CoverPoint(parts["chest"].transform.position); }
-                    }
-                }
+                headHits++;
+                injuries.Add("HEAD  GUNSHOT  FATAL");
+                Die("HEADSHOT");
+                if (headHits >= 3) SeverJoint(p, dir);
             }
+            else if (p.isTorso)
+            {
+                torsoHits++;
+                injuries.Add((p.key == "chest" ? "CHEST" : "ABDOMEN") + "  GUNSHOT" + (exits ? "  THROUGH" : ""));
+                if (torsoHits >= 5 || p.carved > p.triTotal * 0.25f) Die("MASSIVE TRAUMA");
+                else if (!ragdoll) { clutch = p; if (Random.value < 0.15f * torsoHits) GoRagdoll(); }
+            }
+            else if (p.isArm || p.isLeg)
+            {
+                injuries.Add(p.key.ToUpper() + "  GUNSHOT");
+                if (!p.severed) clutch = p;
+                // limbs come apart where they are hit: 3rd hit, 2nd hit (50%), or too much flesh gone
+                bool cut = p.hits >= 3 || (p.hits >= 2 && Random.value < 0.5f) || p.carved > p.triTotal * 0.12f;
+                if (cut) SeverAt(p, -inL.y, dir);
+                else if (p.isLeg && !dead && !p.severed) { GoRagdoll(); StartCrawl(); }
+            }
+
             if (!ragdoll) Flee();
-            if (!p.rb.isKinematic) p.rb.AddForceAtPosition(dir * Game.BulletImpulse, pt, ForceMode.Impulse);
+            if (!p.rb.isKinematic) p.rb.AddForceAtPosition(dir * Game.BulletImpulse, inW, ForceMode.Impulse);
             while (injuries.Count > 12) injuries.RemoveAt(0);
         }
 
-        // remove the triangles of the skin around a point (world space)
-        void Carve(Part p, Vector3 world, float r)
+        void StartCrawl()
         {
-            var sk = p.skin; if (sk == null) return;
-            sk.r.BakeMesh(bake, true);
-            var v = bake.vertices;
-            Vector3 lp = sk.r.transform.InverseTransformPoint(world);
-            float r2 = r * r;
-            var keep = new List<int>(sk.tris.Count);
-            var touched = new HashSet<int>();
-            for (int t = 0; t < sk.tris.Count; t += 3)
-            {
-                int a = sk.tris[t], b = sk.tris[t + 1], c = sk.tris[t + 2];
-                if ((v[a] - lp).sqrMagnitude < r2 || (v[b] - lp).sqrMagnitude < r2 || (v[c] - lp).sqrMagnitude < r2)
-                {
-                    int bone = BodyMesh.Dom[a]; carved[bone]++; touched.Add(bone);
-                    continue;
-                }
-                keep.Add(a); keep.Add(b); keep.Add(c);
-            }
-            if (keep.Count == sk.tris.Count) return;
-            sk.tris = keep; sk.mesh.SetTriangles(keep, 0);
-            foreach (int bone in touched)
-            {
-                var bp = byIdx[bone];
-                if (bp == null || bp.isTorso || bp.severed && bp.parentPart != null && bp.parentPart.severed) continue;
-                float frac = carved[bone] / (float)Mathf.Max(1, BodyMesh.TrisPerBone[bone]);
-                if (frac > (bp.isHead ? 0.4f : 0.2f)) Sever(bp, lastDir);
-            }
+            if (!conscious || dead) return;
+            crawling = true; target = Game.CoverPoint(parts["chest"].transform.position, Vector3.one * 999f);
         }
 
-        void AddWound(Transform t, Vector3 world, Vector3 n, float rate, bool arterial, float life)
+        static void OwnMesh(Part p)
         {
-            wounds.Add(new Wound
+            if (p.mesh != null) return;
+            p.mesh = Object.Instantiate(p.mf.sharedMesh);
+            p.mf.sharedMesh = p.mesh;
+            if (p.tris == null) p.tris = new List<int>(BodyMesh.Tris[p.idx]);
+        }
+
+        // tear the skin away around a point (local to the part): holes show the flesh inside
+        void Carve(Part p, Vector3 lp, float r)
+        {
+            OwnMesh(p);
+            var v = p.verts; float r2 = r * r;
+            var keep = new List<int>(p.tris.Count);
+            int removed = 0;
+            for (int t = 0; t < p.tris.Count; t += 3)
             {
-                t = t, rb = t.GetComponent<Rigidbody>(),
-                lp = t.InverseTransformPoint(world), ln = t.InverseTransformDirection(n.normalized),
-                rate = rate, arterial = arterial, life = life
-            });
+                int a = p.tris[t], b = p.tris[t + 1], c = p.tris[t + 2];
+                if (((v[a] + v[b] + v[c]) / 3f - lp).sqrMagnitude < r2) { removed++; continue; }
+                keep.Add(a); keep.Add(b); keep.Add(c);
+            }
+            if (removed == 0) return;
+            p.carved += removed; p.tris = keep; p.mesh.SetTriangles(keep, 0);
+        }
+
+        void AddWound(Part p, Vector3 lp, Vector3 ln, float rate, bool arterial, float life)
+        {
+            wounds.Add(new Wound { part = p, lp = lp, ln = ln, rate = rate, arterial = arterial, life = life, runT = Random.Range(0f, 0.3f) });
         }
 
         void Bleed(float dt)
         {
             const float dv = 0.45f;
             float pulse = 0.35f + 0.65f * Mathf.Pow(Mathf.Max(0, Mathf.Cos(heart * Mathf.PI * 2f)), 3f);
-            streakT -= dt;
-            bool streak = streakT <= 0;
-            if (streak) streakT = 0.35f;
             for (int i = wounds.Count - 1; i >= 0; i--)
             {
                 var w = wounds[i];
-                if (w.t == null) { wounds.RemoveAt(i); continue; }
+                if (w.part == null) { wounds.RemoveAt(i); continue; }
                 w.age += dt;
-                float k = w.life > 0 ? Mathf.Clamp01(1f - w.age / w.life) : Mathf.Exp(-w.age / 70f);
+                float k = w.life > 0 ? Mathf.Clamp01(1f - w.age / w.life) : Mathf.Exp(-w.age / 80f);
                 if (k < 0.02f) { wounds.RemoveAt(i); continue; }
                 bool spurt = w.arterial && !dead;
-                float rate = w.rate * k * (dead ? 0.35f : 1f) * (spurt ? pulse * 1.6f : 1f);
-                w.acc += rate * dt;
-                Vector3 p = w.t.TransformPoint(w.lp), n = w.t.TransformDirection(w.ln);
-                // blood running down the skin from the wound
-                if (streak && !spurt && k > 0.2f && Random.value < 0.6f)
+                float rate = w.rate * k * (dead ? 0.45f : 1f) * (spurt ? pulse * 1.6f : 1f);
+                var t = w.part.transform;
+                Vector3 n = t.TransformDirection(w.ln);
+                // blood running from the wound down the skin
+                w.runT -= dt;
+                if (w.runT <= 0 && !spurt)
                 {
-                    Vector3 down = Vector3.ProjectOnPlane(Vector3.down, n);
-                    if (down.sqrMagnitude > 0.05f)
-                    {
-                        down.Normalize();
-                        float len = Random.Range(0.03f, 0.09f);
-                        Blood.I.BodyDecal(w.t, p + down * len * 0.8f, n, Random.Range(0.012f, 0.02f), 2, -down, len * 2.2f);
-                    }
+                    w.runT = Random.Range(0.25f, 0.6f);
+                    if (runners.Count < 40) runners.Add(new Runner { part = w.part, lp = w.lp, left = Mathf.Clamp(rate * 0.06f, 0.05f, 1.6f) });
                 }
+                w.acc += rate * dt;
                 if (w.acc < dv) continue;
-                Vector3 bv = w.rb != null && !w.rb.isKinematic ? w.rb.linearVelocity : vel;
-                bool mine = w.t.GetComponentInParent<Mannequin>() == this;
+                Vector3 p = t.TransformPoint(w.lp);
+                Vector3 bv = !w.part.rb.isKinematic ? w.part.rb.linearVelocity : vel;
+                bool mine = !w.part.severed;
                 int guard = 0;
                 while (w.acc >= dv && guard++ < 30)
                 {
                     w.acc -= dv;
+                    // most of the flow runs down the skin and drips; spurts jet out
                     Vector3 v = spurt ? n * (1.2f + 2.8f * pulse) + Random.insideUnitSphere * 0.25f
-                                      : n * 0.12f + Random.insideUnitSphere * 0.06f;
-                    Blood.I.Emit(p + n * 0.012f, v + bv, dv);
+                                      : n * 0.05f + Random.insideUnitSphere * 0.04f;
+                    if (spurt || Random.value < 0.35f) Blood.I.Emit(p + n * 0.012f, v + bv, dv);
                     if (!dead && mine) blood -= dv;
                 }
             }
         }
 
-        public void Sever(Part p, Vector3 dir)
+        // move each running stream down along the skin; it crosses from one segment to the next
+        void RunBlood(float dt)
+        {
+            for (int i = runners.Count - 1; i >= 0; i--)
+            {
+                var r = runners[i];
+                if (r.part == null || r.left <= 0) { runners.RemoveAt(i); continue; }
+                r.acc += dt * 0.6f; // m/s
+                int guard = 0;
+                while (r.acc > 0.018f && guard++ < 6)
+                {
+                    r.acc -= 0.018f;
+                    var t = r.part.transform;
+                    Vector3 n = r.part.Normal(r.lp);
+                    Vector3 down = t.InverseTransformDirection(Vector3.down);
+                    Vector3 tan = down - n * Vector3.Dot(down, n);
+                    if (tan.magnitude < 0.25f)
+                    {
+                        // skin faces up/down here: the blood drips off
+                        Blood.I.Emit(t.TransformPoint(r.lp + n * 0.01f), Vector3.down * 0.2f, 0.4f + r.left);
+                        r.left = 0; break;
+                    }
+                    tan.Normalize();
+                    Vector3 np = r.part.Project(r.lp + tan * 0.018f);
+                    Vector3 mid = (np + r.lp) * 0.5f;
+                    Blood.I.SkinStreak(t, mid, r.part.Normal(mid), tan, Random.Range(0.009f, 0.014f), 0.03f);
+                    r.lp = np; r.left -= 0.018f;
+                    // flowed into another segment (e.g. chest -> pelvis -> thigh)?
+                    Vector3 w = t.TransformPoint(np);
+                    if (np.y < r.part.yMin || np.y > r.part.yMax) { r.left = 0; break; }
+                    foreach (var o in allParts)
+                    {
+                        if (o == r.part || o == null || o.transform.root != t.root) continue;
+                        Vector3 ol = o.transform.InverseTransformPoint(w);
+                        if (ol.y < o.yMin || ol.y > o.yMax) continue;
+                        if (o.Sdf(ol) < -0.003f) { r.part = o; r.lp = o.Project(ol); break; }
+                    }
+                }
+            }
+        }
+
+        // cut a limb where it was hit (distance c from the joint down the bone)
+        public void SeverAt(Part p, float c, Vector3 dir)
+        {
+            if (p.isTorso) return;
+            if (p.isHead || c < 0.07f) { if (!p.severed) SeverJoint(p, dir); return; }
+            c = Mathf.Min(c, p.length - 0.05f);
+            if (c < 0.07f) return;
+
+            OwnMesh(p);
+            var v = p.verts;
+            var up = new List<int>(); var lo = new List<int>();
+            for (int t = 0; t < p.tris.Count; t += 3)
+            {
+                int a = p.tris[t], b = p.tris[t + 1], cc = p.tris[t + 2];
+                float y = (v[a].y + v[b].y + v[cc].y) / 3f;
+                if (y >= -c) { up.Add(a); up.Add(b); up.Add(cc); } else { lo.Add(a); lo.Add(b); lo.Add(cc); }
+            }
+            p.tris = up; p.mesh.SetTriangles(up, 0);
+
+            // the lower piece: its own object, mesh and rigidbody, cut face at its origin
+            var go = new GameObject(p.key + " (piece)");
+            go.transform.SetPositionAndRotation(p.transform.TransformPoint(new Vector3(0, -c, 0)), p.transform.rotation);
+            var np = go.AddComponent<Part>();
+            np.owner = this; np.key = p.key; np.idx = p.idx; np.isArm = p.isArm; np.isLeg = p.isLeg; np.radius = p.radius;
+            np.length = p.length - c; np.severed = true; np.sdfOff = p.sdfOff + new Vector3(0, -c, 0); np.yMax = 0f;
+            var shifted = new Vector3[v.Length];
+            for (int i = 0; i < v.Length; i++) shifted[i] = v[i] + new Vector3(0, c, 0);
+            np.verts = shifted; np.tris = lo; np.triTotal = p.triTotal; np.carved = p.carved;
+            np.mesh = Object.Instantiate(p.mesh); np.mesh.SetVertices(shifted); np.mesh.SetTriangles(lo, 0); np.mesh.RecalculateBounds();
+            np.mf = go.AddComponent<MeshFilter>(); np.mf.sharedMesh = np.mesh;
+            go.AddComponent<MeshRenderer>().sharedMaterials = new[] { skinMat, innerMat };
+            var rb = go.AddComponent<Rigidbody>();
+            float frac = np.length / Mathf.Max(0.01f, p.length);
+            rb.mass = Mathf.Max(0.3f, p.rb.mass * frac); p.rb.mass = Mathf.Max(0.3f, p.rb.mass * (1f - frac));
+            rb.interpolation = RigidbodyInterpolation.Interpolate; rb.collisionDetectionMode = CollisionDetectionMode.ContinuousSpeculative;
+            rb.angularDamping = 0.8f; rb.maxDepenetrationVelocity = 1.5f; rb.solverIterations = 12;
+            np.rb = rb;
+
+            // colliders: upper part keeps [0,c], piece gets the rest
+            foreach (var col in p.GetComponents<Collider>()) Destroy(col);
+            AddLimbColliders(p, 0f, c);
+            AddLimbColliders(np, 0f, np.length);
+            p.length = c; p.yMin = -c;
+
+            // children (forearm / shin) now hang from the piece
+            var kids = new List<Part>();
+            foreach (Transform ch in p.transform) { var cp = ch.GetComponent<Part>(); if (cp != null) kids.Add(cp); }
+            foreach (var cp in kids)
+            {
+                cp.transform.SetParent(go.transform, true);
+                cp.parentPart = np;
+                if (cp.joint != null) cp.joint.connectedBody = rb;
+            }
+            foreach (var cp in go.GetComponentsInChildren<Part>()) { cp.severed = true; cp.rb.isKinematic = false; cp.rb.interpolation = RigidbodyInterpolation.Interpolate; }
+            foreach (var a in p.GetComponents<Collider>()) foreach (var b in go.GetComponentsInChildren<Collider>()) Physics.IgnoreCollision(a, b, true);
+
+            Vector3 baseVel = !p.rb.isKinematic ? p.rb.linearVelocity : vel;
+            rb.linearVelocity = baseVel + dir * 1.8f + Vector3.up * 0.8f;
+            rb.AddTorque(Random.insideUnitSphere * rb.mass * 0.3f, ForceMode.Impulse);
+            allParts.Add(np);
+            FinishCut(p, np, new Vector3(0, -c, 0), dir);
+        }
+
+        // detach a whole segment at its joint (head, or a limb hit right at the joint)
+        public void SeverJoint(Part p, Vector3 dir)
         {
             if (p.severed || p.isTorso || p.parentPart == null) return;
             var par = p.parentPart;
-            Vector3 pivot = p.transform.position;
-            Vector3 n = p.isHead ? par.transform.up : (pivot - par.transform.position).normalized;
+            foreach (var a in par.GetComponents<Collider>()) foreach (var b in p.GetComponentsInChildren<Collider>()) Physics.IgnoreCollision(a, b, true);
             Vector3 baseVel = !par.rb.isKinematic ? par.rb.linearVelocity : vel;
-
-            // split the skin: the piece takes the triangles of its bones
-            var sub = p.GetComponentsInChildren<Part>();
-            var inSub = new bool[BodyMesh.NB];
-            foreach (var c in sub) inSub[c.idx] = true;
-            var sk = par.skin;
-            var keep = new List<int>(); var piece = new List<int>();
-            for (int t = 0; t < sk.tris.Count; t += 3)
-            {
-                int a = sk.tris[t], b = sk.tris[t + 1], c = sk.tris[t + 2];
-                bool ia = inSub[BodyMesh.Dom[a]], ib = inSub[BodyMesh.Dom[b]], ic = inSub[BodyMesh.Dom[c]];
-                if (ia && ib && ic) { piece.Add(a); piece.Add(b); piece.Add(c); }
-                else if (!ia && !ib && !ic) { keep.Add(a); keep.Add(b); keep.Add(c); }
-            }
-            sk.tris = keep; sk.mesh.SetTriangles(keep, 0);
-            var psk = MakeSkin(p.gameObject, piece);
-            foreach (var c in sub) c.skin = psk;
-
-            var pieceCols = p.GetComponentsInChildren<Collider>();
-            foreach (var pc in par.GetComponents<Collider>()) foreach (var c in pieceCols) Physics.IgnoreCollision(pc, c, true);
-            foreach (var c in sub) { c.severed = true; c.rb.isKinematic = false; c.rb.interpolation = RigidbodyInterpolation.Interpolate; c.rb.linearVelocity = baseVel; }
+            foreach (var c in p.GetComponentsInChildren<Part>()) { c.severed = true; c.rb.isKinematic = false; c.rb.interpolation = RigidbodyInterpolation.Interpolate; c.rb.linearVelocity = baseVel; }
             if (p.joint != null) DestroyImmediate(p.joint);
             p.transform.SetParent(null, true);
-            p.rb.linearVelocity = baseVel + dir * 2.2f + Vector3.up * 1.2f;
-            p.rb.AddTorque(Random.insideUnitSphere * p.rb.mass * 0.6f, ForceMode.Impulse);
+            p.rb.linearVelocity = baseVel + dir * 2f + Vector3.up * 1f;
+            p.rb.AddTorque(Random.insideUnitSphere * p.rb.mass * 0.4f, ForceMode.Impulse);
+            FinishCut(par, p, par.transform.InverseTransformPoint(p.transform.position), dir);
+        }
 
-            float r = p.radius * (p.isHead ? 0.55f : 0.95f);
-            Stump(par.transform, pivot, n, r);
-            Stump(p.transform, pivot, -n, r * 0.95f);
-            AddWound(par.transform, pivot + n * 0.01f, n, p.isHead ? 110f : p.isLeg ? 70f : 45f, true, p.isHead ? 12f : 18f);
-            AddWound(p.transform, pivot - n * 0.01f, -n, 14f, false, 6f);
-            for (int i = 0; i < 4; i++) Gib.Spawn(pivot, dir * Random.Range(1f, 3.2f) + Random.insideUnitSphere * 1.4f + Vector3.up * 1.2f, Random.Range(0.025f, 0.045f));
-            Blood.I.Spray(pivot, (dir + n) * 0.5f, 50, 4f, 0.6f, 0.2f, 0.9f);
-            injuries.Add(p.key.ToUpper() + "  SEVERED");
-            if (p.isHead) Die("DECAPITATED");
-            else if (p.isLeg && !dead)
-            {
-                GoRagdoll();
-                if (conscious) { crawling = true; target = Game.CoverPoint(parts["chest"].transform.position); }
-            }
+        // stumps, fountains, chunks
+        void FinishCut(Part upper, Part piece, Vector3 cutLocalUpper, Vector3 dir)
+        {
+            Vector3 cw = upper.transform.TransformPoint(cutLocalUpper);
+            Vector3 nUp = upper.isTorso ? upper.transform.TransformDirection((cutLocalUpper - new Vector3(0, 0.15f, 0)).normalized) : -upper.transform.up;
+            float r = Mathf.Clamp(-upper.Sdf(cutLocalUpper), 0.02f, 0.09f);
+            if (upper.isTorso) r = piece.isHead ? 0.05f : Mathf.Clamp(piece.radius, 0.04f, 0.09f);
+            Stump(upper.transform, cw, nUp, r);
+            Stump(piece.transform, cw, -nUp, r * 0.95f);
+            AddWound(upper, upper.transform.InverseTransformPoint(cw + nUp * 0.01f), upper.transform.InverseTransformDirection(nUp), piece.isHead ? 110f : piece.isLeg ? 70f : 45f, true, piece.isHead ? 12f : 18f);
+            AddWound(piece, piece.transform.InverseTransformPoint(cw - nUp * 0.01f), piece.transform.InverseTransformDirection(-nUp), 16f, false, 7f);
+            for (int i = 0; i < 3; i++) Gib.Spawn(cw, dir * Random.Range(1f, 3f) + Random.insideUnitSphere * 1.2f + Vector3.up * 1f, Random.Range(0.015f, 0.03f));
+            Blood.I.Spray(cw, (dir + nUp) * 0.5f, 60, 4f, 0.6f, 0.2f, 1.0f);
+            injuries.Add(piece.key.ToUpper() + "  SEVERED");
+            if (piece.isHead) Die("DECAPITATED");
+            else if (piece.isLeg && !dead) { GoRagdoll(); StartCrawl(); }
         }
 
         static void Stump(Transform t, Vector3 world, Vector3 n, float r)
@@ -612,10 +756,10 @@ namespace VITS
             root.SetParent(t, false);
             root.position = world;
             root.rotation = Quaternion.FromToRotation(Vector3.up, n);
-            Mats.Vis(PrimitiveType.Sphere, root, Vector3.zero, new Vector3(r * 2.0f, r * 0.8f, r * 2.0f), stumpMat);
+            Mats.Vis(PrimitiveType.Sphere, root, Vector3.zero, new Vector3(r * 2.0f, r * 0.6f, r * 2.0f), stumpMat);
             for (int i = 0; i < 3; i++)
-                Mats.Vis(PrimitiveType.Sphere, root, new Vector3(Random.Range(-r, r) * 0.5f, r * 0.15f, Random.Range(-r, r) * 0.5f), Vector3.one * r * Random.Range(0.4f, 0.7f), stumpMat);
-            Mats.Vis(PrimitiveType.Cylinder, root, new Vector3(0, r * 0.3f, 0), new Vector3(r * 0.5f, r * 0.4f, r * 0.5f), boneMat);
+                Mats.Vis(PrimitiveType.Sphere, root, new Vector3(Random.Range(-r, r) * 0.5f, r * 0.1f, Random.Range(-r, r) * 0.5f), Vector3.one * r * Random.Range(0.35f, 0.6f), stumpMat);
+            Mats.Vis(PrimitiveType.Cylinder, root, new Vector3(0, r * 0.25f, 0), new Vector3(r * 0.45f, r * 0.35f, r * 0.45f), boneMat);
         }
     }
 }

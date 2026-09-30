@@ -144,3 +144,23 @@ Fatto:
 - Collisioni: capsule-cast contro muri/manichini, aggira gli ostacoli, sale gradini.
 - 6 muri "COVER / 01..06" (scritta sui due lati); fuga verso il lato nascosto al tiratore,
   accovacciati in copertura; colpiti alle gambe: a terra si trascinano con le braccia.
+
+--- PROMPT 9 ---
+Utente (screenshot): giunture strane/carne in piu', segni dei proiettili enormi, dopo morti non si
+possono colpire, Carl bloccati nei muri, uno vola dopo headshot.
+Rivisti i clip a piena risoluzione: fori = puntini ~1 cm, sangue che cola dalla ferita ai piedi,
+corpo a segmenti lisci con giunture visibili (non pelle unica).
+Cause: pelle unica skinnata -> ponti tra braccia e fianchi e "lenzuolo" stirato quando si stacca un arto;
+buchi scavati troppo grandi (triangoli da 2 cm) e interno nero (retro-facce illuminate al contrario);
+controllo ostacoli ignorava le compenetrazioni -> entravano nei muri e poi il ragdoll veniva sparato via;
+pezzi di carne fermavano i proiettili sui corpi; il testo dei COVER si vedeva attraverso i muri.
+Fix:
+- BodyMesh: 7 forme di segmento liscio (SDF + surface nets 1,2 cm), verificate con render three.js.
+- Taglio nel punto colpito (nuovo pezzo con mesh, rigidbody, collider; figli riagganciati).
+- Buchi solo all'uscita, 1,6-2,8 cm; ingresso = puntino scuro 1,2 cm; shader VITS/Flesh per l'interno.
+- Colature: "runner" che scendono sulla pelle seguendo la gravita' e passano tra segmenti; gocciolano.
+- Macchie sulla pelle disegnate con instancing (fino a 12k); gocce e macchie a terra piu' grandi; pozze da 3 ml.
+- Movimento: OverlapCapsule, aggiramento, anti-blocco 3 s, niente spinte di compenetrazione (max 1,5 m/s).
+- Ripari: punto dietro il lato lungo, evita ripari affollati. Testo con shader VITS/Text (nascosto dai muri).
+- Proiettili ignorano i pezzi di carne (layer Ignore Raycast); spinta 8 N·s sui corpi.
+- Compilazione verificata con dotnet contro gli assembly UnityEngine 2021.3 (API 6 mappate).

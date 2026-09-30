@@ -23,7 +23,11 @@ namespace VITS
         int[] decN, decHead;
         Matrix4x4[][] dropBatches;
         int zSeq;
-        readonly Queue<GameObject> bodyDec = new Queue<GameObject>();
+        struct SkinDec { public Transform t; public Matrix4x4 m; }
+        const int SKIN_MAX = 2046;
+        readonly SkinDec[][] skin = new SkinDec[6][];
+        readonly int[] skinN = new int[6], skinHead = new int[6];
+        Matrix4x4[][] skinBatches;
 
         class Pool { public Transform t; public float vol, r; public Vector3 p; }
         readonly List<Pool> pools = new List<Pool>();
@@ -50,7 +54,10 @@ namespace VITS
                 Mats.Decal(Tex(2), Fresh),                           // elongated drop / drip
                 Mats.Decal(Tex(3), new Color(0.08f, 0.08f, 0.09f, 0.9f)), // bullet hole
                 Mats.Decal(Tex(2), new Color(0.45f, 0.01f, 0.03f, 0.95f)), // wall drip (darker)
+                Mats.Decal(Tex(3), new Color(0.3f, 0.0f, 0.02f, 1f)),       // bullet wound on skin
             };
+            for (int v = 0; v < 6; v++) skin[v] = new SkinDec[SKIN_MAX];
+            skinBatches = new Matrix4x4[12][]; for (int q = 0; q < 12; q++) skinBatches[q] = new Matrix4x4[B];
             poolMat = Mats.Decal(Tex(4), new Color(0.36f, 0.01f, 0.025f, 0.98f), 3001);
             int nv = decMat.Length;
             dec = new Matrix4x4[nv][][]; decN = new int[nv]; decHead = new int[nv];
@@ -104,7 +111,7 @@ namespace VITS
             else if (kind == 3)
             {
                 disc(c, c, S * 0.14f, 1);
-                disc(c, c, S * 0.3f, 0.35f);
+                disc(c, c, S * 0.24f, 0.18f);
             }
             else
             {
@@ -177,14 +184,21 @@ namespace VITS
             Vector3 vt = v - vnS * n;
             float sp = v.magnitude;
             float r = Mathf.Pow(vol * 1e-6f * 0.75f / Mathf.PI, 1f / 3f);          // drop radius (m)
-            float size = Mathf.Clamp(r * 2f * (2.1f + sp * 0.25f), 0.007f, 0.09f);   // stain grows with impact speed
+            float size = Mathf.Clamp(r * 2f * (2.6f + sp * 0.45f), 0.01f, 0.16f);   // stain grows with impact speed
             float el = 1f + Mathf.Clamp(vt.magnitude / (vn + 0.6f), 0f, 2.2f);       // oblique impact -> ellipse
             Vector3 up = vt.sqrMagnitude > 1e-4f ? vt.normalized : RandomTangent(n);
 
             if (h.rigidbody != null)
             {
-                // on a body or a severed piece: stain sticks to it
-                if (Random.value < 0.75f) BodyDecal(h.collider.transform, h.point, n, size * 0.9f, el > 1.6f ? 2 : 0, up);
+                // on a body or a severed piece: the stain sticks to the skin
+                var part = h.collider.GetComponent<Part>();
+                if (part != null)
+                {
+                    Vector3 lp = part.Project(part.transform.InverseTransformPoint(h.point));
+                    Vector3 ln = part.Normal(lp);
+                    Vector3 lu = part.transform.InverseTransformDirection(up);
+                    AddSkin(part.transform, el > 1.6f ? 2 : 0, lp, ln, lu, size * 0.9f, size * 0.9f * (el > 1.6f ? el : 1f));
+                }
                 return;
             }
             int variant = sp > 4.5f ? 1 : (el > 1.6f ? 2 : 0);
@@ -215,19 +229,16 @@ namespace VITS
             dec[v][i / B][i % B] = Matrix4x4.TRS(p + n * off, rot, new Vector3(sx, sy, 1));
         }
 
-        public void BodyDecal(Transform t, Vector3 p, Vector3 n, float size, int variant, Vector3 up, float len = -1f)
+        // decals glued to a body segment (local space of t)
+        void AddSkin(Transform t, int v, Vector3 lp, Vector3 ln, Vector3 lup, float sx, float sy)
         {
-            var go = new GameObject("blood");
-            go.AddComponent<MeshFilter>().sharedMesh = quad;
-            var mr = go.AddComponent<MeshRenderer>();
-            mr.sharedMaterial = decMat[variant]; mr.shadowCastingMode = ShadowCastingMode.Off; mr.receiveShadows = false;
-            if (Mathf.Abs(Vector3.Dot(up, n)) > 0.98f) up = RandomTangent(n);
-            go.transform.SetPositionAndRotation(p + n * 0.004f, Quaternion.LookRotation(n, up));
-            go.transform.localScale = new Vector3(size, len > 0 ? len : size * (variant == 2 ? 2.2f : 1f), 1f);
-            go.transform.SetParent(t, true);
-            bodyDec.Enqueue(go);
-            while (bodyDec.Count > MAXBODY) { var o = bodyDec.Dequeue(); if (o != null) Destroy(o); }
+            if (t == null) return;
+            if (Mathf.Abs(Vector3.Dot(lup.normalized, ln)) > 0.98f || lup.sqrMagnitude < 1e-6f) lup = RandomTangent(ln);
+            int i = skinHead[v]; skinHead[v] = (i + 1) % SKIN_MAX; if (skinN[v] < SKIN_MAX) skinN[v]++;
+            skin[v][i] = new SkinDec { t = t, m = Matrix4x4.TRS(lp + ln * 0.0025f, Quaternion.LookRotation(ln, lup), new Vector3(sx, sy, 1f)) };
         }
+        public void SkinDecal(Transform t, Vector3 lp, Vector3 ln, float size, int variant) => AddSkin(t, variant, lp, ln, RandomTangent(ln), size, size);
+        public void SkinStreak(Transform t, Vector3 lp, Vector3 ln, Vector3 ltan, float width, float len) => AddSkin(t, 2, lp, ln, ltan, width, len);
 
         void Wet(Vector3 p, float vol)
         {
@@ -235,7 +246,7 @@ namespace VITS
                 if (Mathf.Abs(P.p.y - p.y) < 0.2f && (new Vector2(P.p.x - p.x, P.p.z - p.z)).magnitude < P.r * 0.95f) { Grow(P, vol); return; }
             var cell = new Vector2Int(Mathf.FloorToInt(p.x / 0.3f), Mathf.FloorToInt(p.z / 0.3f));
             wet.TryGetValue(cell, out float w); w += vol;
-            if (w > 5f && pools.Count < MAXPOOLS)
+            if (w > 3f && pools.Count < MAXPOOLS)
             {
                 wet[cell] = 0;
                 var go = new GameObject("pool");
@@ -265,6 +276,18 @@ namespace VITS
                 int n = decN[v];
                 for (int b = 0; b * B < n; b++)
                     Graphics.DrawMeshInstanced(quad, 0, decMat[v], dec[v][b], Mathf.Min(B, n - b * B), null, ShadowCastingMode.Off, false);
+            }
+            for (int v = 0; v < 6; v++)
+            {
+                int n = 0, b = 0; var arr = skin[v];
+                for (int i = 0; i < skinN[v]; i++)
+                {
+                    var t = arr[i].t;
+                    if (t == null) continue;
+                    skinBatches[v * 2 + b][n++] = t.localToWorldMatrix * arr[i].m;
+                    if (n == B) { Graphics.DrawMeshInstanced(quad, 0, decMat[v], skinBatches[v * 2 + b], n, null, ShadowCastingMode.Off, false); n = 0; b = 1; }
+                }
+                if (n > 0) Graphics.DrawMeshInstanced(quad, 0, decMat[v], skinBatches[v * 2 + b], n, null, ShadowCastingMode.Off, false);
             }
             for (int i = 0; i < dn; i++)
             {

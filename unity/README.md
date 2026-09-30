@@ -25,6 +25,14 @@ T ricomincia · Esc libera il mouse.
   colature sui muri, macchie sui corpi, pozze che si allargano col volume.
 - HUD: SPECIMENS, TIME, munizioni, monitor medico quando guardi un manichino.
 
+## Novità
+- Corpo a segmenti lisci come l'originale (bacino, torace, testa, braccia, avambracci+mani, cosce, stinchi+piedi),
+  generati da codice; la carne si strappa dove escono i proiettili e sotto si vede l'interno.
+- Gli arti si tagliano nel punto colpito (3° colpo, 2° al 50%, o troppa carne persa); i pezzi cadono con la fisica.
+- Il sangue cola sulla pelle da una parte all'altra del corpo e gocciola a terra; pozze sotto i corpi.
+- 6 muri COVER / 01-06: i Carl ci corrono dietro, o ci strisciano se colpiti alle gambe.
+- Si possono colpire e tagliare anche i corpi a terra; i pezzi di carne non fermano i proiettili.
+
 ## Se qualcosa non va
 Copia gli errori della **Console** e mandameli. Il codice non è stato compilato qui
 (nell'ambiente cloud non c'è Unity).

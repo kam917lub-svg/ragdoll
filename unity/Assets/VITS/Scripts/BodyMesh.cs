@@ -4,28 +4,30 @@ using UnityEngine.Rendering;
 
 namespace VITS
 {
-    // One smooth skinned body, generated once: a signed distance field made of capsules/ellipsoids
-    // blended with smooth-min, turned into triangles with "surface nets", skinned to the 11 ragdoll bones.
+    // The mannequin is made like the original: smooth rigid segments (pelvis, chest, head, upper arm,
+    // forearm+hand, thigh, shin+foot) that overlap at the joints. Each segment is a signed distance
+    // field (rounded cones / capsules / ellipsoids blended with smooth-min) meshed once with "surface nets".
+    // The same field is used at runtime to put wounds and running blood exactly on the skin.
     public static class BodyMesh
     {
         public const int NB = 11;
         public const int PEL = 0, CHE = 1, HEA = 2, UAL = 3, FAL = 4, UAR = 5, FAR = 6, THL = 7, SHL = 8, THR = 9, SHR = 10;
-        public static readonly int[] Parent = { -1, 0, 1, 1, 3, 1, 5, 0, 7, 0, 9 };
-        // rest pivots in body space (must match Mannequin.DEFS)
-        public static readonly Vector3[] Pivot =
+        public static readonly Mesh[] Meshes = new Mesh[NB];
+        public static readonly Vector3[][] Verts = new Vector3[NB][];
+        public static readonly int[][] Tris = new int[NB][];
+
+        static int Kind(int b) { switch (b) { case 3: case 5: return 3; case 4: case 6: return 4; case 7: case 9: return 5; case 8: case 10: return 6; default: return b; } }
+
+        static readonly Vector3[] BMin =
         {
-            new Vector3(0, 0.95f, 0), new Vector3(0, 1.05f, 0), new Vector3(0, 1.51f, 0),
-            new Vector3(-0.245f, 1.44f, 0), new Vector3(-0.245f, 1.14f, 0),
-            new Vector3(0.245f, 1.44f, 0), new Vector3(0.245f, 1.14f, 0),
-            new Vector3(-0.1f, 0.9f, 0), new Vector3(-0.1f, 0.45f, 0),
-            new Vector3(0.1f, 0.9f, 0), new Vector3(0.1f, 0.45f, 0),
+            new Vector3(-0.24f, -0.22f, -0.14f), new Vector3(-0.27f, -0.1f, -0.14f), new Vector3(-0.13f, -0.13f, -0.14f),
+            new Vector3(-0.09f, -0.37f, -0.09f), new Vector3(-0.08f, -0.42f, -0.08f), new Vector3(-0.12f, -0.53f, -0.12f), new Vector3(-0.1f, -0.49f, -0.12f),
         };
-
-        public static Mesh Mesh;
-        public static int[] Dom;          // dominant bone of each vertex
-        public static int[] TrisPerBone;  // triangle count per bone (for "how much flesh is left")
-
-        static readonly float[] bd = new float[NB];
+        static readonly Vector3[] BMax =
+        {
+            new Vector3(0.24f, 0.17f, 0.14f), new Vector3(0.27f, 0.47f, 0.14f), new Vector3(0.13f, 0.35f, 0.15f),
+            new Vector3(0.09f, 0.09f, 0.09f), new Vector3(0.08f, 0.08f, 0.08f), new Vector3(0.12f, 0.14f, 0.12f), new Vector3(0.1f, 0.09f, 0.21f),
+        };
 
         static float Cap(Vector3 p, Vector3 a, Vector3 b, float r, float sq = 1f)
         {
@@ -39,65 +41,92 @@ namespace VITS
             var q = new Vector3((p.x - c.x) / r.x, (p.y - c.y) / r.y, (p.z - c.z) / r.z);
             return (q.magnitude - 1f) * Mathf.Min(r.x, Mathf.Min(r.y, r.z));
         }
+        static float Sg(float x) => x > 0 ? 1f : (x < 0 ? -1f : 0f);
+        // rounded cone between a (radius r1) and b (radius r2) - Inigo Quilez
+        static float RCone(Vector3 p, Vector3 a, Vector3 b, float r1, float r2)
+        {
+            Vector3 ba = b - a; float l2 = Vector3.Dot(ba, ba), rr = r1 - r2, a2 = l2 - rr * rr, il2 = 1f / l2;
+            Vector3 pa = p - a; float y = Vector3.Dot(pa, ba), z = y - l2;
+            Vector3 xv = pa * l2 - ba * y; float x2 = Vector3.Dot(xv, xv), y2 = y * y * l2, z2 = z * z * l2;
+            float k = Sg(rr) * rr * rr * x2;
+            if (Sg(z) * a2 * z2 > k) return Mathf.Sqrt(x2 + z2) * il2 - r2;
+            if (Sg(y) * a2 * y2 < k) return Mathf.Sqrt(x2 + y2) * il2 - r1;
+            return (Mathf.Sqrt(x2 * a2 * il2) + y * rr) * il2 - r1;
+        }
         static float Smin(float a, float b, float k)
         {
             float h = Mathf.Clamp01(0.5f + 0.5f * (b - a) / k);
             return Mathf.Lerp(b, a, h) - k * h * (1f - h);
         }
-        static void Bd(int i, float d) { if (d < bd[i]) bd[i] = d; }
 
-        static float Arm(Vector3 p, float s, int u, int f)
+        // signed distance to the skin of bone b, p in that bone's local space
+        public static float Sdf(int b, Vector3 p)
         {
-            float x = 0.245f * s;
-            float ua = Cap(p, new Vector3(x, 1.43f, 0), new Vector3(x, 1.16f, 0), 0.056f);
-            float fa = Cap(p, new Vector3(x, 1.13f, 0), new Vector3(x, 0.9f, 0), 0.047f);
-            float ha = Ell(p, new Vector3(x, 0.83f, 0.005f), new Vector3(0.032f, 0.065f, 0.045f));
-            Bd(u, ua); Bd(f, Mathf.Min(fa, ha));
-            return Smin(Smin(ua, fa, 0.025f), ha, 0.02f);
-        }
-        static float Leg(Vector3 p, float s, int th, int sh)
-        {
-            float x = 0.1f * s;
-            float t = Cap(p, new Vector3(x, 0.9f, 0), new Vector3(x, 0.47f, 0), 0.082f);
-            float n = Cap(p, new Vector3(x, 0.45f, 0), new Vector3(x, 0.09f, 0), 0.06f);
-            float f = Cap(p, new Vector3(x, 0.045f, -0.03f), new Vector3(x, 0.045f, 0.14f), 0.045f);
-            Bd(th, t); Bd(sh, Mathf.Min(n, f));
-            return Smin(Smin(t, n, 0.03f), f, 0.02f);
+            switch (Kind(b))
+            {
+                case 0:
+                    return Smin(Cap(p, new Vector3(-0.07f, 0, 0), new Vector3(0.07f, 0, 0), 0.13f, 0.78f),
+                                Cap(p, new Vector3(-0.06f, -0.07f, 0), new Vector3(0.06f, -0.07f, 0), 0.105f, 0.8f), 0.04f);
+                case 1:
+                {
+                    float c1 = Cap(p, new Vector3(-0.035f, 0.05f, 0), new Vector3(0.035f, 0.05f, 0), 0.115f, 0.74f);
+                    float c2 = RCone(new Vector3(p.x, p.y, p.z / 0.72f), new Vector3(0, 0.08f, 0), new Vector3(0, 0.27f, 0), 0.125f, 0.15f) * 0.72f;
+                    float c3 = Cap(p, new Vector3(-0.145f, 0.315f, 0), new Vector3(0.145f, 0.315f, 0), 0.095f, 0.8f);
+                    float nb = Cap(p, new Vector3(0, 0.36f, 0), new Vector3(0, 0.44f, 0), 0.058f);
+                    return Smin(Smin(Smin(c1, c2, 0.06f), c3, 0.06f), nb, 0.03f);
+                }
+                case 2:
+                    return Smin(Cap(p, new Vector3(0, -0.05f, 0), new Vector3(0, 0.07f, 0), 0.055f),
+                                Ell(p, new Vector3(0, 0.175f, 0.005f), new Vector3(0.105f, 0.14f, 0.118f)), 0.03f);
+                case 3:
+                    return RCone(p, new Vector3(0, -0.005f, 0), new Vector3(0, -0.29f, 0), 0.066f, 0.055f);
+                case 4:
+                    return Smin(RCone(p, Vector3.zero, new Vector3(0, -0.27f, 0), 0.054f, 0.043f),
+                                Ell(p, new Vector3(0, -0.32f, 0.005f), new Vector3(0.037f, 0.065f, 0.048f)), 0.025f);
+                case 5:
+                    return RCone(p, new Vector3(0, 0.02f, 0), new Vector3(0, -0.43f, 0), 0.096f, 0.074f);
+                default:
+                    return Smin(RCone(p, Vector3.zero, new Vector3(0, -0.39f, 0), 0.072f, 0.054f),
+                                Cap(p, new Vector3(0, -0.4f, -0.04f), new Vector3(0, -0.4f, 0.13f), 0.05f), 0.03f);
+            }
         }
 
-        public static float Eval(Vector3 p)
+        public static Vector3 Normal(int b, Vector3 p)
         {
-            for (int i = 0; i < NB; i++) bd[i] = 1e9f;
-            float pel = Cap(p, new Vector3(-0.075f, 0.95f, 0), new Vector3(0.075f, 0.95f, 0), 0.125f, 0.8f); Bd(PEL, pel);
-            float c1 = Cap(p, new Vector3(-0.06f, 1.12f, 0), new Vector3(0.06f, 1.12f, 0), 0.125f, 0.75f);
-            float c2 = Cap(p, new Vector3(0, 1.12f, 0), new Vector3(0, 1.34f, 0), 0.135f, 0.75f);
-            float c3 = Cap(p, new Vector3(-0.14f, 1.36f, 0), new Vector3(0.14f, 1.36f, 0), 0.11f, 0.8f);
-            float shL = Ell(p, new Vector3(-0.215f, 1.39f, 0), new Vector3(0.075f, 0.07f, 0.07f));
-            float shR = Ell(p, new Vector3(0.215f, 1.39f, 0), new Vector3(0.075f, 0.07f, 0.07f));
-            Bd(CHE, Mathf.Min(Mathf.Min(c1, c2), Mathf.Min(c3, Mathf.Min(shL, shR))));
-            float nk = Cap(p, new Vector3(0, 1.46f, 0), new Vector3(0, 1.6f, 0), 0.052f);
-            float hd = Ell(p, new Vector3(0, 1.68f, 0.005f), new Vector3(0.1f, 0.132f, 0.115f));
-            Bd(HEA, Mathf.Min(nk, hd));
-            float torso = Smin(Smin(pel, Smin(c1, c2, 0.05f), 0.05f), c3, 0.05f);
-            torso = Smin(torso, Mathf.Min(shL, shR), 0.03f);
-            torso = Smin(Smin(torso, nk, 0.03f), hd, 0.025f);
-            float aL = Arm(p, -1, UAL, FAL), aR = Arm(p, 1, UAR, FAR);
-            float lL = Leg(p, -1, THL, SHL), lR = Leg(p, 1, THR, SHR);
-            float d = Mathf.Min(Smin(torso, lL, 0.03f), Smin(torso, lR, 0.03f));
-            d = Mathf.Min(d, Smin(aL, shL, 0.03f));
-            d = Mathf.Min(d, Smin(aR, shR, 0.03f));
-            return d;
+            const float e = 0.002f;
+            var g = new Vector3(Sdf(b, p + new Vector3(e, 0, 0)) - Sdf(b, p - new Vector3(e, 0, 0)),
+                                Sdf(b, p + new Vector3(0, e, 0)) - Sdf(b, p - new Vector3(0, e, 0)),
+                                Sdf(b, p + new Vector3(0, 0, e)) - Sdf(b, p - new Vector3(0, 0, e)));
+            return g.sqrMagnitude > 1e-12f ? g.normalized : Vector3.up;
+        }
+
+        // move a point onto the skin
+        public static Vector3 Project(int b, Vector3 p)
+        {
+            for (int i = 0; i < 4; i++) { float d = Sdf(b, p); if (Mathf.Abs(d) < 0.0005f) break; p -= Normal(b, p) * d; }
+            return p;
         }
 
         public static void Build()
         {
-            const float h = 0.02f;
-            var o = new Vector3(-0.37f, -0.03f, -0.21f);
-            int nx = 38, ny = 95, nz = 23;
+            var cache = new Dictionary<int, int>();
+            for (int b = 0; b < NB; b++)
+            {
+                int k = Kind(b);
+                if (cache.TryGetValue(k, out int src)) { Meshes[b] = Meshes[src]; Verts[b] = Verts[src]; Tris[b] = Tris[src]; continue; }
+                Nets(b, BMin[k], BMax[k]);
+                cache[k] = b;
+            }
+        }
+
+        static void Nets(int bone, Vector3 mn, Vector3 mx)
+        {
+            const float h = 0.012f;
+            int nx = Mathf.CeilToInt((mx.x - mn.x) / h) + 1, ny = Mathf.CeilToInt((mx.y - mn.y) / h) + 1, nz = Mathf.CeilToInt((mx.z - mn.z) / h) + 1;
             var f = new float[nx * ny * nz];
             int Id(int i, int j, int k) => (k * ny + j) * nx + i;
             for (int k = 0; k < nz; k++) for (int j = 0; j < ny; j++) for (int i = 0; i < nx; i++)
-                f[Id(i, j, k)] = Eval(o + new Vector3(i, j, k) * h);
+                f[Id(i, j, k)] = Sdf(bone, mn + new Vector3(i, j, k) * h);
 
             var verts = new List<Vector3>();
             var cellV = new int[nx * ny * nz];
@@ -116,27 +145,26 @@ namespace VITS
                     int a = edges[e, 0], b = edges[e, 1];
                     if ((cv[a] < 0) == (cv[b] < 0)) continue;
                     float t = cv[a] / (cv[a] - cv[b]);
-                    var pa = new Vector3(corner[a, 0], corner[a, 1], corner[a, 2]);
-                    var pb = new Vector3(corner[b, 0], corner[b, 1], corner[b, 2]);
-                    sum += Vector3.Lerp(pa, pb, t); cnt++;
+                    sum += Vector3.Lerp(new Vector3(corner[a, 0], corner[a, 1], corner[a, 2]), new Vector3(corner[b, 0], corner[b, 1], corner[b, 2]), t); cnt++;
                 }
                 cellV[Id(i, j, k)] = verts.Count;
-                verts.Add(o + (new Vector3(i, j, k) + sum / cnt) * h);
+                // snap exactly onto the surface: smooth, no staircase
+                verts.Add(Project(bone, mn + (new Vector3(i, j, k) + sum / cnt) * h));
             }
 
             var tris = new List<int>();
-            void Quad(int a, int b, int c, int d)
-            {
-                if (a < 0 || b < 0 || c < 0 || d < 0) return;
-                Tri(a, b, c); Tri(a, c, d);
-            }
             void Tri(int a, int b, int c)
             {
                 Vector3 A = verts[a], B = verts[b], C = verts[c];
-                Vector3 cen = (A + B + C) / 3f;
-                Vector3 g = Grad(cen);
-                if (Vector3.Dot(Vector3.Cross(B - A, C - A), g) < 0) { tris.Add(a); tris.Add(c); tris.Add(b); }
+                if (Vector3.Dot(Vector3.Cross(B - A, C - A), Normal(bone, (A + B + C) / 3f)) < 0) { tris.Add(a); tris.Add(c); tris.Add(b); }
                 else { tris.Add(a); tris.Add(b); tris.Add(c); }
+            }
+            void Quad(int a, int b, int c, int d)
+            {
+                if (a < 0 || b < 0 || c < 0 || d < 0) return;
+                // split along the shorter diagonal
+                if ((verts[a] - verts[c]).sqrMagnitude < (verts[b] - verts[d]).sqrMagnitude) { Tri(a, b, c); Tri(a, c, d); }
+                else { Tri(a, b, d); Tri(b, c, d); }
             }
             for (int k = 1; k < nz - 1; k++) for (int j = 1; j < ny - 1; j++) for (int i = 0; i < nx - 1; i++)
                 if ((f[Id(i, j, k)] < 0) != (f[Id(i + 1, j, k)] < 0))
@@ -148,48 +176,11 @@ namespace VITS
                 if ((f[Id(i, j, k)] < 0) != (f[Id(i, j, k + 1)] < 0))
                     Quad(cellV[Id(i - 1, j - 1, k)], cellV[Id(i, j - 1, k)], cellV[Id(i, j, k)], cellV[Id(i - 1, j, k)]);
 
-            // normals, skin weights
-            int nv = verts.Count;
-            var normals = new Vector3[nv];
-            var bw = new BoneWeight[nv];
-            Dom = new int[nv];
-            for (int v = 0; v < nv; v++)
-            {
-                normals[v] = Grad(verts[v]).normalized;
-                Eval(verts[v]);
-                int b0 = 0; for (int b = 1; b < NB; b++) if (bd[b] < bd[b0]) b0 = b;
-                int b1 = -1;
-                for (int b = 0; b < NB; b++)
-                {
-                    if (b == b0 || (Parent[b] != b0 && Parent[b0] != b)) continue;
-                    if (b1 < 0 || bd[b] < bd[b1]) b1 = b;
-                }
-                Dom[v] = b0;
-                float w1 = b1 < 0 ? 0 : Mathf.Exp(-(bd[b1] - bd[b0]) / 0.015f);
-                float s = 1f + w1;
-                bw[v] = new BoneWeight { boneIndex0 = b0, weight0 = 1f / s, boneIndex1 = Mathf.Max(0, b1), weight1 = w1 / s };
-            }
-            TrisPerBone = new int[NB];
-            for (int t = 0; t < tris.Count; t += 3) TrisPerBone[Dom[tris[t]]]++;
-
-            var bind = new Matrix4x4[NB];
-            for (int b = 0; b < NB; b++) bind[b] = Matrix4x4.Translate(-Pivot[b]);
-
-            Mesh = new Mesh { name = "MannequinBody", indexFormat = IndexFormat.UInt32 };
-            Mesh.SetVertices(verts);
-            Mesh.normals = normals;
-            Mesh.SetTriangles(tris, 0);
-            Mesh.boneWeights = bw;
-            Mesh.bindposes = bind;
-            Mesh.RecalculateBounds();
-        }
-
-        static Vector3 Grad(Vector3 p)
-        {
-            const float e = 0.004f;
-            return new Vector3(Eval(p + new Vector3(e, 0, 0)) - Eval(p - new Vector3(e, 0, 0)),
-                               Eval(p + new Vector3(0, e, 0)) - Eval(p - new Vector3(0, e, 0)),
-                               Eval(p + new Vector3(0, 0, e)) - Eval(p - new Vector3(0, 0, e)));
+            var normals = new Vector3[verts.Count];
+            for (int v = 0; v < verts.Count; v++) normals[v] = Normal(bone, verts[v]);
+            var m = new Mesh { name = "seg" + bone, indexFormat = IndexFormat.UInt32 };
+            m.SetVertices(verts); m.normals = normals; m.SetTriangles(tris, 0); m.RecalculateBounds();
+            Meshes[bone] = m; Verts[bone] = verts.ToArray(); Tris[bone] = tris.ToArray();
         }
     }
 }

@@ -7,7 +7,7 @@ namespace VITS
     public class Game : MonoBehaviour
     {
         public static Game I;
-        public const float BulletImpulse = 5f; // N·s pushed into a ragdoll part by a 9 mm round (gamey, not realistic)
+        public const float BulletImpulse = 8f; // N·s pushed into a ragdoll part by a 9 mm round (gamey, not realistic)
         public Player player;
         static readonly float[] TS = { 0.25f, 0.5f, 1f, 2f };
         int tsi = 2; bool paused;
@@ -64,16 +64,21 @@ namespace VITS
         }
 
         // a spot behind the nearest cover wall, on the side away from the shooter
-        public static Vector3 CoverPoint(Vector3 from)
+        // a spot behind a cover wall, on the side away from the shooter; avoids crowded spots and 'avoid'
+        public static Vector3 CoverPoint(Vector3 from, Vector3 avoid)
         {
             Vector3 shooter = I != null && I.player != null ? I.player.transform.position : Vector3.zero;
             Vector3 best = RandomPoint(); float bd = 1e9f;
             foreach (var c in Level.Covers)
             {
-                Vector3 away = c - shooter; away.y = 0;
-                if (away.sqrMagnitude < 1e-4f) away = Vector3.forward;
-                Vector3 hide = c + away.normalized * 0.9f; hide.y = 0;
-                float d = (hide - from).magnitude + (hide - shooter).magnitude * 0.1f;
+                Vector3 away = c.pos - shooter; away.y = 0;
+                // hide behind the long side of the wall
+                Vector3 n = c.normal * Mathf.Sign(Vector3.Dot(c.normal, away) + 1e-4f);
+                float side = Mathf.Clamp(Vector3.Dot(from - c.pos, c.along), -1.1f, 1.1f);
+                Vector3 hide = c.pos + n * 0.75f + c.along * side; hide.y = 0;
+                float d = (hide - from).magnitude;
+                if ((hide - avoid).magnitude < 1f) d += 30f;
+                foreach (var m in Mannequin.All) if (m != null && !m.dead && (m.transform.position - hide).magnitude < 0.8f && (m.transform.position - from).magnitude > 0.1f) d += 4f;
                 if (d < bd) { bd = d; best = hide; }
             }
             return best;

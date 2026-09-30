@@ -102,10 +102,10 @@ namespace VITS
 
             // who am I looking at (for the medical monitor)
             looked = null;
-            if (Physics.Raycast(cam.transform.position, cam.transform.forward, out RaycastHit lh, 40f, ~0, QueryTriggerInteraction.Ignore))
+            if (Physics.Raycast(cam.transform.position, cam.transform.forward, out RaycastHit lh, 40f, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore))
             {
                 var p = lh.collider.GetComponent<Part>();
-                if (p != null && !p.severed) looked = p.owner;
+                if (p != null) looked = p.owner;
             }
         }
 
@@ -118,7 +118,7 @@ namespace VITS
             var dir = (cam.transform.forward + Random.insideUnitSphere * 0.004f).normalized;
             var ray = new Ray(cam.transform.position, dir);
             Vector3 end = ray.origin + dir * 200f;
-            if (Physics.Raycast(ray, out RaycastHit h, 200f, ~0, QueryTriggerInteraction.Ignore))
+            if (Physics.Raycast(ray, out RaycastHit h, 200f, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore))
             {
                 end = h.point;
                 var part = h.collider.GetComponent<Part>();
