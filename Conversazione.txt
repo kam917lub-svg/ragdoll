@@ -456,3 +456,8 @@ Fatto: 4a arma KNIFE (menu Esc): modello (lama scura con filo chiaro, guardia, i
 --- PROMPT 54 ---
 Utente (screenshot testa esplosa con enormi grumi): troppa roba da una testa; i Kekko sbattono contro i muri invece di nascondersi; la camminata scivola: deve essere l animazione a far muovere, non una forza.
 Fatto: ROOT MOTION: la fase del passo avanza alla velocita voluta, e il corpo si sposta solo di quanto il piede d appoggio (gamba piu dritta) arretra rispetto alle anche, calcolato dalle rotazioni reali di coscia e ginocchio (L=0,45 m x scala) -> niente pattinamento. Muri: se un COVER/TORRE e tra il Kekko e la meta, va verso l angolo libero piu conveniente (bounds +1,3 m) e poi dietro. Testa esplosa: 5 frammenti piccoli (erano 14 grossi), spruzzo 90 gocce piccole; tutti i pezzi di carne piu piccoli (x1,3 invece di x2).
+
+--- PROMPT 55 ---
+Utente: i manichini fanno l animazione di camminata ma non si muovono.
+Causa: il piede "d appoggio" era scelto dal ginocchio meno piegato, che nel ciclo non coincide con la gamba che spinge indietro -> spostamento quasi zero.
+Fatto: si prende la gamba che arretra di piu in quel frame (root motion corretta), e lo spostamento e limitato tra 0,6x e 1,6x del passo voluto, cosi non si fermano ne fanno balzi.

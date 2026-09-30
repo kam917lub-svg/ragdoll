@@ -649,7 +649,7 @@ namespace VITS
                 // walking is driven by the legs: the body moves exactly as far as the planted foot is pushed back
                 // by the animation (root motion), so feet never skate. Hopping keeps its own airborne push.
                 float cadence = speed * Mathf.Max(0.25f, turnSlow);
-                Vector3 fwd = transform.forward, step = Hopping ? fwd * cadence * gait * dt : fwd * rootMove;
+                Vector3 fwd = transform.forward, step = Hopping ? fwd * cadence * gait * dt : fwd * Mathf.Clamp(rootMove, cadence * dt * 0.6f, cadence * dt * 1.6f);   // feet lead, clamped around the wanted pace so they never stall or leap
                 rootMove = 0f;
                 if (!Free(pos + fwd * 0.35f))
                 {
@@ -822,10 +822,9 @@ namespace VITS
                 float A(string k) => Mathf.DeltaAngle(0f, parts[k].transform.localEulerAngles.x) * Mathf.Deg2Rad;
                 float tl = A("thighL"), tr = A("thighR"), kl = A("shinL"), kr = A("shinR");
                 float zl = -L * Mathf.Sin(tl) - L * Mathf.Sin(tl + kl), zr = -L * Mathf.Sin(tr) - L * Mathf.Sin(tr + kr);
-                int stance = kl <= kr ? 0 : 1;
-                float z = stance == 0 ? zl : zr;
-                if (stance == lastStance && !Hopping) rootMove += Mathf.Max(0f, lastFootZ - z);
-                lastStance = stance; lastFootZ = z;
+                // the planted foot is the one sweeping backward: take whichever leg is pushing back more this frame
+                if (lastStance >= 0 && !Hopping) rootMove += Mathf.Max(0f, Mathf.Max(lastFootZ - zl, lastFootZR - zr));
+                lastStance = 0; lastFootZ = zl; lastFootZR = zr;
             }
             var pv = parts["pelvis"].transform;
             pv.localPosition = Vector3.Lerp(pv.localPosition, new Vector3(0, pelvisY, 0), k);
@@ -1056,7 +1055,7 @@ namespace VITS
             writheT = 0;
         }
 
-        float diveT, lastVy; float rootMove, lastFootZ; int lastStance = -1; Vector3 coverFace;
+        float diveT, lastVy; float rootMove, lastFootZ, lastFootZR; int lastStance = -1; Vector3 coverFace;
         // hitting the ground hard: ~9 m/s (4 m) breaks legs, ~14 m/s (10 m) and up is usually fatal
         void Landed(float speed)
         {
