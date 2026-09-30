@@ -427,3 +427,8 @@ Fatto: ogni parte ricorda dove sono entrati/usciti i colpi (Part.wounds, locale)
 --- PROMPT 48 ---
 Utente: spinte: correndo devono essere piu forti che camminando; cadute da punti alti con dinamica reale.
 Fatto: camminando contro un Kekko = barcollamento (spinta x0,7, 8% cade); correndo (>4,5 m/s) = travolto (spinta x1,5, 85% cade). Caduta: se un Kekko che cammina/sta in piedi ha piu di 0,7 m di vuoto sotto, diventa subito corpo fisico con la sua velocita (niente piu discesa rigida); in aria braccia e gambe si agitano se cosciente; atterraggio con danni come prima (gambe >9 m/s, morte >14 m/s).
+
+--- PROMPT 48b ---
+Utente: a volte sangue sospeso in aria (screenshot: strisce verticali nel vuoto).
+Causa: le gocce colpivano la capsula invisibile del giocatore (e i pezzi di carne) e lasciavano macchie/colature li.
+Fatto: le gocce ignorano il layer 2 (giocatore e pezzi di carne).

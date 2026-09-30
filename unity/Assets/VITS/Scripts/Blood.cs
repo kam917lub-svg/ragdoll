@@ -201,7 +201,7 @@ namespace VITS
                 Vector3 p = dp[i], v = (dv[i] + g) * drag, np = p + v * dt;
                 dage[i] += dt;
                 Vector3 seg = np - p; float L = seg.magnitude;
-                if (L > 1e-5f && Physics.Raycast(p, seg / L, out RaycastHit h, L, ~0, QueryTriggerInteraction.Ignore))
+                if (L > 1e-5f && Physics.Raycast(p, seg / L, out RaycastHit h, L, ~(1 << 2), QueryTriggerInteraction.Ignore))
                 {
                     Land(h, v, dvol[i]); Kill(i); continue;
                 }
