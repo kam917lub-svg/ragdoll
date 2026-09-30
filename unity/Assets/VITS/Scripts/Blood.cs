@@ -148,10 +148,15 @@ namespace VITS
 
         public void Spray(Vector3 p, Vector3 dir, int n, float speed, float spread, float volMin = 0.08f, float volMax = 0.6f)
         {
-            for (int i = 0; i < n; i++)
+            // fewer, bigger, clumped drops (same total volume): real spatter is streams and blobs, not a cloud of pixels
+            int m = Mathf.Max(1, n / 3);
+            for (int i = 0; i < m; i++)
             {
                 var d = (dir + Random.insideUnitSphere * spread).normalized;
-                Emit(p, d * speed * Random.Range(0.3f, 1f), Random.Range(volMin, volMax));
+                float sp = speed * Random.Range(0.3f, 1f), vol = Random.Range(volMin, volMax) * 3f;
+                Emit(p, d * sp, vol);
+                // satellites trailing the main drop along the same path
+                if (Random.value < 0.5f) Emit(p - d * 0.01f, d * sp * 0.9f + Random.insideUnitSphere * 0.15f, vol * 0.3f);
             }
         }
 
@@ -191,7 +196,7 @@ namespace VITS
             Vector3 vt = v - vnS * n;
             float sp = v.magnitude;
             float r = Mathf.Pow(vol * 1e-6f * 0.75f / Mathf.PI, 1f / 3f);          // drop radius (m)
-            float size = Mathf.Clamp(r * 2f * (2.6f + sp * 0.45f), 0.01f, 0.16f);   // stain grows with impact speed
+            float size = Mathf.Clamp(r * 2f * (3.2f + sp * 0.6f), 0.018f, 0.2f);   // stain grows with impact speed
             float el = 1f + Mathf.Clamp(vt.magnitude / (vn + 0.6f), 0f, 2.2f);       // oblique impact -> ellipse
             Vector3 up = vt.sqrMagnitude > 1e-4f ? vt.normalized : RandomTangent(n);
 

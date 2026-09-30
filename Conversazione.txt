@@ -281,3 +281,11 @@ Fatto:
 - Sussulto a ogni colpo (Flinch): in piedi barcolla; a terra il torso si piega verso la ferita e gli arti scattano, piu forte col dolore.
 - Reazione immediata: colpo leggero a torso/braccio = mano sulla ferita e fuga subito; a terra striscia dopo 0,25 s (prima era casuale), lontano dal tiratore, forza e ritmo crescono col dolore; si rialza per scappare dopo 0,6 s invece di 2 s.
 - Ctrl sinistro: accovacciato (capsula 1,05 m, occhi 0,95 m, 1,7 m/s), si rialza solo se c e spazio.
+
+--- PROMPT 24 ---
+Utente: dopo il colpo il Carl resta seduto/inginocchiato e non scappa coprendo le ferite; sangue troppo "a puntini"; ancora non si colpisce da vicino; spinte troppo deboli (correndogli addosso non si muove).
+Fatto:
+- Rialzarsi: se le gambe funzionano (una >0,6 e l altra >0,3) e forza >0,5, dopo 0,7 s dal colpo si rialza e scappa con la mano sulla ferita (prima serviva equilibrio >0,85, che il dolore impediva). Il dolore ora abbassa l equilibrio solo di pain*0,1.
+- Colpi da vicino: PickSkin non usa piu i bounds del SkinnedMeshRenderer (sbagliati per ragdoll e a distanza ravvicinata); controlla le ossa entro 1 m dal raggio, poi test triangoli.
+- Sangue: 1/3 delle gocce ma 3x volume + goccioline satellite sulla stessa traiettoria; macchie piu grandi (min 1,8 cm). Meno "pixel", piu schizzi e grumi.
+- Spinte: si usa la velocita voluta del giocatore (quella del CharacterController e ~0 perche il corpo lo blocca); spinta x1,6, correndo 75% di cadere; un Carl a terra/ferito viene spostato camminandogli contro.

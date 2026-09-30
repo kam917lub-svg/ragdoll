@@ -492,9 +492,8 @@ namespace VITS
             if (pl != null)
             {
                 Vector3 d = pos - pl.transform.position; d.y = 0;
-                var cc = pl.GetComponent<CharacterController>();
-                Vector3 pv = cc != null ? cc.velocity : Vector3.zero; pv.y = 0;
-                if (d.magnitude < 0.7f && Vector3.Dot(pv, d.normalized) > 1.2f) { Knock(pv * 0.9f, pv.magnitude > 4.5f || Random.value < 0.25f); return; }
+                Vector3 pv = pl.moveVel; pv.y = 0;
+                if (d.magnitude < 0.8f && Vector3.Dot(pv, d.normalized) > 0.8f) { Knock(pv * 1.6f, pv.magnitude > 4.5f ? Random.value < 0.75f : Random.value < 0.2f); return; }
             }
             // other people bumping into them (both moving)
             foreach (var o in All)
@@ -523,7 +522,7 @@ namespace VITS
             if (!fall)
             {
                 // stumble: pushed a step, torso rocks, then walks on
-                Vector3 np = Game.Clamp(transform.position + new Vector3(push.x, 0, push.z) * 0.12f);
+                Vector3 np = Game.Clamp(transform.position + new Vector3(push.x, 0, push.z) * 0.22f);
                 if (Free(np, false)) transform.position = np;
                 stumble = 1f;
                 return;
@@ -749,7 +748,7 @@ namespace VITS
         {
             // how well can the body hold itself up
             float legs = Mathf.Min(legFn[0], legFn[1]) * 0.65f + (legFn[0] + legFn[1]) * 0.175f;
-            float want = Mathf.Min(strength, legs) - shock - pain * 0.35f;
+            float want = Mathf.Min(strength, legs) - shock - pain * 0.1f;
             support = Mathf.MoveTowards(support, Mathf.Clamp01(want), dt * (want < support ? 0.45f : 0.12f));
             float kneel = Mathf.InverseLerp(0.72f, 0.45f, support);   // 0 standing .. 1 kneeling
             bool down = support < 0.35f;
@@ -787,7 +786,8 @@ namespace VITS
                 }
             }
             // light wounds only, standing and steady for a while: walk (or hop) away
-            if (!Held && Time.time - heldT > 1.5f && !down && support > 0.85f && Mathf.Max(legFn[0], legFn[1]) > 0.7f && Mathf.Min(legFn[0], legFn[1]) > 0.3f && strength > 0.75f && Time.time - lastHitTime > 0.6f)
+            // legs still work: get up and run (hand on the wound) as soon as the jolt is over - pain drives you away, it doesn't keep you sitting
+            if (!Held && Time.time - heldT > 1.5f && !crawling && Mathf.Max(legFn[0], legFn[1]) > 0.6f && Mathf.Min(legFn[0], legFn[1]) > 0.3f && strength > 0.5f && Time.time - lastHitTime > 0.7f && shock < 0.3f)
                 Recover();
         }
 
@@ -1223,7 +1223,15 @@ namespace VITS
             foreach (var sk in Skin.All)
             {
                 if (sk == null || sk.r == null || !sk.r.enabled || !sk.r.gameObject.activeInHierarchy || sk.tris.Count == 0) continue;
-                if (!sk.r.bounds.IntersectRay(ray, out float bt) || bt > bestT) continue;
+                bool near = false;
+                foreach (var bn in sk.bones)
+                {
+                    if (bn == null) continue;
+                    Vector3 c = bn.position; float tc = Vector3.Dot(c - o, d);
+                    if (tc < -1f || tc > bestT + 1f) continue;
+                    if ((o + d * Mathf.Max(0f, tc) - c).sqrMagnitude < 1f) { near = true; break; }
+                }
+                if (!near) continue;
                 sk.r.BakeMesh(bake, true);
                 bake.GetVertices(bv);
                 var M = sk.r.transform.localToWorldMatrix;

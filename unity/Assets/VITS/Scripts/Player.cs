@@ -25,7 +25,8 @@ namespace VITS
         public Rigidbody held; Vector3 heldLocal; float heldDist; LineRenderer beam;
 
         CharacterController cc;
-        float crouch;
+        float crouch; public Vector3 moveVel;
+        static Vector3 Flat(Vector3 v) { v.y = 0; return v; }
         float yaw, pitch, vy, cool, recoil, flashT, tracerT, bob;
         Transform gun, slide;
         Light flash;
@@ -177,6 +178,16 @@ namespace VITS
             float sp = crouch > 0.5f ? 1.7f : GI.Held(K.Shift) ? 6f : 3.4f;
             if (cc.isGrounded) { vy = -1f; if (GI.Down(K.Space)) vy = 5.2f; } else vy -= 14f * dt;
             cc.Move((mv * sp + Vector3.up * vy) * dt);
+            moveVel = mv * sp;
+            // shoving a body that is down / hurt: push its parts out of the way
+            if (moveVel.sqrMagnitude > 1f)
+                foreach (var m in Mannequin.All)
+                {
+                    if (m == null || m.mode == Mannequin.M.Anim) continue;
+                    foreach (var q in m.Parts)
+                        if (q != null && q.rb != null && !q.rb.isKinematic && Vector3.Distance(Flat(q.transform.position), Flat(transform.position)) < 0.55f && q.transform.position.y - transform.position.y < 1.8f)
+                            q.rb.AddForce(moveVel * 6f * q.rb.mass * dt, ForceMode.Impulse);
+                }
             bob += mv.magnitude * dt * (GI.Held(K.Shift) ? 11f : 7f);
 
             // weapon
