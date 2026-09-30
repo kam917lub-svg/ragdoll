@@ -145,7 +145,7 @@ namespace VITS
 
                 var rb = go.AddComponent<Rigidbody>();
                 rb.mass = d.mass; rb.isKinematic = true;
-                rb.interpolation = RigidbodyInterpolation.Interpolate;
+                rb.interpolation = RigidbodyInterpolation.None;
                 rb.collisionDetectionMode = CollisionDetectionMode.ContinuousSpeculative;
                 rb.solverIterations = 12; rb.solverVelocityIterations = 4;
                 rb.linearDamping = 0.05f; rb.angularDamping = 0.8f;
@@ -156,34 +156,32 @@ namespace VITS
                     case 0:
                     {
                         var c = go.AddComponent<CapsuleCollider>(); c.direction = 1; c.center = new Vector3(0, -d.len / 2, 0); c.height = d.len; c.radius = d.rad;
-                        Mats.Vis(PrimitiveType.Capsule, t, new Vector3(0, -d.len / 2, 0), new Vector3(d.rad * 2, d.len / 2, d.rad * 2), skinMat);
+                        Mats.Vis(PrimitiveType.Capsule, t, new Vector3(0, -d.len / 2, 0), new Vector3(d.rad * 2, d.len / 2 + d.rad * 0.6f, d.rad * 2), skinMat);
                         if (d.k.StartsWith("shin"))
                         {
                             var f = go.AddComponent<BoxCollider>(); f.center = new Vector3(0, -d.len + 0.04f, 0.05f); f.size = new Vector3(0.1f, 0.08f, 0.24f);
-                            Mats.Vis(PrimitiveType.Sphere, t, new Vector3(0, -d.len + 0.04f, 0.05f), new Vector3(0.11f, 0.08f, 0.26f), skinMat);
+                            Mats.Vis(PrimitiveType.Capsule, t, new Vector3(0, -d.len + 0.035f, 0.05f), new Vector3(0.1f, 0.12f, 0.08f), skinMat).transform.localRotation = Quaternion.Euler(90, 0, 0);
                         }
                         break;
                     }
                     case 1:
                     {
                         var c = go.AddComponent<CapsuleCollider>(); c.direction = 1; c.center = new Vector3(0, 0.22f, 0); c.height = 0.46f; c.radius = 0.15f;
-                        Mats.Vis(PrimitiveType.Capsule, t, new Vector3(0, 0.23f, 0), new Vector3(0.38f, 0.24f, 0.24f), skinMat);
-                        Mats.Vis(PrimitiveType.Capsule, t, new Vector3(0, 0.38f, 0), new Vector3(0.16f, 0.24f, 0.16f), skinMat).transform.localRotation = Quaternion.Euler(0, 0, 90);
+                        Mats.Vis(PrimitiveType.Capsule, t, new Vector3(0, 0.2f, 0), new Vector3(0.36f, 0.27f, 0.22f), skinMat);
                         Mats.Vis(PrimitiveType.Cube, t, new Vector3(-0.08f, 0.3f, 0.12f), new Vector3(0.08f, 0.028f, 0.012f), tagMat, false);
                         break;
                     }
                     case 2:
                     {
                         var c = go.AddComponent<SphereCollider>(); c.center = new Vector3(0, 0.15f, 0); c.radius = 0.12f;
-                        Mats.Vis(PrimitiveType.Capsule, t, new Vector3(0, 0.03f, 0), new Vector3(0.1f, 0.06f, 0.1f), skinMat);
-                        Mats.Vis(PrimitiveType.Sphere, t, new Vector3(0, 0.16f, 0.005f), new Vector3(0.21f, 0.27f, 0.23f), skinMat);
+                        Mats.Vis(PrimitiveType.Capsule, t, new Vector3(0, 0.13f, 0.005f), new Vector3(0.2f, 0.15f, 0.22f), skinMat);
                         Mats.Vis(PrimitiveType.Cube, t, new Vector3(0, 0.185f, 0.095f), new Vector3(0.17f, 0.032f, 0.05f), visorMat, false);
                         break;
                     }
                     default:
                     {
                         var c = go.AddComponent<BoxCollider>(); c.center = Vector3.zero; c.size = new Vector3(0.32f, 0.22f, 0.22f);
-                        Mats.Vis(PrimitiveType.Sphere, t, Vector3.zero, new Vector3(0.34f, 0.26f, 0.24f), skinMat);
+                        Mats.Vis(PrimitiveType.Capsule, t, new Vector3(0, 0.02f, 0), new Vector3(0.3f, 0.14f, 0.2f), skinMat);
                         break;
                     }
                 }
@@ -242,12 +240,12 @@ namespace VITS
                     break;
                 case S.Walk:
                     status = hurt > 0.3f ? "HURT / LIMPING" : "WANDERING";
-                    want = hurt > 0.3f ? 0.6f : 1.15f;
+                    want = hurt > 0.3f ? 0.45f : 0.85f;
                     if (stateT <= 0 || Flat(target - pos).magnitude < 0.5f) { state = S.Idle; stateT = Random.Range(1.5f, 4f); }
                     break;
                 case S.Flee:
                     status = "FLEEING";
-                    want = hurt > 0.6f ? 1.4f : 3.2f;
+                    want = hurt > 0.6f ? 0.9f : 2.2f;
                     if (Game.I != null && Game.I.player != null)
                     {
                         Vector3 away = Flat(pos - Game.I.player.transform.position);
@@ -261,7 +259,7 @@ namespace VITS
             if (speed > 0.01f && dir.sqrMagnitude > 0.01f)
             {
                 var want2 = Quaternion.LookRotation(dir.normalized);
-                transform.rotation = Quaternion.RotateTowards(transform.rotation, want2, 200f * dt);
+                transform.rotation = Quaternion.RotateTowards(transform.rotation, want2, 120f * dt);
                 // obstacle ahead: choose another destination
                 if (Physics.SphereCast(pos + Vector3.up * 1.2f, 0.25f, transform.forward, out RaycastHit h, 0.9f, ~0, QueryTriggerInteraction.Ignore))
                 {
@@ -270,7 +268,7 @@ namespace VITS
                 }
                 pos += transform.forward * speed * dt;
                 transform.position = Game.Clamp(pos);
-                phase += dt * (0.6f + speed * 0.75f);
+                phase += dt * (0.35f + speed * 0.65f);
             }
             vel = (transform.position - lastPos) / dt; lastPos = transform.position;
         }
@@ -329,6 +327,7 @@ namespace VITS
             {
                 if (p.severed) continue;
                 p.rb.isKinematic = false;
+                p.rb.interpolation = RigidbodyInterpolation.Interpolate;
                 p.rb.linearVelocity = vel;
             }
             // legs give way: knees forward, torso drops
@@ -363,10 +362,10 @@ namespace VITS
             bool exits = col.Raycast(new Ray(pt + dir * 0.6f, -dir), out RaycastHit eh, 0.6f);
             if (exits) { exitP = eh.point; exitN = eh.normal; }
 
-            B.Spray(pt + nrm * 0.01f, (-dir + nrm) * 0.5f, 7, 1.6f, 0.4f, 0.05f, 0.3f);
-            if (exits) B.Spray(exitP + exitN * 0.01f, dir, p.isHead ? 45 : 22, p.isHead ? 5.5f : 4f, 0.45f, 0.1f, 0.7f);
-            B.BodyDecal(p.transform, pt, nrm, 0.05f, 1, Vector3.down);
-            if (exits) B.BodyDecal(p.transform, exitP, exitN, 0.08f, 1, Vector3.down);
+            B.Spray(pt + nrm * 0.01f, (-dir + nrm) * 0.5f, 4, 1.2f, 0.35f, 0.03f, 0.15f);
+            if (exits) B.Spray(exitP + exitN * 0.01f, dir, p.isHead ? 28 : 12, p.isHead ? 4.5f : 3f, 0.35f, 0.05f, 0.4f);
+            B.BodyDecal(p.transform, pt, nrm, 0.022f, 0, Vector3.down);
+            if (exits) B.BodyDecal(p.transform, exitP, exitN, 0.035f, 0, Vector3.down);
 
             AddWound(p.transform, pt, nrm, p.isHead ? 6f : p.isTorso ? 5f : 3.5f, false, 0);
             if (exits) AddWound(p.transform, exitP, exitN, p.isHead ? 14f : p.isTorso ? 9f : 6f, !p.isHead && Random.value < 0.35f, 0);
@@ -454,7 +453,7 @@ namespace VITS
 
             var pieceCols = p.GetComponentsInChildren<Collider>();
             foreach (var pc in par.GetComponents<Collider>()) foreach (var c in pieceCols) Physics.IgnoreCollision(pc, c, true);
-            foreach (var c in p.GetComponentsInChildren<Part>()) { c.severed = true; c.rb.isKinematic = false; c.rb.linearVelocity = baseVel; }
+            foreach (var c in p.GetComponentsInChildren<Part>()) { c.severed = true; c.rb.isKinematic = false; c.rb.interpolation = RigidbodyInterpolation.Interpolate; c.rb.linearVelocity = baseVel; }
             if (p.joint != null) DestroyImmediate(p.joint);
             p.transform.SetParent(null, true);
             p.rb.linearVelocity = baseVel + dir * 2.2f + Vector3.up * 1.2f;

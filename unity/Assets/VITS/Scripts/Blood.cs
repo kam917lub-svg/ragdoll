@@ -141,7 +141,7 @@ namespace VITS
             }
         }
 
-        public void Hole(Vector3 p, Vector3 n) => AddDecal(3, p, n, RandomTangent(n), 0.04f, 0.04f);
+        public void Hole(Vector3 p, Vector3 n) => AddDecal(3, p, n, RandomTangent(n), 0.018f, 0.018f);
 
         // ---------- simulation
         void Update()
@@ -177,7 +177,7 @@ namespace VITS
             Vector3 vt = v - vnS * n;
             float sp = v.magnitude;
             float r = Mathf.Pow(vol * 1e-6f * 0.75f / Mathf.PI, 1f / 3f);          // drop radius (m)
-            float size = Mathf.Clamp(r * 2f * (2.4f + sp * 0.35f), 0.008f, 0.13f);   // stain grows with impact speed
+            float size = Mathf.Clamp(r * 2f * (1.8f + sp * 0.2f), 0.006f, 0.07f);   // stain grows with impact speed
             float el = 1f + Mathf.Clamp(vt.magnitude / (vn + 0.6f), 0f, 2.2f);       // oblique impact -> ellipse
             Vector3 up = vt.sqrMagnitude > 1e-4f ? vt.normalized : RandomTangent(n);
 

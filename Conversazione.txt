@@ -122,3 +122,7 @@ Creato progetto Unity in unity/ (URP, tutto generato da codice, Play e basta):
 - Level.cs: Vertical Impact Testsite (griglia, piattaforme, scale, bordi arancio, scritte).
 - Game.cs: avvio automatico, tempo [ ], pausa, N, T, HUD e monitor medico.
 Non compilato qui (niente Unity/dotnet nel container): in attesa degli errori Console.
+
+--- PROMPT 7 ---
+Utente: manichini a bitorzoli, camminano velocissimi, spari/buchi enormi.
+Fix: un solo pezzo liscio per parte (capsule), velocita umane (0.85 cammino, 2.2 fuga), niente interpolazione da kinematic, fori 9mm piccoli (2-3.5 cm), meno spruzzi, macchie piu piccole, meno fughe di massa.

@@ -66,7 +66,7 @@ namespace VITS
         public void Gunshot(Vector3 from)
         {
             foreach (var m in Mannequin.All)
-                if (!m.dead && !m.ragdoll && (m.transform.position - from).magnitude < 22f && Random.value < 0.8f) m.Flee();
+                if (!m.dead && !m.ragdoll && (m.transform.position - from).magnitude < 15f && Random.value < 0.5f) m.Flee();
         }
 
         void ApplyTime()
