@@ -90,19 +90,50 @@ namespace VITS
         float bleed, born; Rigidbody rb;
 
         public static void Clear() { all.Clear(); }
+
+        // lumpy chunk meshes: a sphere pushed in and out by noise, then flattened - made once, reused
+        static Mesh[] chunks;
+        static Mesh ChunkMesh(int i)
+        {
+            if (chunks == null)
+            {
+                chunks = new Mesh[8];
+                var tmp = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+                var baseMesh = tmp.GetComponent<MeshFilter>().sharedMesh; Object.Destroy(tmp);
+                var bv = baseMesh.vertices;
+                for (int c = 0; c < chunks.Length; c++)
+                {
+                    var v = new Vector3[bv.Length];
+                    float sx = Random.Range(0f, 100f), sz = Random.Range(0f, 100f);
+                    for (int k = 0; k < bv.Length; k++)
+                    {
+                        var d = bv[k];
+                        // same position -> same displacement, so the seams of the sphere stay closed
+                        float n = Mathf.PerlinNoise(d.x * 3.1f + sx, d.y * 3.1f + d.z * 2.3f + sz);
+                        float n2 = Mathf.PerlinNoise(d.z * 7f + sz, d.x * 7f + d.y * 5f + sx);
+                        v[k] = d * (0.6f + 0.7f * n + 0.2f * n2);
+                        if (d.y > 0.25f) v[k].y = 0.25f * (0.6f + 0.7f * n);   // one torn flat face
+                    }
+                    var m = new Mesh { name = "chunk" + c };
+                    m.vertices = v; m.triangles = baseMesh.triangles; m.RecalculateNormals(); m.RecalculateBounds();
+                    chunks[c] = m;
+                }
+            }
+            return chunks[i % chunks.Length];
+        }
         public static void ResetMats() { skin = null; }
 
         public static void Spawn(Vector3 p, Vector3 v, float s)
         {
             if (skin == null) { skin = Mats.Lit(Mannequin.SkinColor, 0.3f); meat = Mats.Lit(new Color(0.5f, 0.04f, 0.06f), 0.6f); }
-            var g = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-            g.name = "gib"; g.layer = 2; // Ignore Raycast: bullets pass through chunks
+            // a torn, irregular lump of tissue (not a ball): mostly raw meat, sometimes with skin on one side
+            var g = new GameObject("gib") { layer = 2 };   // Ignore Raycast: bullets pass through chunks
+            g.AddComponent<MeshFilter>().sharedMesh = ChunkMesh(Random.Range(0, 8));
+            var mr = g.AddComponent<MeshRenderer>(); mr.sharedMaterial = Random.value < 0.25f ? skin : meat;
             g.transform.position = p;
             g.transform.rotation = Random.rotation;
-            g.transform.localScale = new Vector3(s * Random.Range(0.8f, 1.4f), s * Random.Range(0.5f, 0.9f), s * Random.Range(0.8f, 1.2f));
-            g.GetComponent<Renderer>().sharedMaterial = Random.value < 0.5f ? skin : meat;
-            var inner = Mats.Vis(PrimitiveType.Sphere, g.transform, new Vector3(0, 0.25f, 0.2f), new Vector3(0.8f, 0.8f, 0.8f), meat);
-            inner.layer = 2;
+            g.transform.localScale = new Vector3(s * Random.Range(0.9f, 1.5f), s * Random.Range(0.45f, 0.8f), s * Random.Range(0.8f, 1.3f)) * 2f;
+            g.AddComponent<BoxCollider>().size = new Vector3(0.8f, 0.7f, 0.8f);
             var rb = g.AddComponent<Rigidbody>();
             rb.mass = Mathf.Max(0.03f, s * s * s * 1000f);
             rb.linearVelocity = v; rb.angularVelocity = Random.insideUnitSphere * 12f;
@@ -564,7 +595,11 @@ namespace VITS
                     if (provoked) status = "PANIC / SPRINTING TO COVER";
                     float td = Flat(target - pos).magnitude;
                     if (provoked && !Hopping && speed > 2.5f && td < 1.8f && td > 0.9f && Time.time > diveT) { diveT = Time.time + 15f; Dive(); return; }
-                    if (td < 0.6f) { state = S.Cover; stateT = Random.Range(10f, 20f); }
+                    if (td < 0.6f)
+                    {
+                        state = S.Cover; stateT = Random.Range(10f, 20f);
+                        coverFace = Game.I != null && Game.I.player != null ? Flat(transform.position - Game.I.player.transform.position) : transform.forward;
+                    }
                     if (stateT <= 0) NewGoal(S.Walk, Game.RandomPoint(), 10f);
                     break;
                 case S.Cover:
@@ -628,7 +663,8 @@ namespace VITS
 
         // leg swing amplitude grows with speed; one gait cycle covers two steps of real leg length
         float Amp() => Mathf.Lerp(12f, state == S.Flee ? 38f : 26f, Mathf.Clamp01(speed / 2.2f)) * Mathf.Clamp01(speed * 4f);
-        float Stride() => Scale * Mathf.Max(0.3f, 4f * 0.9f * Mathf.Sin(Mathf.Max(8f, Amp()) * Mathf.Deg2Rad));
+        // one gait cycle = two steps; each step spans 2 * leg * sin(swing): the feet stay planted instead of skating
+        float Stride() => Scale * Mathf.Max(0.3f, 4f * 0.9f * Mathf.Sin(Mathf.Max(8f, Amp() * gAmp) * Mathf.Deg2Rad));
 
         // pushed by the player, other people, flying objects; slipping on blood
         float bumpT, stumble;
@@ -712,12 +748,8 @@ namespace VITS
                 peekT -= dt;
                 // scared people stay down; they only risk a short look now and then (less the more they hurt)
                 if (peekT <= 0) { peekT = peek > 0.5f ? Random.Range(4f, 9f) * (1f + hurt) : Random.Range(0.8f, 1.5f); peek = peek > 0.5f || hurt > 0.7f ? 0f : 1f; }
-                // back to the wall side, facing away from the shooter
-                if (Game.I != null && Game.I.player != null)
-                {
-                    Vector3 away = transform.position - Game.I.player.transform.position; away.y = 0;
-                    if (away.sqrMagnitude > 0.01f) transform.rotation = Quaternion.RotateTowards(transform.rotation, Quaternion.LookRotation(away), dt * 120f);
-                }
+                // settle once, back to the wall, facing away from where the shots came from (no turning to follow you)
+                if (coverFace.sqrMagnitude > 0.01f) transform.rotation = Quaternion.RotateTowards(transform.rotation, Quaternion.LookRotation(coverFace), dt * 90f);
             }
             else peek = 0f;
             float crouch = cover * (1f - peek * 0.55f);
@@ -993,7 +1025,7 @@ namespace VITS
             writheT = 0;
         }
 
-        float diveT, lastVy;
+        float diveT, lastVy; Vector3 coverFace;
         // hitting the ground hard: ~9 m/s (4 m) breaks legs, ~14 m/s (10 m) and up is usually fatal
         void Landed(float speed)
         {
@@ -1316,7 +1348,7 @@ namespace VITS
                 Vector3 src = exits ? outW : inW;
                 B.Spray(src, Vector3.down + dir * 0.3f, (int)(18 * cal), 0.8f, 0.5f, 0.2f, 0.8f);
             }
-            if (exits && (p.isHead || Random.value < 0.35f)) Gib.Spawn(outW, dir * Random.Range(1.5f, 3.5f) + Random.insideUnitSphere + Vector3.up * 0.8f, Random.Range(0.01f, 0.02f));
+            if (exits && (Player.AWP || (p.isHead && Random.value < 0.5f) || Random.value < 0.15f)) Gib.Spawn(outW, dir * Random.Range(1.5f, 3.5f) + Random.insideUnitSphere + Vector3.up * 0.8f, Random.Range(0.01f, 0.02f));
 
             AddWound(p, inL, p.Normal(inL), (p.isHead ? 3f : p.isTorso ? 2.5f : 1.5f) * cal, false, 0, "");
             if (exits) AddWound(p, outL, p.Normal(outL), (p.isHead ? 7f : p.isTorso ? 6f : 4f) * cal, false, 0, "");

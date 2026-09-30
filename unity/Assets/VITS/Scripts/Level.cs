@@ -200,10 +200,11 @@ namespace VITS
             float D = PitDepth, cx = r.center.x, cz = r.center.y, w = r.width, l = r.height;
             var dark = Mats.Lit(new Color(0.12f, 0.12f, 0.12f), 0.1f);
             Box(new Vector3(cx, -D - 0.5f, cz), new Vector3(w + 1f, 1f, l + 1f), dark, false);                                    // bottom
-            Box(new Vector3(r.xMin - 0.25f, -D / 2f - 0.5f, cz), new Vector3(0.5f, D + 1f, l + 1f), dark, false);                  // walls
-            Box(new Vector3(r.xMax + 0.25f, -D / 2f - 0.5f, cz), new Vector3(0.5f, D + 1f, l + 1f), dark, false);
-            Box(new Vector3(cx, -D / 2f - 0.5f, r.yMin - 0.25f), new Vector3(w, D + 1f, 0.5f), dark, false);
-            Box(new Vector3(cx, -D / 2f - 0.5f, r.yMax + 0.25f), new Vector3(w, D + 1f, 0.5f), dark, false);
+            // walls stop 2 cm under the floor surface: no two faces at the same height (that flickered)
+            Box(new Vector3(r.xMin - 0.25f, -D / 2f - 0.51f, cz), new Vector3(0.5f, D + 0.98f, l + 1f), dark, false);
+            Box(new Vector3(r.xMax + 0.25f, -D / 2f - 0.51f, cz), new Vector3(0.5f, D + 0.98f, l + 1f), dark, false);
+            Box(new Vector3(cx, -D / 2f - 0.51f, r.yMin - 0.25f), new Vector3(w, D + 0.98f, 0.5f), dark, false);
+            Box(new Vector3(cx, -D / 2f - 0.51f, r.yMax + 0.25f), new Vector3(w, D + 0.98f, 0.5f), dark, false);
             // hazard rim
             for (int s = 0; s < 4; s++)
             {
