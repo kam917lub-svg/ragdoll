@@ -35,7 +35,7 @@ namespace VITS
         //  pistol: sights at y 0.057 on the slide;  AK: rear leaf + hooded front post at y 0.09 in the AK model (model at x 0.02);
         //  AWP: aimed through the scope, the gun is only seen for a moment while the bolt cycles
         static readonly Vector3[] ADS = { new Vector3(0f, -0.057f, 0.30f), new Vector3(-0.02f, -0.09f, 0.20f), new Vector3(-0.02f, -0.14f, 0.20f), new Vector3(0.12f, -0.14f, 0.34f) };
-        public bool Scoped => AWP && GI.AimHeld() && reloadT <= 0 && boltT <= 0.9f && locked && !menu;
+        public bool Scoped => AWP && GI.AimHeld() && reloadT <= 0 && locked && !menu;   // stays in the scope while the bolt cycles
         float zoom = 8f, boltT;              // AWP magnification (4x / 8x / 12x, mouse wheel) and bolt cycling
         public bool menu;
         Transform pistolModel, akModel, awpModel, bolt;
