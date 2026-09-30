@@ -393,3 +393,8 @@ Fatto: cielo/nebbia bianco caldo, piattaforme/torri/muri bianchi, bordi e tacche
 Utente: cambiando modello dal menu resta in una schermata grigia ad aspettare.
 Causa: la mesh del corpo (surface nets 1,2 cm) veniva ricalcolata sul thread principale al cambio.
 Fatto: BodyMesh.Compute(model) e thread-safe (buffer locale, SdfM per modello); all avvio, dopo il primo modello, l altro viene calcolato in background (Task.Run) e tenuto in cache con la sua Mesh (DontUnloadUnusedAsset): il cambio modello usa la cache ed e immediato.
+
+--- PROMPT 41 ---
+Utente: per cambiare modello ha dovuto chiudere e riaprire; sangue troppo trasparente.
+Causa: Boot (RuntimeInitializeOnLoadMethod) gira solo al primo avvio; dopo RESET/cambio modello la scena ricaricata restava senza Game -> schermata grigia.
+Fatto: SceneManager.sceneLoaded ricrea il Game a ogni caricamento (RESET, Backspace, MODEL funzionano subito). Shader decal: alpha = saturate(t.a*2,2-0,2) -> macchie e pozze piene/opache con bordo netto.

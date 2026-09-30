@@ -36,7 +36,7 @@ Shader "VITS/Decal"
                 fixed4 t = tex2D(_MainTex, i.uv);
                 fixed4 c = _Color;
                 c.rgb *= t.rgb;
-                c.a *= t.a;
+                c.a *= saturate(t.a * 2.2 - 0.2);   // solid inside, crisp wet edge (blood is opaque)
                 return c;
             }
             ENDCG

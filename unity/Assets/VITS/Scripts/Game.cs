@@ -20,6 +20,12 @@ namespace VITS
         static void Boot()
         {
             if (FindAnyObjectByType<Game>() == null) new GameObject("VITS Game").AddComponent<Game>();
+            // RESET / model change reload the scene: the site must be rebuilt every time, not only at the first start
+            SceneManager.sceneLoaded -= OnSceneLoaded; SceneManager.sceneLoaded += OnSceneLoaded;
+        }
+        static void OnSceneLoaded(Scene s, LoadSceneMode m)
+        {
+            if (FindAnyObjectByType<Game>() == null) new GameObject("VITS Game").AddComponent<Game>();
         }
 
         void Awake()
