@@ -9,7 +9,8 @@ namespace VITS
     {
         public static Game I;
         public static float BulletImpulse => Player.AK ? 6f : 3.5f; // momentum of a 9 mm / 7.62x39 round, rounded up
-        public static bool Brains = true; // Esc menu: when off, Carls stand still until shot at // N·s pushed into a ragdoll part by a 9 mm round (gamey, not realistic)
+        public static bool Brains = true;
+        public static string LastShot = ""; // Esc menu: when off, Carls stand still until shot at // N·s pushed into a ragdoll part by a 9 mm round (gamey, not realistic)
         public Player player;
         static readonly float[] TS = { 0.25f, 0.5f, 1f, 2f };
         int tsi = 2; bool paused;
@@ -204,6 +205,7 @@ namespace VITS
                 GUI.matrix = Matrix4x4.identity;
             }
             GUI.color = Color.white;
+            Label(new Rect(0, cy + 40 * s, W, 20 * s), LastShot.Length > 0 ? "LAST SHOT: " + LastShot : "", (int)(12 * s), TextAnchor.UpperCenter, 0.6f);
             Label(new Rect(0, cy + 22 * s, W, 20 * s), player.held != null ? "HOLDING" : player.aimInfo, (int)(12 * s), TextAnchor.UpperCenter, 0.75f);
 
             if (LastError.Length > 0) { st.normal.textColor = new Color(1f, 0.3f, 0.3f); st.fontSize = (int)(13 * s); st.alignment = TextAnchor.UpperLeft; GUI.Label(new Rect(20 * s, H - 62 * s, W - 40 * s, 24 * s), "ERROR: " + LastError, st); }

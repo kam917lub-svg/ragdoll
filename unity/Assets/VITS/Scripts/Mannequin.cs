@@ -520,12 +520,23 @@ namespace VITS
                 string arm = clutch.key.EndsWith("R") ? "L" : "R";
                 if (!parts["farm" + arm].severed && !parts["uarm" + arm].severed)
                 {
-                    float side = arm == "R" ? -1 : 1;
-                    float up = clutch.isHead ? -140f : clutch.key == "chest" ? -60f : clutch.isLeg ? -15f : -45f;
-                    Set("uarm" + arm, Quaternion.Euler(up, 0, side * 25), k);
-                    Set("farm" + arm, Quaternion.Euler(-95, 0, 0), k);
+                    ClutchTarget(arm, out float ux, out float uy, out float uz, out float fx);
+                    Set("uarm" + arm, Quaternion.Euler(ux, uy, uz), k);
+                    Set("farm" + arm, Quaternion.Euler(fx, 0, 0), k);
                 }
             }
+        }
+
+        // arm pose that puts the hand on the wound: raise a little, rotate the shoulder inward, bend the elbow
+        void ClutchTarget(string arm, out float ux, out float uy, out float uz, out float fx)
+        {
+            float s = arm == "R" ? -1f : 1f;   // inward rotation sign
+            var c = clutch;
+            if (c.isHead) { ux = -95f; uy = 35f * s; uz = 10f * s; fx = -125f; }
+            else if (c.key == "chest") { ux = -30f; uy = 65f * s; uz = 8f * s; fx = -105f; }
+            else if (c.key == "pelvis") { ux = -10f; uy = 60f * s; uz = 6f * s; fx = -80f; }
+            else if (c.isLeg) { ux = -12f; uy = 20f * s; uz = 4f * s; fx = -25f; }
+            else { ux = -25f; uy = 60f * s; uz = 6f * s; fx = -95f; } // other arm
         }
 
         // picked up with the middle mouse button
@@ -626,14 +637,12 @@ namespace VITS
                 string arm = clutch.key.EndsWith("R") ? "L" : "R";
                 if (!parts["farm" + arm].severed && !parts["uarm" + arm].severed)
                 {
-                    float side = arm == "R" ? -1 : 1;
-                    // hand toward the wound
-                    float up = clutch.isHead ? -150f : clutch.key == "chest" ? -75f : clutch.key == "pelvis" || clutch.isLeg ? -25f : -60f;
-                    T("uarm" + arm, up, side * 30f); T("farm" + arm, clutch.isHead ? -120f : -100f);
+                    ClutchTarget(arm, out float ux, out float uy, out float uz, out float fx);
+                    Target(parts["uarm" + arm], Quaternion.Euler(ux, uy, uz)); T("farm" + arm, fx);
                 }
             }
             // light wounds only, standing and steady for a while: walk (or hop) away
-            if (!down && support > 0.85f && Mathf.Max(legFn[0], legFn[1]) > 0.7f && Mathf.Min(legFn[0], legFn[1]) > 0.3f && strength > 0.8f && Time.time - lastHitTime > 4f)
+            if (!down && support > 0.85f && Mathf.Max(legFn[0], legFn[1]) > 0.7f && Mathf.Min(legFn[0], legFn[1]) > 0.3f && strength > 0.75f && Time.time - lastHitTime > 2f)
                 Recover();
         }
 
@@ -875,7 +884,8 @@ namespace VITS
             for (int i = 0; i < 2; i++) legFn[i] = Mathf.Max(0, legFn[i]);
 
             if (mode == M.Anim) Flee();
-            if (!p.rb.isKinematic) p.rb.AddForceAtPosition(dir * Game.BulletImpulse, inW, ForceMode.Impulse);
+            if (!p.rb.isKinematic) p.rb.AddForceAtPosition(dir * Game.BulletImpulse * (dead ? 2.5f : 1f), inW, ForceMode.Impulse);
+            Game.LastShot = displayName + " · " + p.key.ToUpper() + (dead ? " (DEAD)" : "");
             while (injuries.Count > 12) injuries.RemoveAt(0);
         }
 

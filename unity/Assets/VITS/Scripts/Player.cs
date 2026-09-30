@@ -144,6 +144,7 @@ namespace VITS
                 aimInfo = lp.owner.displayName + " · " + lp.key.ToUpper() + " · " + ld.ToString("0.0") + " M";
             }
             hitMarkT -= dt;
+            if (impact != null) { impactT -= dt; if (impactT <= 0) impact.gameObject.SetActive(false); }
 
             // middle mouse: grab a body (or a piece) and drag it around; wheel = nearer / farther
             if (locked && GI.GrabDown())
@@ -194,6 +195,17 @@ namespace VITS
             flash.transform.localPosition = ak ? new Vector3(0, 0.04f, 0.64f) : new Vector3(0, 0.03f, 0.17f);
         }
 
+        Transform impact; float impactT;
+        // a small bright dot exactly where the bullet landed (for a moment)
+        void ShowImpact(Vector3 p)
+        {
+            if (impact == null)
+            {
+                impact = Mats.Vis(PrimitiveType.Sphere, null, Vector3.zero, Vector3.one * 0.02f, Mats.Decal(Texture2D.whiteTexture, new Color(1f, 0.95f, 0.6f, 1f), 3100), false).transform;
+            }
+            impact.position = p; impact.gameObject.SetActive(true); impactT = 0.25f;
+        }
+
         void Shoot()
         {
             if (cool > 0 || reloadT > 0) return;
@@ -213,10 +225,11 @@ namespace VITS
                     var part = h.collider.GetComponent<Part>();
                     if (part != null) { part.owner.Hit(part, h.collider, h.point, dir, h.normal); hitMarkT = 0.2f; }
                     else if (h.rigidbody != null) h.rigidbody.AddForceAtPosition(dir * Game.BulletImpulse, h.point, ForceMode.Impulse);
-                    else Blood.I.Hole(h.point, h.normal);
+                    else { Blood.I.Hole(h.point, h.normal); Game.LastShot = h.collider.name.ToUpper(); }
                 }
             }
             else if (Mannequin.Pick(ray.origin, dir, 200f, out Part sp2, out float st2)) { end = ray.origin + dir * st2; sp2.owner.Hit(sp2, null, end, dir, -dir); hitMarkT = 0.2f; }
+            ShowImpact(end);
             tracer.SetPosition(0, flash.transform.position);
             tracer.SetPosition(1, end);
             tracerT = 0.03f;

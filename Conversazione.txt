@@ -232,3 +232,7 @@ Fatto:
 - Fuga: corrono LONTANO dal tiratore (riparo piu' lontano da lui o 14 m nella direzione opposta);
   con cervello acceso scappano tutti entro 25 m; spento reagisce solo chi viene colpito o sfiorato (2 m).
 - Niente piu' segni scuri: ferita = puntino rosso 0,8-2 cm, colpo su muro/pavimento = scheggia grigio chiaro 0,8 cm.
+
+--- PROMPT 15 ---
+Utente: posa strana dopo il colpo (braccio alzato verso la faccia), dovrebbero premere la ferita e andarsene; i morti non si colpiscono.
+Fatto: mano sulla ferita (spalla ruotata verso l interno + gomito piegato; petto/pancia/gamba/testa), ferite leggere ripartono dopo 2 s tenendosi la ferita; punto luminoso nel punto esatto di impatto + "LAST SHOT: ..." nell HUD (dice se ha colpito un Carl morto o cosa); spinta x2,5 sui morti.
