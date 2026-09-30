@@ -164,6 +164,8 @@ namespace VITS
         enum S { Idle, Walk, Flee, Cover }
         S state = S.Idle;
         public float pain; int woundCount;
+        // walking personality, different for every Kekko
+        float gAmp = 1f, gArm = 1f, gLean, gSeed;   // set in Build (Random is not allowed in field initializers)
         float crawlRestT, deadTime;
         float turnRate, headYaw, headYawT, lookT, peekT, peek, stateT, phase, speed, heart, writheT, hurt, crawlT, detourT, stuckT, bestDist, foldT, groundY, groundT, deathT, shock;
         int torsoHits, headHits, neckHits; bool headMashed; float waistDmg;   // tissue shot away around the waist
@@ -244,6 +246,7 @@ namespace VITS
         void Build()
         {
             transform.localScale = Vector3.one * Scale;
+            gAmp = Random.Range(0.85f, 1.15f); gArm = Random.Range(0.7f, 1.3f); gLean = Random.Range(-3f, 5f); gSeed = Random.Range(0f, 10f);
             for (int n = 0; n < DEFS.Length; n++)
             {
                 var d = DEFS[n];
@@ -699,7 +702,7 @@ namespace VITS
 
         void Pose(float dt)
         {
-            float k = 1f - Mathf.Exp(-dt * 10f);
+            float k = 1f - Mathf.Exp(-dt * 7f);   // softer blending: no snapping between poses
             // look around: glance every few seconds; in cover, peek out toward the shooter
             lookT -= dt;
             if (lookT <= 0) { lookT = Random.Range(1.5f, 4f); headYawT = state == S.Walk ? Random.Range(-35f, 35f) : Random.Range(-70f, 70f); }
@@ -725,8 +728,9 @@ namespace VITS
             }
             headYaw = Mathf.MoveTowards(headYaw, headYawT, dt * 120f);
 
-            float a = Amp();
+            float a = Amp() * gAmp;
             float s = Mathf.Sin(phase * Mathf.PI * 2f);
+            float breath = Mathf.Sin(Time.time * 1.6f + gSeed) * 1.5f;   // chest rises and falls
             float kneeL = Mathf.Max(0, Mathf.Sin(phase * Mathf.PI * 2f - 1.2f)) * a * 1.5f;
             float kneeR = Mathf.Max(0, Mathf.Sin(phase * Mathf.PI * 2f + Mathf.PI - 1.2f)) * a * 1.5f;
             float thL = -s * a, thR = s * a;
@@ -751,8 +755,10 @@ namespace VITS
             Set("shinL", Quaternion.Euler(kneeL + crouch * 125f, 0, 0), k); Set("shinR", Quaternion.Euler(kneeR + crouch * 125f, 0, 0), k);
             float armOut = Hopping ? 35f : 0f;
             Set("uarmL", Quaternion.Euler(s * a * 0.7f - crouch * 40f, 0, -4 - crouch * 4f - armOut), k); Set("uarmR", Quaternion.Euler(-s * a * 0.7f - crouch * 40f, 0, 4 + crouch * 4f + armOut), k);
-            Set("farmL", Quaternion.Euler(-10 - a * 0.3f - crouch * 35f, 0, 0), k); Set("farmR", Quaternion.Euler(-10 - a * 0.3f - crouch * 35f, 0, 0), k);
-            float lean = hurt * 14f + (state == S.Flee ? (provoked ? 16f : 8f) : 0f) + crouch * 30f + (Hopping ? 10f : 0f);   // running for cover: low and hunched
+            // elbows bend more as the arm swings forward (lagging a little behind the shoulder), like a relaxed arm
+            float elL = Mathf.Max(0f, Mathf.Sin(phase * Mathf.PI * 2f - 0.5f)), elR = Mathf.Max(0f, -Mathf.Sin(phase * Mathf.PI * 2f - 0.5f));
+            Set("farmL", Quaternion.Euler(-8 - a * (0.15f + 0.5f * elL) * gArm - crouch * 35f, 0, 0), k); Set("farmR", Quaternion.Euler(-8 - a * (0.15f + 0.5f * elR) * gArm - crouch * 35f, 0, 0), k);
+            float lean = gLean + breath + hurt * 14f + (state == S.Flee ? (provoked ? 16f : 8f) : 0f) + crouch * 30f + (Hopping ? 10f : 0f);   // running for cover: low and hunched
             float sway = s * a * 0.12f;
             lean += stumble * 20f;
             Set("pelvis", Quaternion.Euler(0, -s * a * 0.15f, sway * 0.5f), k);
@@ -1801,6 +1807,30 @@ namespace VITS
             Blood.I.Spray(w, dir + Vector3.up * 0.3f, 300, 4.5f, 0.9f, 0.3f, 2.2f);
             Blood.I.Spray(w, Vector3.down, 200, 1.5f, 0.8f, 0.8f, 3f);
             Die("CUT IN HALF");
+        }
+
+        // caught in the meat grinder: dies at once, gets torn apart piece by piece, bits vanish into the rollers
+        float grindFx;
+        public void Grind(Part p, float t)
+        {
+            if (!dead) { injuries.Add("CAUGHT IN THE GRINDER"); Die("GRINDER"); }
+            Vector3 w = p.transform.position;
+            if (Time.time > grindFx)
+            {
+                grindFx = Time.time + 0.06f;
+                Blood.I.Spray(w, Vector3.up + Random.insideUnitSphere * 0.5f, 30, 3.5f, 0.8f, 0.2f, 1.2f);
+                Gib.Spawn(w + Vector3.up * 0.1f, Vector3.up * Random.Range(2f, 4f) + Random.insideUnitSphere * 1.5f, Random.Range(0.015f, 0.035f));
+                if (p.skin != null) Carve(p, w + Random.insideUnitSphere * 0.08f, 0.06f);
+            }
+            if (t > 0.4f && !p.severed && p.parentPart != null) SeverJoint(p, Vector3.down);
+            if (t > 1.6f && p.gameObject.activeSelf)
+            {
+                // swallowed: this part is gone
+                foreach (var c in p.GetComponentsInChildren<Collider>()) c.enabled = false;
+                if (p.skin != null && p.skin.owner == this && p.severed) p.skin.r.enabled = false;
+                p.rb.isKinematic = true;
+                p.transform.position += Vector3.down * 2f;
+            }
         }
 
         public void SeverJoint(Part p, Vector3 dir)

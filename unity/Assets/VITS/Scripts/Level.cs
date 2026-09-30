@@ -8,7 +8,10 @@ namespace VITS
     public static class Level
     {
         public static readonly Color Sky = new Color(0.92f, 0.92f, 0.9f);   // crash test hall: white, yellow, black
-        public const float HX = 26f, HZ = 26f;
+        public const float HX = 36f, HZ = 36f;
+        // four pits in the floor (x, z, half size): two with stairs down, two with a meat grinder at the bottom
+        public static readonly Rect[] Pits = { new Rect(-29f, -12f, 5f, 5f), new Rect(24f, -12f, 5f, 5f), new Rect(-29f, 22f, 5f, 5f), new Rect(24f, 22f, 5f, 5f) };
+        public const float PitDepth = 3.5f;
         public struct CoverWall { public Vector3 pos, normal, along; }
         // a raised platform with its staircase: bottom / top landing points, the platform area and the stairs area (xz)
         public class Stair { public Vector3 bottom, top; public Rect plat, steps; public float h; }
@@ -63,11 +66,25 @@ namespace VITS
             var floorMat = Mats.Lit(Color.white, 0.2f);
             floorMat.mainTexture = GridTex();
             floorMat.mainTextureScale = new Vector2(HX * 2f / 2.5f, HZ * 2f / 2.5f);
-            var floor = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            floor.name = "Floor";
-            floor.transform.position = new Vector3(0, -0.5f, 0);
-            floor.transform.localScale = new Vector3(HX * 2f, 1f, HZ * 2f);
-            floor.GetComponent<Renderer>().sharedMaterial = floorMat;
+            // the floor is cut into slabs around the pits
+            var xs = new System.Collections.Generic.List<float> { -HX, HX }; var zs = new System.Collections.Generic.List<float> { -HZ, HZ };
+            foreach (var r in Pits) { xs.Add(r.xMin); xs.Add(r.xMax); zs.Add(r.yMin); zs.Add(r.yMax); }
+            xs.Sort(); zs.Sort();
+            for (int i = 0; i + 1 < xs.Count; i++) for (int j = 0; j + 1 < zs.Count; j++)
+            {
+                float x0 = xs[i], x1 = xs[i + 1], z0 = zs[j], z1 = zs[j + 1];
+                if (x1 - x0 < 0.01f || z1 - z0 < 0.01f) continue;
+                var c = new Vector2((x0 + x1) / 2f, (z0 + z1) / 2f);
+                bool hole = false; foreach (var r in Pits) if (r.Contains(c)) hole = true;
+                if (hole) continue;
+                var slab = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                slab.name = "Floor";
+                slab.transform.position = new Vector3(c.x, -0.5f, c.y);
+                slab.transform.localScale = new Vector3(x1 - x0, 1f, z1 - z0);
+                var m = new Material(floorMat) { mainTextureScale = new Vector2((x1 - x0) / 2.5f, (z1 - z0) / 2.5f), mainTextureOffset = new Vector2(x0 / 2.5f, z0 / 2.5f) };
+                slab.GetComponent<Renderer>().sharedMaterial = m;
+            }
+            for (int i = 0; i < Pits.Length; i++) Pit(Pits[i], i % 2 == 0, i >= 2);
 
             // black and yellow hazard band along the bottom of every outer wall
             for (int side = 0; side < 4; side++)
@@ -94,7 +111,7 @@ namespace VITS
             Staircase(14f, 5f, 10f, 4f, new Rect(8f, 10f, 12f, 10f));
             // drop test towers along the back wall: 5, 8, 10 and 15 m, each with a lift
             float[] th = { 5f, 8f, 10f, 15f }; float[] tx = { -12f, -4f, 4f, 12f };
-            for (int i = 0; i < th.Length; i++) Tower(tx[i], -22.5f, th[i]);
+            for (int i = 0; i < th.Length; i++) Tower(tx[i], -HZ + 3.5f, th[i]);
             // cover walls where the specimens run / crawl to hide
             Covers.Clear();
             Cover(1, new Vector3(-8f, 0, -3f), 0f);
@@ -175,6 +192,48 @@ namespace VITS
             pad.transform.position = new Vector3(x + 1f, -0.09f, z + 2.95f); pad.transform.localScale = new Vector3(1.8f, 0.2f, 1.8f);
             pad.GetComponent<Renderer>().sharedMaterial = orange;
             pad.AddComponent<Lift>().top = H;
+        }
+
+        // a square pit: dark walls, yellow/black rim; optional stairs down one side; optional meat grinder at the bottom
+        static void Pit(Rect r, bool stairs, bool grinder)
+        {
+            float D = PitDepth, cx = r.center.x, cz = r.center.y, w = r.width, l = r.height;
+            var dark = Mats.Lit(new Color(0.12f, 0.12f, 0.12f), 0.1f);
+            Box(new Vector3(cx, -D - 0.5f, cz), new Vector3(w + 1f, 1f, l + 1f), dark, false);                                    // bottom
+            Box(new Vector3(r.xMin - 0.25f, -D / 2f - 0.5f, cz), new Vector3(0.5f, D + 1f, l + 1f), dark, false);                  // walls
+            Box(new Vector3(r.xMax + 0.25f, -D / 2f - 0.5f, cz), new Vector3(0.5f, D + 1f, l + 1f), dark, false);
+            Box(new Vector3(cx, -D / 2f - 0.5f, r.yMin - 0.25f), new Vector3(w, D + 1f, 0.5f), dark, false);
+            Box(new Vector3(cx, -D / 2f - 0.5f, r.yMax + 0.25f), new Vector3(w, D + 1f, 0.5f), dark, false);
+            // hazard rim
+            for (int s = 0; s < 4; s++)
+            {
+                var e = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                Object.DestroyImmediate(e.GetComponent<Collider>());
+                bool zx = s < 2; float sg = s % 2 == 0 ? 1f : -1f;
+                e.transform.position = zx ? new Vector3(cx, 0.003f, sg > 0 ? r.yMax + 0.15f : r.yMin - 0.15f) : new Vector3(sg > 0 ? r.xMax + 0.15f : r.xMin - 0.15f, 0.003f, cz);
+                e.transform.localScale = zx ? new Vector3(w + 0.6f, 0.01f, 0.3f) : new Vector3(0.3f, 0.01f, l + 0.6f);
+                var hm = new Material(hazard); hm.mainTextureScale = new Vector2((zx ? w : l) / 0.3f, 1f);
+                e.GetComponent<Renderer>().sharedMaterial = hm;
+            }
+            Text((grinder ? "GRINDER" : "PIT") + " " + D.ToString("0.0") + " M", new Vector3(cx, 0.01f, r.yMin - 0.7f), Quaternion.Euler(90, 0, 0), 0.8f, new Color(0.05f, 0.05f, 0.05f, 0.9f));
+            if (stairs)
+            {
+                // steps along the -x wall going down toward +z, 1 m wide
+                int n = Mathf.RoundToInt(D / 0.18f); float rise = D / n, tread = (l - 0.3f) / n;
+                for (int i = 1; i < n; i++)
+                {
+                    float top = -rise * i;
+                    float z = r.yMin + tread * (i - 0.5f);
+                    if (z > r.yMax - 0.2f) break;
+                    Box(new Vector3(r.xMin + 0.5f, (top - D) / 2f, z), new Vector3(1f, top + D, tread), plat, false);
+                }
+            }
+            if (grinder)
+            {
+                var g = new GameObject("MEAT GRINDER").AddComponent<Grinder>();
+                g.transform.position = new Vector3(cx + (stairs ? 0.5f : 0f), -D + 0.55f, cz);
+                g.length = w - (stairs ? 1.4f : 0.4f);
+            }
         }
 
         static void Box(Vector3 c, Vector3 s, Material m, bool edge)
@@ -274,6 +333,62 @@ namespace VITS
             rb.MovePosition(new Vector3(transform.position.x, y, transform.position.z));
             if (riding && pl != null) pl.Carry(new Vector3(0, dy, 0));
             if (y <= y0 + 0.001f || y >= y0 + top - 0.001f) { dir = 0; wait = 0; needLeave = riding; }
+        }
+    }
+
+    // two toothed steel rollers turning toward each other: whatever drops between them is pulled in and torn apart
+    public class Grinder : MonoBehaviour
+    {
+        public float length = 4f;
+        Transform[] rollers = new Transform[2];
+        Rigidbody[] rbs = new Rigidbody[2];
+        float ang;
+        static readonly Collider[] buf = new Collider[64];
+        readonly System.Collections.Generic.Dictionary<Part, float> chew = new System.Collections.Generic.Dictionary<Part, float>();
+        const float R = 0.32f, Gap = 0.36f;
+
+        void Start()
+        {
+            var steel = Mats.Lit(new Color(0.55f, 0.57f, 0.6f), 0.7f);
+            var tooth = Mats.Lit(new Color(0.35f, 0.36f, 0.38f), 0.6f);
+            for (int i = 0; i < 2; i++)
+            {
+                var go = new GameObject("roller" + i);
+                go.transform.SetParent(transform, false);
+                go.transform.localPosition = new Vector3(0, 0, (i == 0 ? -1f : 1f) * Gap);
+                var cyl = Mats.Vis(PrimitiveType.Cylinder, go.transform, Vector3.zero, new Vector3(R * 2f, length / 2f, R * 2f), steel);
+                cyl.transform.localRotation = Quaternion.Euler(0, 0, 90);
+                for (int k = 0; k < 10; k++) for (int j = 0; j < 6; j++)
+                {
+                    float a = j * 60f + k * 17f;
+                    var t = Mats.Vis(PrimitiveType.Cube, go.transform, Quaternion.Euler(a, 0, 0) * new Vector3(0, R + 0.03f, 0) + new Vector3(-length / 2f + (k + 0.5f) * length / 10f, 0, 0), new Vector3(0.05f, 0.09f, 0.07f), tooth);
+                    t.transform.localRotation = Quaternion.Euler(a, 0, 0);
+                }
+                var cap = go.AddComponent<CapsuleCollider>(); cap.direction = 0; cap.radius = R + 0.04f; cap.height = length + 2f * R;
+                var rb = go.AddComponent<Rigidbody>(); rb.isKinematic = true;
+                rollers[i] = go.transform; rbs[i] = rb;
+            }
+        }
+
+        void FixedUpdate()
+        {
+            float dt = Time.fixedDeltaTime;
+            ang += 260f * dt;   // tops turn toward the middle
+            for (int i = 0; i < 2; i++)
+                rbs[i].MoveRotation(transform.rotation * Quaternion.Euler((i == 0 ? 1f : -1f) * ang, 0, 0));
+            // everything in the jaws: pulled down and in, chewed apart
+            int n = Physics.OverlapBoxNonAlloc(transform.position + Vector3.up * 0.35f, new Vector3(length / 2f, 0.55f, Gap + R), buf, transform.rotation, ~0, QueryTriggerInteraction.Ignore);
+            for (int i = 0; i < n; i++)
+            {
+                var rb = buf[i].attachedRigidbody;
+                if (rb == null || rb.isKinematic) continue;
+                Vector3 toC = transform.position - rb.position; toC.x = 0;
+                rb.AddForce((toC.normalized * 6f + Vector3.down * 10f) * rb.mass);
+                var p = buf[i].GetComponent<Part>();
+                if (p == null) { if (buf[i].gameObject.name == "gib" && Random.value < dt * 3f) Destroy(buf[i].gameObject); continue; }
+                chew.TryGetValue(p, out float c); c += dt; chew[p] = c;
+                if (p.owner != null) p.owner.Grind(p, c);
+            }
         }
     }
 }

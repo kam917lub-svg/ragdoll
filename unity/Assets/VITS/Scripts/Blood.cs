@@ -29,7 +29,7 @@ namespace VITS
         readonly int[] skinN = new int[6], skinHead = new int[6];
         Matrix4x4[][] skinBatches;
 
-        class Pool { public Transform t; public float vol, r; public Vector3 p; }
+        class Pool { public Transform t; public float vol, r, target; public Vector3 p; public int lobes; }
         readonly List<Pool> pools = new List<Pool>();
         readonly Dictionary<Vector2Int, float> wet = new Dictionary<Vector2Int, float>();
 
@@ -194,6 +194,7 @@ namespace VITS
         {
             float dt = Time.deltaTime;
             if (dt <= 0) return;
+            FlowPools(dt);
             Vector3 g = Physics.gravity * dt;
             float drag = 1f - 0.25f * dt;
             for (int i = 0; i < dn;)
@@ -240,6 +241,7 @@ namespace VITS
                 }
                 return;
             }
+            if (vol < 0.35f && Random.value < 0.6f) { if (n.y > 0.7f) Wet(h.point, vol); return; }   // fine mist: no stain dot for every droplet
             int variant = sp > 4.5f ? 1 : (el > 1.6f ? 2 : 0);
             AddDecal(variant, h.point, n, up, size, size * el);
             // a drop hitting at speed runs on in a long thin line (the radiating streaks around a real spatter)
@@ -326,9 +328,36 @@ namespace VITS
         {
             P.vol += ml;
             // ~2.5 mm thick layer: 100 ml covers a ~11 cm radius disc
-            P.r = Mathf.Min(2.2f, Mathf.Sqrt(P.vol * 1e-6f / 0.0015f / Mathf.PI));
-            float d = P.r * 2.3f;
-            P.t.localScale = new Vector3(d, d, 1);
+            // the puddle spreads over time (see FlowPools), not in one frame
+            P.target = Mathf.Min(2.2f, Mathf.Sqrt(P.vol * 1e-6f / 0.0015f / Mathf.PI));
+            if (P.r <= 0f) { P.r = 0.02f; P.t.localScale = new Vector3(0.046f, 0.046f, 1); }
+        }
+
+        // blood flows: each puddle creeps toward its size, and as it grows it pushes out lobes in random directions
+        void FlowPools(float dt)
+        {
+            for (int i = 0; i < pools.Count; i++)
+            {
+                var P = pools[i];
+                if (P.t == null || P.r >= P.target - 0.001f) continue;
+                P.r = Mathf.MoveTowards(P.r, P.target, dt * (0.02f + (P.target - P.r) * 0.6f));
+                float d = P.r * 2.3f; P.t.localScale = new Vector3(d, d, 1);
+                if (P.r > 0.12f * (P.lobes + 1) && P.lobes < 6 && pools.Count < MAXPOOLS)
+                {
+                    P.lobes++;
+                    Vector3 dir = Quaternion.Euler(0, Random.Range(0f, 360f), 0) * Vector3.forward;
+                    Vector3 lp = P.p + dir * P.r * Random.Range(0.7f, 1.0f);
+                    if (Physics.Raycast(lp + Vector3.up * 0.3f, Vector3.down, out RaycastHit h, 0.5f, WORLD, QueryTriggerInteraction.Ignore) && Mathf.Abs(h.point.y - P.p.y) < 0.05f)
+                    {
+                        var go = new GameObject("pool");
+                        go.AddComponent<MeshFilter>().sharedMesh = quad;
+                        var mr = go.AddComponent<MeshRenderer>(); mr.sharedMaterial = poolMat; mr.shadowCastingMode = ShadowCastingMode.Off;
+                        go.transform.SetPositionAndRotation(new Vector3(lp.x, P.t.position.y + 0.0002f, lp.z), Quaternion.LookRotation(Vector3.up, RandomTangent(Vector3.up)));
+                        var L = new Pool { t = go.transform, p = h.point, lobes = 9 };
+                        pools.Add(L); Grow(L, P.vol * 0.25f);
+                    }
+                }
+            }
         }
 
         // ---------- smears: shoes, feet and bodies moving through fresh blood carry it and wipe it along
