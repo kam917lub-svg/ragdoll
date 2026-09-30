@@ -224,8 +224,15 @@ namespace VITS
                 {
                     var part = h.collider.GetComponent<Part>();
                     if (part != null) { part.owner.Hit(part, h.collider, h.point, dir, h.normal); hitMarkT = 0.2f; }
+                    else if (h.rigidbody != null && Mannequin.Nearest(h.point, 0.15f) is Part rp) { rp.owner.Hit(rp, null, h.point, dir, h.normal); hitMarkT = 0.2f; }
                     else if (h.rigidbody != null) h.rigidbody.AddForceAtPosition(dir * Game.BulletImpulse, h.point, ForceMode.Impulse);
-                    else { Blood.I.Hole(h.point, h.normal); Game.LastShot = h.collider.name.ToUpper(); }
+                    else
+                    {
+                        // anything that lands on (or right next to) a body counts as hitting that body
+                        var np = Mannequin.Nearest(h.point, 0.15f);
+                        if (np != null) { np.owner.Hit(np, null, h.point, dir, h.normal); hitMarkT = 0.2f; }
+                        else { Blood.I.Hole(h.point, h.normal); Game.LastShot = h.collider.name.ToUpper(); }
+                    }
                 }
             }
             else if (Mannequin.Pick(ray.origin, dir, 200f, out Part sp2, out float st2)) { end = ray.origin + dir * st2; sp2.owner.Hit(sp2, null, end, dir, -dir); hitMarkT = 0.2f; }

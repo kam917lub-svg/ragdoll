@@ -960,7 +960,7 @@ namespace VITS
         public void Hit(Part p, Collider col, Vector3 pt, Vector3 dir, Vector3 nrm)
         {
             try { DoHit(p, pt, dir); }
-            catch (System.Exception e) { Debug.LogException(e); }
+            catch (System.Exception e) { Debug.LogException(e); Game.LastShot = "HIT ERROR: " + e.Message; }
         }
 
         void DoHit(Part p, Vector3 pt, Vector3 dir)
@@ -1024,7 +1024,8 @@ namespace VITS
                 injuries.Add(p.key.ToUpper() + "  GUNSHOT");
                 if (!p.severed && !dead) { clutch = p; clutchLocal = inL; }
                 if (p.isLeg && !p.severed) legFn[p.key.EndsWith("R") ? 1 : 0] -= 0.45f;
-                bool cut = Player.AK ? (p.hits >= 2 || Random.value < 0.3f) : (p.hits >= 3 || (p.hits >= 2 && Random.value < 0.5f));
+                // a limb only comes off after a lot of damage in the same place: pistol 5-6 hits, AK 3-4
+                bool cut = Player.AK ? (p.hits >= 4 || (p.hits >= 3 && Random.value < 0.4f)) : (p.hits >= 6 || (p.hits >= 5 && Random.value < 0.35f));
                 if (cut) SeverAt(p, -inL.y, dir);
                 else if (p.isLeg && !dead && !p.severed)
                 {
@@ -1051,6 +1052,23 @@ namespace VITS
         }
 
         // what does a bullet along this ray really hit? (the visible skin, not the rough colliders)
+        // nearest body part to a world point (any Carl, alive, down, dead, or a cut piece)
+        public static Part Nearest(Vector3 w, float maxDist)
+        {
+            Part best = null; float bd = maxDist;
+            foreach (var m in All)
+            {
+                if (m == null) continue;
+                foreach (var p in m.allParts)
+                {
+                    if (p == null || (p.transform.position - w).sqrMagnitude > 1f) continue;
+                    float s = p.Sdf(p.transform.InverseTransformPoint(w));
+                    if (s < bd) { bd = s; best = p; }
+                }
+            }
+            return best;
+        }
+
         public static bool Pick(Vector3 o, Vector3 d, float maxT, out Part best, out float bestT)
         {
             best = null; bestT = maxT;

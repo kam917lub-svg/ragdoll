@@ -249,3 +249,7 @@ Fatto: IK a due ossa (braccio 0,30+0,30 m) che porta il palmo sul punto esatto d
 --- PROMPT 18 ---
 Utente: camminata e saltello non realistici (scivolano), devono poter cadere, scivolare, essere urtati da oggetti, dal giocatore e da altri Carl.
 Fatto: passo legato alla distanza percorsa (ciclo = 2 passi con lunghezza gamba reale, ampiezza che cresce con la velocita) -> piede d appoggio fermo; molleggio del bacino 2 volte per ciclo, rotazione e ondeggiamento di bacino/torace; saltello: avanzano solo in volo. Urti: giocatore che li investe (camminando barcollano, correndo cadono), Carl contro Carl, oggetti volanti pesanti; scivolata correndo sulle pozze di sangue; caduta = ragdoll attivo che si rialza se illeso.
+
+--- PROMPT 19 ---
+Utente: servono molti piu colpi per staccare un arto (pistola piu dell AK); dopo i primi colpi da vicino non li colpisce piu e vede cerchi grigi.
+Fatto: taglio arto pistola 5-6 colpi, AK 3-4. I cerchi grigi = segno di colpo su superficie non riconosciuta come Carl: ora qualunque colpo entro 15 cm dalla pelle di un Carl (vivo, a terra, morto, pezzo) conta come colpo su di lui; errori del colpo mostrati come HIT ERROR nell HUD.
