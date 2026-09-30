@@ -1865,6 +1865,44 @@ namespace VITS
             }
         }
 
+        // knife: a cut drawn across the skin; the throat is deadly, repeated cuts at a joint take a hand, forearm or foot off
+        public void Slash(Part p, Vector3 pt, Vector3 sweep, Vector3 view)
+        {
+            try
+            {
+                provoked = true; lastHitTime = Time.time; lastDir = view; lastHit = p.key.ToUpper() + " (KNIFE)";
+                woundCount++; pain = Mathf.Min(1f, pain + 0.12f); hurt = Mathf.Min(1f, hurt + 0.2f);
+                if (!dead) Flinch(p, view);
+                p.hits++;
+                var B = Blood.I;
+                // the cut: a row of small openings along the stroke (~14 cm), a red line of blood on the skin
+                for (int i = -3; i <= 3; i++) Carve(p, pt + sweep * (i * 0.022f), 0.011f);
+                Vector3 lp = p.transform.InverseTransformPoint(pt), ln = p.Normal(p.Project(lp));
+                B.SkinStreak(p.transform, lp, ln, p.transform.InverseTransformDirection(sweep), 0.012f, 0.15f);
+                B.Spray(pt, sweep + ln * 0.3f, 24, 2.2f, 0.35f, 0.05f, 0.3f);
+                bool throat = (p.isHead && lp.y < 0.06f) || (p.key == "chest" && lp.y > 0.37f);
+                if (throat && !dead)
+                {
+                    injuries.Add("THROAT  CUT");
+                    AddWound(p, p.Project(lp), ln, 35f, true, 0, "CAROTID");
+                    B.Spray(pt, ln + Vector3.down * 0.2f, 120, 3f, 0.3f, 0.2f, 0.9f);
+                    deathT = deathT > 0 ? Mathf.Min(deathT, Time.time + Random.Range(6f, 14f)) : Time.time + Random.Range(6f, 14f);
+                    clutch = p; clutchLocal = lp; shock = 1f; GoActive();
+                }
+                else
+                {
+                    injuries.Add(p.key.ToUpper() + "  KNIFE CUT");
+                    AddWound(p, p.Project(lp), ln, p.isTorso ? 5f : 3f, false, 0, "");
+                    if (!dead) { clutch = p; clutchLocal = lp; if (mode == M.Anim) Flee(); }
+                }
+                // hacking at the same limb: after enough cuts it comes off
+                if ((p.isArm || p.isLeg) && !p.severed && p.hits >= (p.key.StartsWith("farm") || p.key.StartsWith("shin") ? 5 : 8)) SeverJoint(p, sweep);
+                if (!p.rb.isKinematic) p.rb.AddForceAtPosition(sweep * 1.2f, pt, ForceMode.Impulse);
+                Game.LastShot = displayName + " · " + p.key.ToUpper() + " · KNIFE";
+            }
+            catch (System.Exception e) { Debug.LogException(e); Game.LastShot = "SLASH ERROR: " + e.Message; }
+        }
+
         public void SeverJoint(Part p, Vector3 dir)
         {
             if (p.severed || p.parentPart == null) return;

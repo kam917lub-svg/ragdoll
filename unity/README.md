@@ -42,11 +42,12 @@ Perché prima era nero: il gioco crea i materiali dal codice e nella build Unity
 | [ ] | rallenta / accelera il tempo |
 | P | pausa |
 | Backspace | ricomincia (anche pulsante RESET nel menu Esc) |
-| Esc | menu: scegli PISTOLA, AK-47 o AWP, SENSIBILITA mouse, SENSIBILITA ADS (default 0,7x) e VOLUME (salvati), RESET, KEKKO BRAINS on/off (off = stanno fermi finché non vengono presi di mira), riprendi |
+| Esc | menu: scegli PISTOLA, AK-47, AWP o COLTELLO, SENSIBILITA mouse, SENSIBILITA ADS (default 0,7x) e VOLUME (salvati), RESET, KEKKO BRAINS on/off (off = stanno fermi finché non vengono presi di mira), riprendi |
 
 Sotto il mirino c'è scritto cosa stai puntando; una X rossa conferma che il colpo ha preso un corpo.
 
 ## Cosa fa
+- Coltello: clic sinistro = fendente (portata 1,8 m, alterna destra/sinistra). Taglia una linea sulla pelle che sanguina; alla gola recide la carotide (morte in 6-14 s); tagli ripetuti staccano mano/avambraccio/piede (5) o braccio/coscia (8).
 - Tagliare un Kekko a metà: bisogna distruggere la pancia tutto attorno alla vita, caricatore dopo caricatore (circa 4 caricatori di pistola, 2 di AK, 7 colpi di AWP se arrivano tutti vicino alla vita). Ogni colpo lì strappa fori sempre più grandi e fa volare più carne; a metà strada l'addome risulta "SHREDDED", alla fine il busto si stacca dal bacino.
 - Sangue scuro (rosso quasi bordeaux, pozze più scure); le strisciate e le impronte sono più chiare e trasparenti, come un velo sottile.
 - Colpi: ogni proiettile viene provato sulla pelle esattamente come è disegnata (skinning calcolato sulla CPU con le stesse ossa della GPU) e sulla forma solida del corpo; vince il più vicino, prima di muri e pavimento. Sotto il mirino LAST SHOT dice cosa hai colpito e a che distanza (oppure MISS e cosa c'era dietro).

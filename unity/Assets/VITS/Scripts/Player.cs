@@ -24,8 +24,9 @@ namespace VITS
             PlayerPrefs.SetFloat("vits_sens", Sens); PlayerPrefs.SetFloat("vits_ads", AdsSens); PlayerPrefs.SetFloat("vits_vol", Volume); PlayerPrefs.Save();
             AudioListener.volume = Volume;
         }
-        public static readonly string[] Names = { "PISTOL / 9MM", "AK-47 / 7.62", "AWP / .338 LAPUA" };
-        static readonly int[] MAG = { 15, 30, 10 };
+        public static readonly string[] Names = { "PISTOL / 9MM", "AK-47 / 7.62", "AWP / .338 LAPUA", "KNIFE" };
+        public static bool Knife => Weapon == 3;
+        static readonly int[] MAG = { 15, 30, 10, 1 };
         public int ammo = 15; public int MaxAmmo => MAG[Weapon];
         // aiming down the sights (0 = hip, 1 = sights on the crosshair); the HUD crosshair hides once the sights are up
         float aimT;
@@ -33,12 +34,13 @@ namespace VITS
         // where the gun sits when aiming: the sight line (rear notch bottom = front post top) exactly on the camera axis
         //  pistol: sights at y 0.057 on the slide;  AK: rear leaf + hooded front post at y 0.09 in the AK model (model at x 0.02);
         //  AWP: aimed through the scope, the gun is only seen for a moment while the bolt cycles
-        static readonly Vector3[] ADS = { new Vector3(0f, -0.057f, 0.30f), new Vector3(-0.02f, -0.09f, 0.20f), new Vector3(-0.02f, -0.14f, 0.20f) };
+        static readonly Vector3[] ADS = { new Vector3(0f, -0.057f, 0.30f), new Vector3(-0.02f, -0.09f, 0.20f), new Vector3(-0.02f, -0.14f, 0.20f), new Vector3(0.12f, -0.14f, 0.34f) };
         public bool Scoped => AWP && GI.AimHeld() && reloadT <= 0 && boltT <= 0.9f && locked && !menu;
         float zoom = 8f, boltT;              // AWP magnification (4x / 8x / 12x, mouse wheel) and bolt cycling
         public bool menu;
         Transform pistolModel, akModel, awpModel, bolt;
-        readonly int[] mags = { 15, 30, 10 };
+        readonly int[] mags = { 15, 30, 10, 1 };
+        Transform knifeModel; float slashT; int slashSide = 1; AudioClip swishClip;
         public float reloadT;
         public bool locked;
         public string aimInfo = ""; public float hitMarkT;
@@ -116,6 +118,16 @@ namespace VITS
             akModel.localPosition = new Vector3(0.02f, 0f, -0.1f);
             akModel.gameObject.SetActive(false);
             BuildAWP(hand);
+            // combat knife: dark blade with a lighter edge, black grip, guard
+            knifeModel = new GameObject("KnifeModel").transform; knifeModel.SetParent(gun, false);
+            var bladeM = Mats.Lit(new Color(0.3f, 0.32f, 0.35f), 0.85f); var edgeM = Mats.Lit(new Color(0.8f, 0.82f, 0.85f), 0.95f); var gripM = Mats.Lit(new Color(0.08f, 0.08f, 0.09f), 0.3f);
+            Mats.Vis(PrimitiveType.Cube, knifeModel, new Vector3(0, 0.0f, 0.1f), new Vector3(0.004f, 0.032f, 0.17f), bladeM, false);
+            Mats.Vis(PrimitiveType.Cube, knifeModel, new Vector3(0, -0.017f, 0.1f), new Vector3(0.0025f, 0.004f, 0.17f), edgeM, false);
+            Mats.Vis(PrimitiveType.Cube, knifeModel, new Vector3(0, 0.004f, 0.195f), new Vector3(0.004f, 0.02f, 0.03f), bladeM, false).transform.localRotation = Quaternion.Euler(30, 0, 0);
+            Mats.Vis(PrimitiveType.Cube, knifeModel, new Vector3(0, 0, 0.012f), new Vector3(0.012f, 0.05f, 0.008f), gripM, false);
+            Mats.Vis(PrimitiveType.Cube, knifeModel, new Vector3(0, -0.002f, -0.045f), new Vector3(0.022f, 0.03f, 0.11f), gripM, false);
+            Mats.Vis(PrimitiveType.Capsule, knifeModel, new Vector3(0.0f, -0.03f, -0.05f), new Vector3(0.06f, 0.07f, 0.06f), hand, false).transform.localRotation = Quaternion.Euler(-80, 0, 0);
+            knifeModel.gameObject.SetActive(false);
             var fgo = new GameObject("Flash"); fgo.transform.SetParent(gun, false); fgo.transform.localPosition = new Vector3(0, 0.03f, 0.17f);
             flash = fgo.AddComponent<Light>(); flash.type = LightType.Point; flash.range = 8f; flash.intensity = 0; flash.color = new Color(1f, 0.85f, 0.6f);
 
@@ -229,7 +241,16 @@ namespace VITS
             cool -= dt; recoil = Mathf.MoveTowards(recoil, 0, dt * 8f);
             if (reloadT > 0) { reloadT -= dt; if (reloadT <= 0) ammo = MaxAmmo; }
             boltT -= dt;
-            if (locked && (AK ? GI.FireHeld() : GI.FireDown())) Shoot();
+            if (Knife) { if (locked && GI.FireDown() && cool <= 0) Slash(); }
+            else if (locked && (AK ? GI.FireHeld() : GI.FireDown())) Shoot();
+            // knife swing: sweeps across the view, alternating sides
+            slashT = Mathf.Max(0f, slashT - dt * 3.2f);
+            if (knifeModel != null && Knife)
+            {
+                float u = 1f - slashT, sw = Mathf.Sin(u * Mathf.PI);
+                knifeModel.localRotation = Quaternion.Euler(10f + sw * 25f, -slashSide * (60f - 120f * u) * (slashT > 0 ? 1f : 0f), slashSide * sw * 50f);
+                knifeModel.localPosition = new Vector3(-slashSide * (0.12f - 0.24f * u) * (slashT > 0 ? 1f : 0f), sw * 0.04f, sw * 0.08f);
+            }
             if (AWP && bolt != null)
             {
                 // bolt cycle after each shot: up, back, forward, down
@@ -238,7 +259,7 @@ namespace VITS
                 bolt.localRotation = Quaternion.Euler(0, 0, lift * 70f); bolt.localPosition = new Vector3(0.024f, 0.02f, -0.07f - back * 0.09f);
                 if (Scoped) zoom = Mathf.Clamp(zoom + GI.Scroll() * 4f, 4f, 12f);
             }
-            if (GI.Down(K.R) && ammo < MaxAmmo && reloadT <= 0) reloadT = 1.4f;
+            if (!Knife && GI.Down(K.R) && ammo < MaxAmmo && reloadT <= 0) reloadT = 1.4f;
             float wantFov = Scoped ? 2f * Mathf.Atan(Mathf.Tan(35f * Mathf.Deg2Rad) / zoom) * Mathf.Rad2Deg : GI.AimHeld() ? (AWP ? 55f : 45f) : 70f;
             cam.fieldOfView = Scoped ? wantFov : Mathf.Lerp(cam.fieldOfView, wantFov, 1 - Mathf.Exp(-dt * 12f));
             gun.gameObject.SetActive(!Scoped);
@@ -330,7 +351,7 @@ namespace VITS
         {
             mags[Weapon] = ammo;
             Weapon = w; ammo = mags[w]; reloadT = 0; boltT = 0;
-            pistolModel.gameObject.SetActive(w == 0); akModel.gameObject.SetActive(w == 1); awpModel.gameObject.SetActive(w == 2);
+            pistolModel.gameObject.SetActive(w == 0); akModel.gameObject.SetActive(w == 1); awpModel.gameObject.SetActive(w == 2); knifeModel.gameObject.SetActive(w == 3);
             flash.transform.localPosition = w == 1 ? new Vector3(0, 0.04f, 0.64f) : w == 2 ? new Vector3(0, 0.022f, 0.84f) : new Vector3(0, 0.03f, 0.17f);
         }
 
@@ -431,6 +452,34 @@ namespace VITS
             tracer.SetPosition(1, end);
             tracerT = (end - cam.transform.position).magnitude > 3f ? (AWP ? 0.06f : 0.025f) : 0f;
             if (Game.I != null) Game.I.Gunshot(cam.transform.position, end);
+        }
+
+        // a slash: sweep the blade through what is in front (up to 1.8 m), a few rays across the arc
+        void Slash()
+        {
+            cool = 0.42f; slashT = 1f; slashSide = -slashSide;
+            if (swishClip == null) swishClip = MakeSwish();
+            au.PlayOneShot(swishClip, 0.7f);
+            Vector3 o = cam.transform.position, f = cam.transform.forward, r = cam.transform.right * slashSide;
+            Part best = null; float bt = 1.8f; Vector3 bn = -f, bd = f;
+            for (int i = -3; i <= 3; i++)
+            {
+                Vector3 d = (f + r * (i * 0.12f) + cam.transform.up * (-i * 0.03f)).normalized;
+                if (Mannequin.PickSkin(o, d, bt, out Part p, out float t, out Vector3 n) || Mannequin.Pick(o, d, bt, out p, out t))
+                    if (t < bt) { best = p; bt = t; bn = n; bd = d; }
+            }
+            if (best == null) { Game.LastShot = "SLASH  ·  MISS"; return; }
+            Vector3 pt = o + bd * bt;
+            Vector3 sweep = Vector3.ProjectOnPlane(-r, bn).normalized;   // the blade travels across the surface
+            best.owner.Slash(best, pt, sweep, bd);
+            hitMarkT = 0.2f;
+        }
+
+        static AudioClip MakeSwish()
+        {
+            int sr = 44100, n = (int)(sr * 0.25f); var d = new float[n]; var rng = new System.Random(7); float lp = 0;
+            for (int i = 0; i < n; i++) { float t = i / (float)sr; lp += ((float)(rng.NextDouble() * 2 - 1) - lp) * (0.1f + 0.5f * Mathf.Sin(t / 0.25f * Mathf.PI)); d[i] = lp * Mathf.Sin(t / 0.25f * Mathf.PI) * 0.6f; }
+            var c = AudioClip.Create("swish", n, 1, sr, false); c.SetData(d, 0); return c;
         }
 
         static AudioClip MakeShot(float boom, float len)
