@@ -320,3 +320,11 @@ Fatto:
 - Menu Esc: VOLUME 0-100% (AudioListener.volume), salvato in PlayerPrefs insieme alle sensibilita.
 - Colori: sangue fresco (0,40 0,012 0,025), gocce (0,42..), colature muro (0,32..), ferite pelle (0,42..), pozze (0,27 0,006 0,016). Strisciate (0,60 0,07 0,08 a=0,6) e leggere (a=0,3), impronte (0,52.. a=0,75) e sbiadite (a=0,32): piu chiare e trasparenti.
 - Taglio a meta: waistDmg accumula per ogni colpo a torso/bacino in base alla distanza dalla vita (pieno entro 12 cm, zero oltre 32 cm): pistola 1, AK 1,3, AWP 8; soglia 55 (~4 caricatori pistola, ~2 AK, 7 AWP). Ogni colpo vicino alla vita scava un foro piu grande (2 -> 5 cm) e lancia 1-4 pezzi di carne; a meta "ABDOMEN SHREDDED"; alla soglia SplitInHalf: SeverJoint(chest) (ora permesso anche per il busto), monconi a vita con osso, getto aortico 60 ml/s, 16 pezzi, spruzzi, morte "CUT IN HALF".
+
+--- PROMPT 29 ---
+Utente: le mire metalliche devono allinearsi al mirino, cosi in ADS il mirino non si disegna.
+Fatto:
+- Pistola: mirino anteriore sottile (4 mm) con la cima a y 0,057; tacca di mira posteriore = due montanti con la cima a filo (6 mm di luce).
+- AK: mirino anteriore 4 mm con cima a y 0,09 (nel modello AK) + blocchetto e orecchie di protezione; alzo posteriore a U con cime a filo e tacca da 6 mm.
+- ADS: la pistola va a (0, -0,057, 0,30), l AK a (-0,02, -0,09, 0,20) -> la linea di mira coincide con l asse della camera (= direzione del colpo). Transizione morbida (aimT, 7/s), niente bob con le mire alzate. Il mirino HUD sparisce quando aimT > 0,85 (resta l indicatore di colpo). AWP: si usa il cannocchiale.
+- Verificato con render three.js (ads_pistol.png, ads_ak.png): cima del mirino anteriore esattamente al centro dello schermo dentro la tacca.

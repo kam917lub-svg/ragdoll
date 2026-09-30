@@ -228,11 +228,15 @@ namespace VITS
 
             // crosshair (the AWP scope has its own)
             float cx = W / 2f, cy = H / 2f;
-            if (!player.Scoped) {
+            // with the iron sights up (or the scope) the sights are the crosshair; the hit marker still shows
+            {
             var cc = player.looked != null ? new Color(1f, 0.35f, 0.3f, 0.95f) : new Color(1, 1, 1, 0.9f);
             GUI.color = cc; float g = 5 * s, l = 8 * s, t = Mathf.Max(1, 2 * s);
-            GUI.DrawTexture(new Rect(cx - g - l, cy - t / 2, l, t), Texture2D.whiteTexture); GUI.DrawTexture(new Rect(cx + g, cy - t / 2, l, t), Texture2D.whiteTexture);
-            GUI.DrawTexture(new Rect(cx - t / 2, cy - g - l, t, l), Texture2D.whiteTexture); GUI.DrawTexture(new Rect(cx - t / 2, cy + g, t, l), Texture2D.whiteTexture);
+            if (!player.Scoped && !player.Ads)
+            {
+                GUI.DrawTexture(new Rect(cx - g - l, cy - t / 2, l, t), Texture2D.whiteTexture); GUI.DrawTexture(new Rect(cx + g, cy - t / 2, l, t), Texture2D.whiteTexture);
+                GUI.DrawTexture(new Rect(cx - t / 2, cy - g - l, t, l), Texture2D.whiteTexture); GUI.DrawTexture(new Rect(cx - t / 2, cy + g, t, l), Texture2D.whiteTexture);
+            }
             if (player.hitMarkT > 0)
             {
                 GUI.color = new Color(1f, 0.25f, 0.2f, 1f); float q = 7 * s;

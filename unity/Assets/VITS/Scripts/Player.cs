@@ -27,6 +27,13 @@ namespace VITS
         public static readonly string[] Names = { "PISTOL / 9MM", "AK-47 / 7.62", "AWP / .338 LAPUA" };
         static readonly int[] MAG = { 15, 30, 10 };
         public int ammo = 15; public int MaxAmmo => MAG[Weapon];
+        // aiming down the sights (0 = hip, 1 = sights on the crosshair); the HUD crosshair hides once the sights are up
+        float aimT;
+        public bool Ads => aimT > 0.85f;
+        // where the gun sits when aiming: the sight line (rear notch bottom = front post top) exactly on the camera axis
+        //  pistol: sights at y 0.057 on the slide;  AK: rear leaf + hooded front post at y 0.09 in the AK model (model at x 0.02);
+        //  AWP: aimed through the scope, the gun is only seen for a moment while the bolt cycles
+        static readonly Vector3[] ADS = { new Vector3(0f, -0.057f, 0.30f), new Vector3(-0.02f, -0.09f, 0.20f), new Vector3(-0.02f, -0.14f, 0.20f) };
         public bool Scoped => AWP && GI.AimHeld() && reloadT <= 0 && boltT <= 0.9f && locked && !menu;
         float zoom = 8f, boltT;              // AWP magnification (4x / 8x / 12x, mouse wheel) and bolt cycling
         public bool menu;
@@ -79,7 +86,10 @@ namespace VITS
             slide = Mats.Vis(PrimitiveType.Cube, gun, new Vector3(0, 0.03f, 0.03f), new Vector3(0.034f, 0.036f, 0.2f), steel, false).transform;
             Mats.Vis(PrimitiveType.Cube, gun, new Vector3(0, 0.002f, 0.02f), new Vector3(0.03f, 0.026f, 0.17f), dark, false);
             Mats.Vis(PrimitiveType.Cube, gun, new Vector3(0, -0.055f, -0.045f), new Vector3(0.032f, 0.1f, 0.045f), grip, false).transform.localRotation = Quaternion.Euler(-15, 0, 0);
-            Mats.Vis(PrimitiveType.Cube, gun, new Vector3(0, 0.052f, 0.12f), new Vector3(0.008f, 0.01f, 0.008f), dark, false);
+            Mats.Vis(PrimitiveType.Cube, gun, new Vector3(0, 0.0525f, 0.12f), new Vector3(0.004f, 0.009f, 0.008f), dark, false);        // front post, top at 0.057
+            // rear sight: two posts with their tops level with the front post (sight line y 0.057), 6 mm notch down to the slide
+            Mats.Vis(PrimitiveType.Cube, gun, new Vector3(-0.0075f, 0.0525f, -0.055f), new Vector3(0.009f, 0.009f, 0.012f), dark, false);
+            Mats.Vis(PrimitiveType.Cube, gun, new Vector3(0.0075f, 0.0525f, -0.055f), new Vector3(0.009f, 0.009f, 0.012f), dark, false);
             Mats.Vis(PrimitiveType.Capsule, gun, new Vector3(0.01f, -0.09f, -0.08f), new Vector3(0.06f, 0.07f, 0.06f), hand, false).transform.localRotation = Quaternion.Euler(-30, 0, 0);
             // everything built so far is the pistol; the AK is a second model
             pistolModel = new GameObject("PistolModel").transform; pistolModel.SetParent(gun, false);
@@ -91,7 +101,14 @@ namespace VITS
             Mats.Vis(PrimitiveType.Cube, akModel, new Vector3(0, 0.05f, 0.0f), new Vector3(0.04f, 0.02f, 0.26f), blue, false);
             Mats.Vis(PrimitiveType.Cube, akModel, new Vector3(0, 0.03f, 0.27f), new Vector3(0.05f, 0.05f, 0.2f), wood, false);
             Mats.Vis(PrimitiveType.Cube, akModel, new Vector3(0, 0.04f, 0.48f), new Vector3(0.018f, 0.018f, 0.3f), dk, false);
-            Mats.Vis(PrimitiveType.Cube, akModel, new Vector3(0, 0.075f, 0.56f), new Vector3(0.01f, 0.03f, 0.01f), dk, false);
+            Mats.Vis(PrimitiveType.Cube, akModel, new Vector3(0, 0.075f, 0.56f), new Vector3(0.004f, 0.03f, 0.008f), dk, false);     // front post, top at 0.09
+            Mats.Vis(PrimitiveType.Cube, akModel, new Vector3(0, 0.054f, 0.56f), new Vector3(0.03f, 0.014f, 0.03f), dk, false);      // front sight block on the barrel
+            Mats.Vis(PrimitiveType.Cube, akModel, new Vector3(-0.012f, 0.077f, 0.56f), new Vector3(0.003f, 0.042f, 0.012f), dk, false); // hood ears
+            Mats.Vis(PrimitiveType.Cube, akModel, new Vector3(0.012f, 0.077f, 0.56f), new Vector3(0.003f, 0.042f, 0.012f), dk, false);
+            // rear leaf: tops level with the front post (sight line y 0.09), U notch 6 mm wide, 1 cm deep
+            Mats.Vis(PrimitiveType.Cube, akModel, new Vector3(0, 0.07f, 0.14f), new Vector3(0.032f, 0.02f, 0.02f), dk, false);
+            Mats.Vis(PrimitiveType.Cube, akModel, new Vector3(-0.009f, 0.075f, 0.14f), new Vector3(0.012f, 0.03f, 0.02f), dk, false);
+            Mats.Vis(PrimitiveType.Cube, akModel, new Vector3(0.009f, 0.075f, 0.14f), new Vector3(0.012f, 0.03f, 0.02f), dk, false);
             Mats.Vis(PrimitiveType.Cube, akModel, new Vector3(0, -0.06f, 0.1f), new Vector3(0.03f, 0.13f, 0.05f), dk, false).transform.localRotation = Quaternion.Euler(20, 0, 0);
             Mats.Vis(PrimitiveType.Cube, akModel, new Vector3(0, -0.05f, -0.06f), new Vector3(0.03f, 0.09f, 0.04f), wood, false).transform.localRotation = Quaternion.Euler(-20, 0, 0);
             Mats.Vis(PrimitiveType.Cube, akModel, new Vector3(0, 0.0f, -0.25f), new Vector3(0.04f, 0.07f, 0.26f), wood, false);
@@ -225,10 +242,11 @@ namespace VITS
             float wantFov = Scoped ? 2f * Mathf.Atan(Mathf.Tan(35f * Mathf.Deg2Rad) / zoom) * Mathf.Rad2Deg : GI.AimHeld() ? (AWP ? 55f : 45f) : 70f;
             cam.fieldOfView = Scoped ? wantFov : Mathf.Lerp(cam.fieldOfView, wantFov, 1 - Mathf.Exp(-dt * 12f));
             gun.gameObject.SetActive(!Scoped);
-            float aim = GI.AimHeld() ? 1f : 0f;
+            aimT = Mathf.MoveTowards(aimT, GI.AimHeld() && reloadT <= 0 && locked ? 1f : 0f, dt * 7f);
+            float aim = aimT * aimT * (3f - 2f * aimT), still = 1f - aim;   // no weapon bob with the sights up
             float rl = reloadT > 0 ? Mathf.Sin(Mathf.Clamp01(1 - reloadT / 1.4f) * Mathf.PI) : 0;
-            gun.localPosition = Vector3.Lerp(new Vector3(0.17f, -0.16f, 0.36f), new Vector3(0, -0.085f, 0.3f), aim)
-                                + new Vector3(Mathf.Sin(bob) * 0.006f, Mathf.Abs(Mathf.Cos(bob)) * 0.006f - rl * 0.08f, -recoil * 0.04f);
+            gun.localPosition = Vector3.Lerp(new Vector3(0.17f, -0.16f, 0.36f), ADS[Weapon], aim)
+                                + new Vector3(Mathf.Sin(bob) * 0.006f * still, Mathf.Abs(Mathf.Cos(bob)) * 0.006f * still - rl * 0.08f, -recoil * 0.04f);
             gun.localRotation = Quaternion.Euler(-recoil * 12f + rl * 30f, 0, rl * 25f);
             slide.localPosition = new Vector3(0, 0.03f, 0.03f - recoil * 0.03f);
             flashT -= dt; flash.intensity = flashT > 0 ? 6f : 0f;
