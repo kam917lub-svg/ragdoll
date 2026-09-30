@@ -958,7 +958,7 @@ Dummy.prototype.ragStep=function(dt){
   if(pin){const p=P[pin.i],f0=s/sub;p.px=pin.ox+(pin.x-pin.ox)*f0;p.py=pin.oy+(pin.y-pin.oy)*f0;p.pz=pin.oz+(pin.z-pin.oz)*f0;}}
  if(pin){pin.ox=pin.x;pin.oy=pin.y;pin.oz=pin.z;}
  let mv=0;for(let i=0;i<NJ;i++){const p=P[i];mv=Math.max(mv,Math.abs(p.x-p.px)+Math.abs(p.y-p.py)+Math.abs(p.z-p.pz));p.fx=p.fy=p.fz=0;this.J[i].set(p.x,p.y,p.z);}
- if(this.dead){if(++this.still>50&&(!this.rigorUntil||this.rigorUntil<simTime))this.asleep=true;}
+ if(this.dead){if(mv<0.0007){if(++this.still>50&&(!this.rigorUntil||this.rigorUntil<simTime))this.asleep=true;}else this.still=0;}
  else if(mv<0.0007&&(!this.activeRag||this.pain<0.3)){if(++this.still>45)this.asleep=true;}else this.still=0;
 };
 Dummy.prototype.ragCollide=function(){const P=this.P;
@@ -1571,7 +1571,7 @@ function addHole(p,n){HOLES.setMatrixAt(holeI,decalMatrix(p,n,0.05,null,1));hole
 // gocce di sangue
 const BP={max:TOUCH?1100:2600,n:0};['px','py','pz','vx','vy','vz','sz','vol','age'].forEach(k=>BP[k]=new Float32Array(BP.max));
 const bpMesh=new THREE.InstancedMesh(new THREE.IcosahedronGeometry(1,1),new THREE.MeshBasicMaterial({color:LC('#b0050f')}),BP.max);bpMesh.count=0;bpMesh.frustumCulled=false;scene.add(bpMesh);
-function emitBlood(p,v,sz,vol){if(BP.n>=BP.max)return false;if(MANQ){vol*=3.5;if(sz!=null)sz*=1.5;}if(sz==null)sz=Math.cbrt(3*vol*1e-6/(4*Math.PI));const i=BP.n++;BP.px[i]=p.x;BP.py[i]=p.y;BP.pz[i]=p.z;BP.vx[i]=v.x;BP.vy[i]=v.y;BP.vz[i]=v.z;BP.sz[i]=sz;BP.vol[i]=vol;BP.age[i]=0;return true;}
+function emitBlood(p,v,sz,vol){if(BP.n>=BP.max)return false;if(sz==null)sz=Math.cbrt(3*vol*1e-6/(4*Math.PI));const i=BP.n++;BP.px[i]=p.x;BP.py[i]=p.y;BP.pz[i]=p.z;BP.vx[i]=v.x;BP.vy[i]=v.y;BP.vz[i]=v.z;BP.sz[i]=sz;BP.vol[i]=vol;BP.age[i]=0;return true;}
 function drop(p,v,sz,vol){if(!emitBlood(p,v,sz,vol))floorDrop(p.x,p.z,vol,0,0,1);}
 const BQ=new THREE.Quaternion(),BS=V(),BPOS=V(),BV=V();
 function updBlood(dt){
@@ -1596,7 +1596,7 @@ function updBlood(dt){
    const L=--BP.n;if(i!==L){for(const k of ['px','py','pz','vx','vy','vz','sz','vol','age'])BP[k][i]=BP[k][L];}continue;}
   i++;}
  for(let j=0;j<BP.n;j++){BV.set(BP.vx[j],BP.vy[j],BP.vz[j]);const sp=BV.length(),s=BP.sz[j];if(sp>0.01)BQ.setFromUnitVectors(UP,BV.divideScalar(sp));else BQ.identity();
-  const sm=MANQ?2.0:(ARC.on?1.8:1);BS.set(s*sm,s*sm*(1+Math.min(sp*0.05,1.6)),s*sm);M1.compose(BPOS.set(BP.px[j],BP.py[j],BP.pz[j]),BQ,BS);bpMesh.setMatrixAt(j,M1);}
+  const sm=MANQ?1.25:(ARC.on?1.8:1);BS.set(s*sm,s*sm*(1+Math.min(sp*0.05,1.6)),s*sm);M1.compose(BPOS.set(BP.px[j],BP.py[j],BP.pz[j]),BQ,BS);bpMesh.setMatrixAt(j,M1);}
  bpMesh.count=BP.n;bpMesh.instanceMatrix.needsUpdate=true;}
 // pozze
 let dryT=0;
@@ -1625,7 +1625,7 @@ function bleedFX(d,dt){if(dt<=0||!d.wounds.length)return;const lying=d.mode==='r
   d.flowStreak(w,w.art>0.8&&!w.pr?f*0.45:(w.pr?f*0.6:f),dt,lying,still);}}
 // ARCADE: fontane dai monconi (getti ad arco pulsanti che calano nel tempo)
 function stumpFX(d,dt){if(dt<=0)return;for(const w of d.wounds){if(w.kind!=='stump'&&w!==d.neckW)continue;
- w.sT=(w.sT||0)+dt;const life=d.dead?6:22,k=Math.max(0,1-w.sT/life);if(k<=0)continue;
+ w.sT=(w.sT||0)+dt;const life=MANQ?(d.dead?3:8):(d.dead?6:22),k=Math.max(0,1-w.sT/life);if(k<=0)continue;
  const ph=(d.heartPhase!=null?d.heartPhase:simTime*1.3)%1,pulse=0.45+0.55*Math.pow(Math.max(0,Math.cos(2*Math.PI*(ph-0.1))),3);
  w.fA=(w.fA||0)+dt*(TOUCH?25:60)*k*pulse;if(w.fA<1)continue;
  d.segToWorld(w.seg,w.p,T4);d.segDir(w.seg,w.n,T5);T4.addScaledVector(T5,0.012);const sp=(1.2+2.6*pulse)*(0.4+0.6*k);
@@ -1700,7 +1700,7 @@ let poolT=0;
 function updPools(dt){poolT+=dt;if(poolT<0.5)return;poolT=0;for(let i=pools.length-1;i>=0;i--){const P=pools[i],age=simTime-P.last;if(age>1200){bakePool(P);pools.splice(i,1);continue;}
  const k=clamp((age-60)/600,0,1);P.m.material.roughness=0.06+k*0.55;P.m.material.metalness=0.15*(1-k);P.m.material.color.setScalar(1-0.45*k);}}
 function wetAt(x,z){const P=poolAt(x,z);if(P&&simTime-P.last<600)return 5;return wetGet(wi(x,z));}
-function wetAdd(x,z,v){const i=wi(x,z),cur=wetGet(i)+v;WG.v[i]=cur;WG.t[i]=simTime;if(cur>(ARC.on?1.2:2.5)&&!poolAt(x,z)){WG.v[i]=0;poolAdd(findPool(x,z)||addPool(x,z),cur);}}
+function wetAdd(x,z,v){const i=wi(x,z),cur=wetGet(i)+v;WG.v[i]=cur;WG.t[i]=simTime;if(cur>(MANQ?7:ARC.on?1.2:2.5)&&!poolAt(x,z)){WG.v[i]=0;poolAdd(findPool(x,z)||addPool(x,z),cur);}}
 function wetTake(x,z,want){if(want<=0)return 0;const P=poolAt(x,z);if(P&&simTime-P.last<600){const q=Math.min(want,P.vol*0.03);P.vol-=q;return q;}
  const i=wi(x,z),cur=wetGet(i),q=Math.min(want,cur*0.6);WG.v[i]=cur-q;WG.t[i]=simTime;return q;}
 // goccia a terra (budget di pittura per frame: niente freeze al momento del colpo)
@@ -1903,33 +1903,28 @@ Dummy.prototype.softBleed=function(w,mult){this.bleeds.push({rate:rand(2.4,5)*mu
 const GORE_GEO=new THREE.IcosahedronGeometry(1,0),GUT_GEO=new THREE.SphereGeometry(0.0175,8,6),HEAD_GEO=new THREE.SphereGeometry(1,12,10);
 const GUT_MAT=new THREE.MeshStandardMaterial({color:LC('#c47a66'),roughness:0.35});
 const GORES=[],GV=V();
-function spawnMeat(p,v,r){if(GORES.length>=(TOUCH?16:34)){const g0=GORES.shift();scene.remove(g0.m);}
+function goreEvict(max){let n=0;for(const g of GORES)if(g.bit)n++;if(n<max)return;const i=GORES.findIndex(g=>g.bit);if(i>=0){scene.remove(GORES[i].m);GORES.splice(i,1);}}
+function spawnMeat(p,v,r){goreEvict(TOUCH?16:34);
  const m=new THREE.Mesh(GORE_GEO,new THREE.MeshStandardMaterial({color:LC(pick(MEAT)),roughness:0.55}));m.scale.set(r*rand(0.7,1.4),r*rand(0.5,1.1),r*rand(0.7,1.4));m.position.copy(p);scene.add(m);
- GORES.push({m:m,v:v.clone(),w:V(rand(-9,9),rand(-9,9),rand(-9,9)),rest:false,drip:0,r:r});}
+ GORES.push({m:m,v:v.clone(),w:V(rand(-9,9),rand(-9,9),rand(-9,9)),rest:false,drip:0,r:r,bit:true});}
 
 const CHUNK_RED=new THREE.MeshStandardMaterial({color:LC('#8e0f16'),roughness:0.22});
-function spawnChunk(p,v,r){if(GORES.length>=(TOUCH?22:70)){const g0=GORES.shift();scene.remove(g0.m);}
+function spawnChunk(p,v,r){goreEvict(TOUCH?16:34);
  const g=new THREE.Group(),a=new THREE.Mesh(GORE_GEO,new THREE.MeshStandardMaterial({color:LC(pick(MANQC)),roughness:0.6}));
  a.scale.set(r*rand(0.9,1.5),r*rand(0.6,1),r*rand(0.9,1.3));g.add(a);
  const b=new THREE.Mesh(GORE_GEO,CHUNK_RED),q=r*rand(0.6,0.85);b.scale.set(q,q*0.8,q);b.position.set(rand(-0.4,0.4)*r,rand(-0.3,0.3)*r,rand(0.6,1)*r);g.add(b);
  g.position.copy(p);g.rotation.set(rand(0,6),rand(0,6),rand(0,6));g.traverse(o=>{o.castShadow=true;});scene.add(g);
- GORES.push({m:g,v:v.clone(),w:V(rand(-11,11),rand(-11,11),rand(-11,11)),rest:false,drip:3,r:r,fr:r*0.9});}
+ GORES.push({m:g,v:v.clone(),w:V(rand(-11,11),rand(-11,11),rand(-11,11)),rest:false,drip:3,r:r,fr:r*0.9,bit:true});}
 function vidKill(dm,d){
  dm.ns.brainstem=0;dm.cortexDmg=1;dm.conscious=0;dm.ko=true;dm.brainDeathT=0;dm.nerveUpdate();
- dm.pain=0;dm.playDead=false;
- if(dm.mode!=='rag')dm.toRagdoll();
+ dm.pain=0;dm.playDead=false;dm.brainHits=(dm.brainHits||0)+1;
+ dm.die();if(dm.mode!=='rag')dm.toRagdoll();
  if(dm.P){dm.impulse(J.head,GV.set(d.x,-0.15,d.z),0.5);dm.impulse(J.stern,GV.set(d.x*0.6,-0.3,d.z*0.6),0.35);dm.impulse(J.pelvis,GV.set(d.x*0.2,-0.4,d.z*0.2),0.12);}}
 function vidHit(dm,r,d,exits,pIn,pOut){
- const si=r.first.seg,k=SEG[si].k;dm.vs=dm.vs||{};dm.vs[si]=(dm.vs[si]||0)+1;const n=dm.vs[si];
- const burst=(p,cnt,sp,rv)=>{cnt=(TOUCH?cnt*0.5:cnt)|0;for(let i=0;i<cnt;i++){GV.set(d.x*rand(sp*0.3,sp)+rand(-1.8,1.8),rand(-0.2,3),d.z*rand(sp*0.3,sp)+rand(-1.8,1.8));emitBlood(p,GV,null,rand(0.2,rv));}};
- const chunks=(p,cnt,sz)=>{for(let i=0;i<cnt;i++){GV.set(d.x*rand(1.5,5.5)+rand(-1.5,1.5),rand(0.5,3.4),d.z*rand(1.5,5.5)+rand(-1.5,1.5));spawnChunk(p,GV,rand(sz*0.6,sz)*dm.s);}};
- if(k==='head'&&!dm.headless&&!dm.headMashed){
-  vidKill(dm,d);burst(pIn,26,2.5,1.2);burst(pOut,exits?60:22,7,1.6);chunks(exits?pOut:pIn,exits?4:2,0.03);
-  if(n>=2||Math.random()<0.3)dismember(dm,'neck',d);
-  return;}
- const lim=LIMBCUT[si];
- if(lim&&dm.sevJ[lim]!==9&&(n>=2||Math.random()<0.8)){cutLimbAt(dm,si,clamp(r.first.pin.y,0.06,SEGLEN[si]-0.06),d);chunks(pIn,3,0.035);burst(pIn,30,4,1.4);return;}
- chunks(exits?pOut:pIn,exits?4:2,0.03);burst(pIn,14,3,1);if(exits)burst(pOut,30,6,1.4);}
+ const si=r.first.seg,k=SEG[si].k;
+ if(k==='head'&&!dm.headless&&!dm.headMashed){vidKill(dm,d);
+  if(exits){for(let i=0;i<(TOUCH?10:22);i++){GV.set(d.x*rand(1,4)+rand(-0.7,0.7),rand(-0.3,1.3),d.z*rand(1,4)+rand(-0.7,0.7));emitBlood(pOut,GV,null,rand(0.3,1.2));}
+   GV.set(d.x*rand(1.5,3)+rand(-0.4,0.4),rand(0.4,1.2),d.z*rand(1.5,3)+rand(-0.4,0.4));spawnChunk(pOut,GV,rand(0.022,0.032)*dm.s);}}}
 function spawnOrganProp(d,pos){const cols=['#8e1b22','#7a2e22','#7d2b2b','#6b2240'];
  const m=new THREE.Mesh(HEAD_GEO,new THREE.MeshStandardMaterial({color:LC(pick(cols)),roughness:0.25}));
  const r=rand(0.03,0.048)*d.s;m.scale.set(r,r*rand(0.7,1),r*rand(0.8,1.2));m.castShadow=true;m.position.copy(pos);m.rotation.set(rand(0,6),rand(0,6),rand(0,6));scene.add(m);
@@ -2369,13 +2364,12 @@ VGA.rotation.y=0.24;VGA.position.set(0.02,-0.01,0.0);VGA.visible=false;
 VGP.add(bx(0.038,0.046,0.26,mSteelL,0,0.022,-0.12));VGP.add(bx(0.034,0.03,0.22,mSteel,0,-0.014,-0.1));VGP.add(bx(0.036,0.11,0.05,wm(0xb9773f),0,-0.07,0.03,-0.25));
 VGP.add(bx(0.012,0.014,0.012,mBlack,0,0.05,-0.24));VGP.add(bx(0.03,0.012,0.02,mBlack,0,0.048,0.0));
 VGP.rotation.y=0.2;VGP.position.set(0.03,-0.02,0.0);VGP.visible=false;
-const WEAPS={pistol:{name:'PISTOL / 9MM',max:15,rate:0.11,auto:false,ammo:15,fz:-0.5},ak:{name:'AK-47 / 7.62',max:30,rate:0.085,auto:true,ammo:30,fz:-0.78}};
+const WEAPS={pistol:{name:'PISTOL / 9MM',max:15,rate:0.11,auto:false,ammo:15,fz:-0.2},ak:{name:'AK-47 / 7.62',max:30,rate:0.085,auto:true,ammo:30,fz:-0.78}};
 let curW='pistol',firing=false;
-function setWeapon(w){WEAPS[curW].ammo=gun.ammo;curW=w;const W=WEAPS[w];gun.max=W.max;gun.ammo=W.ammo;gun.rate=W.rate;gun.auto=W.auto;gun.reload=0;VGP.visible=w==='pistol';VGA.visible=w==='ak';flash.position.set(0,0.03,W.fz);if(handMode)toggleHands();updAmmo();}
+function setWeapon(w){WEAPS[curW].ammo=gun.ammo;curW=w;const W=WEAPS[w];gun.max=W.max;gun.ammo=W.ammo;gun.rate=W.rate;gun.auto=W.auto;gun.reload=0;VGP.visible=false;VGA.visible=w==='ak';const orig=w==='pistol';GUN.children.forEach(c=>{if(c!==flash&&c!==VG)c.visible=orig;});flash.position.set(0,orig?0.032:0.03,orig?-0.2:W.fz);if(handMode)toggleHands();updAmmo();}
 const FL=new THREE.PointLight(0xffe0a0,0,10);FL.position.set(0.25,-0.15,-0.7);camera.add(FL);
-function vidUI(){const on=curStyle==='vid';if(on){setWeapon('ak');}document.body.classList.toggle('vid',on);VG.visible=on;
- GUN.children.forEach(c=>{if(c!==flash&&c!==HAND&&c!==VG)c.visible=!on;});HAND.visible=!on;
-  if(on){Object.assign(ARC,{on:true,imp:4,cut:2.6,stain:3.2,pool:0.7,burst:2});if(!ARC._t){ARC._t=1;setArcade(true);}$('mon').hidden=false;renderer.toneMapping=THREE.NoToneMapping;for(const sc of [scene,vmScene])sc.traverse(o=>{if(o.material)[].concat(o.material).forEach(m=>{m.needsUpdate=true;});});}}
+function vidUI(){const on=curStyle==='vid';document.body.classList.toggle('vid',on);VG.visible=on;if(on)setWeapon('pistol');
+  if(on){Object.assign(ARC,{on:true,imp:1.3,cut:1.6,stain:1.25,pool:0.55,burst:0.45});if(!ARC._t){ARC._t=1;setArcade(true);}$('mon').hidden=false;renderer.toneMapping=THREE.NoToneMapping;for(const sc of [scene,vmScene])sc.traverse(o=>{if(o.material)[].concat(o.material).forEach(m=>{m.needsUpdate=true;});});}}
 let vSpecS='',vAm='';
 function updVHud(){$('mon').classList.toggle('none',!monT);const tl='TIME '+(paused?'PAUSED':TS[TSI].toFixed(1)+'x');if($('vTimeL').textContent!==tl)$('vTimeL').textContent=tl;const am=gun.reload>0?'···':String(gun.ammo).padStart(2,'0');if(am+curW!==vAm){vAm=am+curW;$('vam').textContent=am;$('vmax').textContent='/ '+gun.max;$('vwn').textContent=WEAPS[curW].name;}
 const al=dummies.filter(d=>!d.dead&&d.mode==='anim'||!d.dead&&d.mode==='rag'&&d.conscious>0.3).length,s='SPECIMENS '+String(dummies.length).padStart(2,'0')+' / 100';if(s!==vSpecS){vSpecS=s;$('vSpec').textContent=s;}}

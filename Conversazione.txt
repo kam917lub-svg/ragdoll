@@ -85,3 +85,19 @@ Modifiche (patch2 sopra la versione precedente, tutto in index.html):
 Da fare (in attesa degli altri clip): pannello medico in inglese, rivoli sul
 corpo piu' marcati, forma delle gocce tonde, modello AK piu' fedele,
 comportamento di ferito (tiene la ferita, svenimento) da confrontare.
+
+--- PROMPT 3 -------------------------------------------------------
+Utente: sangue a tappeto, pezzi che non si staccano, corpi che si congelano,
+arma troppo potente -> usare la pistola semiautomatica originale.
+Cause trovate: (1) ragStep: un morto andava in "sleep" dopo 50 passi anche in
+caduta -> corpo congelato; (2) moltiplicatori sangue modalita' video troppo alti
++ micro-pozze scure; (3) i miei frammenti facevano eliminare gli arti recisi dal
+pool GORES; (4) AK automatico + regole di smembramento doppie.
+Patch3 scritta in index.html (NON testata, NON committata): interrotta
+dall'utente.
+
+--- PROMPT 4 -------------------------------------------------------
+Utente: "il gioco originale e' in Unity, puoi farlo in Unity?"
+Risposta: si', come progetto Unity (script C# + scena generata da script),
+ma qui non c'e' Unity: non posso compilarlo ne' testarlo. In attesa di
+conferma su versione Unity e avvio.
