@@ -138,7 +138,9 @@ namespace VITS
         readonly int[] carvedBone = new int[BodyMesh.NB];
         Vector3 target, lastPos, vel, detour, anchor, lastDir = Vector3.forward;
         Part clutch; Vector3 clutchLocal;
-        float totalMass;
+        float totalMass; public float TotalMass => totalMass;
+        public float heldT = -9f;   // last time the player's grab pulled on this body
+        public bool Held => Time.time - heldT < 0.2f;
         static readonly Collider[] buf = new Collider[32];
         static Material skinMat, innerMat, visorMat, tagMat, stumpMat, boneMat;
 
@@ -783,7 +785,7 @@ namespace VITS
                 }
             }
             // light wounds only, standing and steady for a while: walk (or hop) away
-            if (!down && support > 0.85f && Mathf.Max(legFn[0], legFn[1]) > 0.7f && Mathf.Min(legFn[0], legFn[1]) > 0.3f && strength > 0.75f && Time.time - lastHitTime > 2f)
+            if (!Held && Time.time - heldT > 1.5f && !down && support > 0.85f && Mathf.Max(legFn[0], legFn[1]) > 0.7f && Mathf.Min(legFn[0], legFn[1]) > 0.3f && strength > 0.75f && Time.time - lastHitTime > 2f)
                 Recover();
         }
 
@@ -808,6 +810,7 @@ namespace VITS
             }
             if (mode != M.Active) return;
             var pel = parts["pelvis"]; var ch = parts["chest"];
+            if (Held) { anchor = pel.transform.position; if (conscious) Writhe(Time.fixedDeltaTime * 2f); return; }   // dangling in your grip, kicking
             if (crawling) { Crawl(); return; }
             float s = support;
             if (s < 0.35f) return;
@@ -1012,18 +1015,25 @@ namespace VITS
 
             // 9 mm: a small dark hole in, a slightly bigger torn one out
             B.SkinDecal(p.transform, inL, p.Normal(inL), 0.008f, 5);
-            if (exits) B.SkinDecal(p.transform, outL, p.Normal(outL), Player.AK ? 0.02f : 0.014f, 5);
+            if (exits) B.SkinDecal(p.transform, outL, p.Normal(outL), Player.AWP ? 0.035f : Player.AK ? 0.02f : 0.014f, 5);
 
             // flesh is torn away: a small piece at the entry, a bigger one at the exit, and it flies off
-            float rin = Player.AK ? 0.02f : 0.015f, rout = (Player.AK ? 0.034f : 0.025f) * (p.isHead ? 1.3f : 1f);
+            float rin = Player.AWP ? 0.028f : Player.AK ? 0.02f : 0.015f, rout = (Player.AWP ? 0.06f : Player.AK ? 0.034f : 0.025f) * (p.isHead ? 1.3f : 1f);
             Carve(p, inW, rin);
             if (exits) { Carve(p, outW, rout); Gib.Spawn(outW + outN * 0.02f, dir * Random.Range(2f, 4.5f) + Random.insideUnitSphere + Vector3.up * 0.6f, rout * Random.Range(0.8f, 1.2f)); }
-            B.Spray(inW + inN * 0.01f, (-dir + inN) * 0.5f, 16, 1.5f, 0.45f, 0.05f, 0.4f);
-            if (exits) B.Spray(outW + outN * 0.01f, dir, p.isHead ? 130 : 70, p.isHead ? 5.5f : 4f, 0.4f, 0.15f, 1.2f);
+            float cal = Player.AWP ? 2.5f : Player.AK ? 1.5f : 1f;   // bigger round, more tissue destroyed, more blood thrown
+            B.Spray(inW + inN * 0.01f, (-dir + inN) * 0.5f, (int)((p.isHead ? 60 : 22) * cal), p.isHead ? 2.2f : 1.5f, 0.5f, 0.05f, p.isHead ? 0.9f : 0.4f);
+            if (exits) B.Spray(outW + outN * 0.01f, dir, (int)((p.isHead ? 320 : 90) * cal), p.isHead ? 6f : 4f, p.isHead ? 0.55f : 0.4f, 0.2f, p.isHead ? 2f : 1.2f);
+            if (p.isHead)
+            {
+                // a head wound pours: a heavy gush that falls straight down and starts the puddle at once
+                Vector3 src = exits ? outW : inW;
+                B.Spray(src, Vector3.down + dir * 0.3f, (int)(140 * cal), 1.2f, 0.6f, 0.8f, 2.5f);
+            }
             if (exits && (p.isHead || Random.value < 0.35f)) Gib.Spawn(outW, dir * Random.Range(1.5f, 3.5f) + Random.insideUnitSphere + Vector3.up * 0.8f, Random.Range(0.01f, 0.02f));
 
-            AddWound(p, inL, p.Normal(inL), p.isHead ? 4f : p.isTorso ? 2.5f : 1.5f, false, 0, "");
-            if (exits) AddWound(p, outL, p.Normal(outL), p.isHead ? 10f : p.isTorso ? 6f : 4f, false, 0, "");
+            AddWound(p, inL, p.Normal(inL), (p.isHead ? 12f : p.isTorso ? 2.5f : 1.5f) * cal, false, 0, "");
+            if (exits) AddWound(p, outL, p.Normal(outL), (p.isHead ? 25f : p.isTorso ? 6f : 4f) * cal, false, 0, "");
 
             // arteries: big pulsing jets out of the wound
             int art = ArteryHit(p, inL, exits ? outL : inL + dirL * 0.1f);
@@ -1043,7 +1053,11 @@ namespace VITS
                 headHits++;
                 injuries.Add("HEAD  GUNSHOT  FATAL");
                 Die("HEADSHOT");
-                if (headHits >= 7 && !headMashed) SeverJoint(p, dir);
+                // a rifle round can burst the skull: AK sometimes (more likely at close range / repeated hits), AWP always
+                float range = Vector3.Distance(Camera.main != null ? Camera.main.transform.position : pt, pt);
+                bool burst = Player.AWP || (Player.AK && (headHits >= 3 || Random.value < (range < 10f ? 0.45f : 0.25f)));
+                if (burst && !headMashed) MashHead(p);
+                else if (headHits >= 7 && !headMashed) SeverJoint(p, dir);
             }
             else if (p.isTorso)
             {
@@ -1093,7 +1107,8 @@ namespace VITS
         // enough holes at about the same height, spread around the limb? (pistol needs more than the AK)
         static bool CutLine(Part p, out float cy)
         {
-            cy = 0; int need = Player.AK ? 3 : 5;
+            cy = 0; int need = Player.AWP ? 1 : Player.AK ? 3 : 5;
+            if (Player.AWP && p.holes.Count > 0) { cy = p.holes[p.holes.Count - 1].x; return true; }   // .338 Lapua: one hit tears the limb off
             foreach (var h in p.holes)
             {
                 int n = 0; float lo = 999, hi = -999, sum = 0;
@@ -1172,7 +1187,7 @@ namespace VITS
         // exact hit test against the skin triangles as they are drawn right now (two-sided: through a carved hole you hit the flesh behind it)
         static Mesh bake;
         static readonly List<Vector3> bv = new List<Vector3>();
-        public static bool PickSkin(Vector3 o, Vector3 d, float maxT, out Part best, out float bestT, out Vector3 nrm)
+        public static bool PickSkin(Vector3 o, Vector3 d, float maxT, out Part best, out float bestT, out Vector3 nrm, Mannequin skip = null)
         {
             best = null; bestT = maxT; nrm = -d;
             if (bake == null) bake = new Mesh();
@@ -1206,7 +1221,7 @@ namespace VITS
                 var w = sk.bw[T[hitTri]];
                 if (w.boneIndex0 < sk.bones.Length && sk.bones[w.boneIndex0] != null) part = sk.bones[w.boneIndex0].GetComponentInParent<Part>();
                 if (part == null) part = Nearest(wp, 0.3f);
-                if (part == null) continue;
+                if (part == null || part.owner == skip) continue;
                 Vector3 a2 = bv[T[hitTri]];
                 Vector3 n = M.MultiplyVector(Vector3.Cross(bv[T[hitTri + 1]] - a2, bv[T[hitTri + 2]] - a2)).normalized;
                 if (Vector3.Dot(n, d) > 0) n = -n;

@@ -265,3 +265,11 @@ Fatto:
 - Y: raycast dal mirino, Carl messo a terra in quel punto, spostato fuori dai muri, girato verso il giocatore. N resta casuale.
 - Pezzi di carne: attrito alto, niente rimbalzo, smorzamento; appena fermi a terra diventano statici.
 - Braccia: l IK del gomito prova 7 direzioni e sceglie quella che tiene braccio e avambraccio fuori da petto, bacino e testa (SDF, 4 cm di spessore).
+
+--- PROMPT 22 ---
+Utente: ancora poco sangue (colpo in testa = tanto spray e pozza), il sangue sparisce, l AK deve poter far esplodere il cranio, presa col tasto centrale molto piu lunga e deve spostare i Carl anche vivi (cervello on/off), aggiungere AWP replica 1:1 con cannocchiale.
+Fatto:
+- Sangue: colpo in testa = spray entrata 60, uscita 320, piu getto verso il basso di 140 gocce grosse (pozza subito); ferita testa 12/25 ml/s; tutto x1,5 AK, x2,5 AWP. Limiti: 12 000 gocce in volo, 24 000 macchie per tipo, 8 000 sulla pelle, 2 000 pozze (poi cresce la piu vicina), gocce vivono 20 s, pozza nasce a 1,5 ml.
+- AK: la testa esplode (MashHead) con 45% sotto i 10 m, 25% oltre, sempre dal 3o colpo. AWP: sempre.
+- Presa: portata 60 m, forza proporzionale alla massa del Carl intero (compensazione gravita, il resto del corpo segue); un Carl vivo tenuto non si rimette in piedi e scalcia; rotella avvicina/allontana fino a 60 m.
+- AWP (Accuracy International AWM): calcio verde con impugnatura a pollice passante, poggiaguancia, canna nera lunga con freno di bocca, bipiede chiuso, caricatore 10, otturatore animato (1,2 s), cannocchiale con torrette. Tasto destro = scope nero con reticolo sottile e montanti spessi, zoom 4-12x con la rotella; precisione assoluta nello scope, imprecisa dall anca. Impulso 14 N s, foro uscita 6 cm, arto staccato in un colpo, attraversa un Carl e colpisce quello dietro. Suono piu cupo e lungo. Menu Esc con 3 armi.

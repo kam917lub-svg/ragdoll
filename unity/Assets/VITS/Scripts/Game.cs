@@ -8,7 +8,7 @@ namespace VITS
     public class Game : MonoBehaviour
     {
         public static Game I;
-        public static float BulletImpulse => Player.AK ? 6f : 3.5f; // momentum of a 9 mm / 7.62x39 round, rounded up
+        public static float BulletImpulse => Player.AWP ? 14f : Player.AK ? 6f : 3.5f; // momentum of a 9 mm / 7.62x39 / .338 Lapua round, rounded up
         public static bool Brains = true;
         public static string LastShot = ""; // Esc menu: when off, Carls stand still until shot at // N·s pushed into a ragdoll part by a 9 mm round (gamey, not realistic)
         public Player player;
@@ -205,15 +205,17 @@ namespace VITS
             Label(new Rect(W - 330 * s, 14 * s, 300 * s, 34 * s), paused ? "TIME  PAUSED" : $"TIME  {TS[tsi]:0.0}x", (int)(26 * s), TextAnchor.UpperRight);
             Label(new Rect(W - 330 * s, 48 * s, 300 * s, 22 * s), XRay.On ? "X-RAY  ·  FREE MOVEMENT" : "FREE MOVEMENT", (int)(14 * s), TextAnchor.UpperRight, 0.7f);
 
-            Label(new Rect(W - 330 * s, H - 150 * s, 300 * s, 22 * s), Player.AK ? "AK-47 / 7.62" : "PISTOL / 9MM", (int)(14 * s), TextAnchor.UpperRight, 0.7f);
+            Label(new Rect(W - 330 * s, H - 150 * s, 300 * s, 22 * s), Player.Names[Player.Weapon], (int)(14 * s), TextAnchor.UpperRight, 0.7f);
             string am = player.reloadT > 0 ? "..." : player.ammo.ToString("00");
             Label(new Rect(W - 330 * s, H - 128 * s, 300 * s, 70 * s), $"{am}<size={(int)(24 * s)}> / {player.MaxAmmo}</size>", (int)(56 * s), TextAnchor.UpperRight);
             Label(new Rect(W - 330 * s, H - 58 * s, 300 * s, 22 * s), "∞  RESERVE", (int)(14 * s), TextAnchor.UpperRight, 0.6f);
             Label(new Rect(20 * s, H - 36 * s, W, 24 * s), "WASD move · SHIFT run · SPACE jump · LMB fire · RMB aim · MMB hold: grab & drag · R reload · T x-ray · Y spawn Carl · [ ] time · P pause · BACKSPACE reset · ESC mouse", (int)(13 * s), TextAnchor.UpperLeft, 0.55f);
 
-            // crosshair
+            // crosshair (the AWP scope has its own)
+            float cx = W / 2f, cy = H / 2f;
+            if (!player.Scoped) {
             var cc = player.looked != null ? new Color(1f, 0.35f, 0.3f, 0.95f) : new Color(1, 1, 1, 0.9f);
-            GUI.color = cc; float cx = W / 2f, cy = H / 2f, g = 5 * s, l = 8 * s, t = Mathf.Max(1, 2 * s);
+            GUI.color = cc; float g = 5 * s, l = 8 * s, t = Mathf.Max(1, 2 * s);
             GUI.DrawTexture(new Rect(cx - g - l, cy - t / 2, l, t), Texture2D.whiteTexture); GUI.DrawTexture(new Rect(cx + g, cy - t / 2, l, t), Texture2D.whiteTexture);
             GUI.DrawTexture(new Rect(cx - t / 2, cy - g - l, t, l), Texture2D.whiteTexture); GUI.DrawTexture(new Rect(cx - t / 2, cy + g, t, l), Texture2D.whiteTexture);
             if (player.hitMarkT > 0)
@@ -224,6 +226,7 @@ namespace VITS
                 GUI.DrawTexture(new Rect(cx - t / 2, cy - g - l - q, t, l), Texture2D.whiteTexture); GUI.DrawTexture(new Rect(cx - t / 2, cy + g + q, t, l), Texture2D.whiteTexture);
                 GUI.matrix = Matrix4x4.identity;
             }
+            }
             GUI.color = Color.white;
             Label(new Rect(0, cy + 40 * s, W, 20 * s), LastShot.Length > 0 ? "LAST SHOT: " + LastShot : "", (int)(12 * s), TextAnchor.UpperCenter, 0.6f);
             Label(new Rect(0, cy + 22 * s, W, 20 * s), player.held != null ? "HOLDING" : player.aimInfo, (int)(12 * s), TextAnchor.UpperCenter, 0.75f);
@@ -232,15 +235,16 @@ namespace VITS
             if (player.menu)
             {
                 GUI.color = Color.white;
-                var box = new Rect(W / 2f - 190 * s, H / 2f - 170 * s, 380 * s, 340 * s);
+                var box = new Rect(W / 2f - 190 * s, H / 2f - 190 * s, 380 * s, 390 * s);
                 GUI.DrawTexture(box, panelTex);
                 Label(new Rect(box.x, box.y + 14 * s, box.width, 30 * s), "VERTICAL IMPACT TESTSITE", (int)(20 * s), TextAnchor.UpperCenter);
                 var bs = new GUIStyle(GUI.skin.button) { fontSize = (int)(18 * s), fontStyle = FontStyle.Bold };
                 float bx = box.x + 30 * s, bw = box.width - 60 * s, bh = 42 * s, y0 = box.y + 60 * s;
-                if (GUI.Button(new Rect(bx, y0, bw, bh), (Player.AK ? "  " : "▶ ") + "PISTOL  (9 mm, semi-auto)", bs)) player.SetWeapon(false);
-                if (GUI.Button(new Rect(bx, y0 + 52 * s, bw, bh), (Player.AK ? "▶ " : "  ") + "AK-47  (7.62, full auto)", bs)) player.SetWeapon(true);
-                if (GUI.Button(new Rect(bx, y0 + 104 * s, bw, bh), "CARL BRAINS: " + (Brains ? "ON (walk around)" : "OFF (wait until shot)"), bs)) Brains = !Brains;
-                if (GUI.Button(new Rect(bx, y0 + 170 * s, bw, bh), "RESUME  (Esc)", bs)) player.SetMenu(false);
+                if (GUI.Button(new Rect(bx, y0, bw, bh), (Player.Weapon == 0 ? "▶ " : "  ") + "PISTOL  (9 mm, semi-auto)", bs)) player.SetWeapon(0);
+                if (GUI.Button(new Rect(bx, y0 + 52 * s, bw, bh), (Player.Weapon == 1 ? "▶ " : "  ") + "AK-47  (7.62, full auto)", bs)) player.SetWeapon(1);
+                if (GUI.Button(new Rect(bx, y0 + 104 * s, bw, bh), (Player.Weapon == 2 ? "▶ " : "  ") + "AWP  (.338, bolt, scope)", bs)) player.SetWeapon(2);
+                if (GUI.Button(new Rect(bx, y0 + 156 * s, bw, bh), "CARL BRAINS: " + (Brains ? "ON (walk around)" : "OFF (wait until shot)"), bs)) Brains = !Brains;
+                if (GUI.Button(new Rect(bx, y0 + 222 * s, bw, bh), "RESUME  (Esc)", bs)) player.SetMenu(false);
                 return;
             }
             if (!player.locked) Label(new Rect(0, H * 0.55f, W, 30 * s), "CLICK TO PLAY", (int)(22 * s), TextAnchor.UpperCenter);

@@ -10,7 +10,7 @@ namespace VITS
     public class Blood : MonoBehaviour
     {
         public static Blood I;
-        const int MAXD = 4000, B = 1023, DEC_BATCHES = 3, MAXBODY = 400, MAXPOOLS = 160;
+        const int MAXD = 12000, B = 1023, DEC_BATCHES = 24, MAXBODY = 400, MAXPOOLS = 2000;
 
         readonly Vector3[] dp = new Vector3[MAXD], dv = new Vector3[MAXD];
         readonly float[] dvol = new float[MAXD], dage = new float[MAXD];
@@ -24,7 +24,7 @@ namespace VITS
         Matrix4x4[][] dropBatches;
         int zSeq;
         struct SkinDec { public Transform t; public Matrix4x4 m; }
-        const int SKIN_MAX = 2046;
+        const int SKIN_MAX = 8000;
         readonly SkinDec[][] skin = new SkinDec[6][];
         readonly int[] skinN = new int[6], skinHead = new int[6];
         Matrix4x4[][] skinBatches;
@@ -173,7 +173,7 @@ namespace VITS
                 {
                     Land(h, v, dvol[i]); Kill(i); continue;
                 }
-                if (dage[i] > 6f || np.y < -5f) { Kill(i); continue; }
+                if (dage[i] > 20f || np.y < -5f) { Kill(i); continue; }
                 dp[i] = np; dv[i] = v; i++;
             }
         }
@@ -228,6 +228,7 @@ namespace VITS
 
         void AddDecal(int v, Vector3 p, Vector3 n, Vector3 up, float sx, float sy)
         {
+            // ~24 000 stains per kind; only past that do the oldest go (blood stays for the whole session)
             int cap = DEC_BATCHES * B;
             int i = decHead[v]; decHead[v] = (i + 1) % cap; if (decN[v] < cap) decN[v]++;
             if (Mathf.Abs(Vector3.Dot(up, n)) > 0.98f) up = RandomTangent(n);
@@ -253,7 +254,7 @@ namespace VITS
                 if (Mathf.Abs(P.p.y - p.y) < 0.2f && (new Vector2(P.p.x - p.x, P.p.z - p.z)).magnitude < P.r * 0.95f) { Grow(P, vol); return; }
             var cell = new Vector2Int(Mathf.FloorToInt(p.x / 0.3f), Mathf.FloorToInt(p.z / 0.3f));
             wet.TryGetValue(cell, out float w); w += vol;
-            if (w > 3f && pools.Count < MAXPOOLS)
+            if (w > 1.5f && pools.Count < MAXPOOLS)
             {
                 wet[cell] = 0;
                 var go = new GameObject("pool");
@@ -262,6 +263,13 @@ namespace VITS
                 go.transform.SetPositionAndRotation(new Vector3(p.x, p.y + 0.004f + pools.Count * 0.00005f, p.z), Quaternion.LookRotation(Vector3.up, RandomTangent(Vector3.up)));
                 var P = new Pool { t = go.transform, p = p };
                 pools.Add(P); Grow(P, w);
+            }
+            else if (w > 1.5f && pools.Count > 0)
+            {
+                // too many puddles: feed the nearest one instead of losing the blood
+                Pool best = pools[0]; float bd = 1e9f;
+                foreach (var P in pools) { float dd = (P.p - p).sqrMagnitude; if (dd < bd) { bd = dd; best = P; } }
+                wet[cell] = 0; Grow(best, w);
             }
             else wet[cell] = w;
         }
@@ -299,7 +307,7 @@ namespace VITS
                     var t = arr[i].t;
                     if (t == null) continue;
                     skinBatches[v * 2 + b][n++] = t.localToWorldMatrix * arr[i].m;
-                    if (n == B) { Graphics.DrawMeshInstanced(quad, 0, decMat[v], skinBatches[v * 2 + b], n, null, ShadowCastingMode.Off, false); n = 0; b = 1; }
+                    if (n == B) { Graphics.DrawMeshInstanced(quad, 0, decMat[v], skinBatches[v * 2 + b], n, null, ShadowCastingMode.Off, false); n = 0; b = 1 - b; }
                 }
                 if (n > 0) Graphics.DrawMeshInstanced(quad, 0, decMat[v], skinBatches[v * 2 + b], n, null, ShadowCastingMode.Off, false);
             }

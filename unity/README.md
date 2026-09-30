@@ -16,9 +16,9 @@ Serve Unity 6 (testato come codice per 6000.x) con **URP**.
 | W A S D | muoversi |
 | Shift | correre |
 | Spazio | saltare |
-| Clic sinistro | sparare (pistola: un colpo per clic; AK-47: tieni premuto) |
-| Clic destro (tenuto) | mirare |
-| Rotella (tenuta) | afferrare e trascinare un corpo o un pezzo; girare la rotella = avvicina/allontana |
+| Clic sinistro | sparare (pistola: un colpo per clic; AK-47: tieni premuto; AWP: un colpo, poi 1,2 s di otturatore) |
+| Clic destro (tenuto) | mirare; con l'AWP = cannocchiale (girare la rotella = zoom 4x-12x) |
+| Rotella (tenuta) | afferrare un Carl (vivo o morto, cervello ON o OFF) o un pezzo fino a 60 m e portarlo dove vuoi; girare la rotella = avvicina/allontana |
 | R | ricaricare |
 | T | raggi X (ossa, organi, arterie, vene, nervi) |
 | Y | nuovo Carl nel punto indicato dal mirino (a terra, rivolto verso di te) |
@@ -26,11 +26,13 @@ Serve Unity 6 (testato come codice per 6000.x) con **URP**.
 | [ ] | rallenta / accelera il tempo |
 | P | pausa |
 | Backspace | ricomincia |
-| Esc | menu: scegli PISTOLA o AK-47, CARL BRAINS on/off (off = stanno fermi finché non vengono presi di mira), riprendi |
+| Esc | menu: scegli PISTOLA, AK-47 o AWP, CARL BRAINS on/off (off = stanno fermi finché non vengono presi di mira), riprendi |
 
 Sotto il mirino c'è scritto cosa stai puntando; una X rossa conferma che il colpo ha preso un corpo.
 
 ## Cosa fa
+- Armi: pistola 9 mm (15), AK-47 7.62 (30, può far esplodere il cranio), AWP .338 Lapua (10, otturatore, cannocchiale; stacca un arto in un colpo, esplode sempre la testa, attraversa un corpo e colpisce quello dietro).
+- Il sangue non sparisce: ~24 000 macchie per tipo, 8 000 sui corpi, fino a 2 000 pozze (poi si allargano quelle esistenti).
 - Manichini con ragdoll vero (Rigidbody + CharacterJoint): camminano, scappano quando spari,
   si tengono la ferita, cadono se colpiti alle gambe, svengono e muoiono dissanguati.
 - Colpo in testa = morte istantanea; secondo colpo in testa = decapitazione.
