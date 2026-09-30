@@ -22,7 +22,7 @@ namespace VITS
         public List<int> tris;
         public Vector3 sdfOff;          // local -> original segment space (for lower pieces of a cut limb)
         public float yMin = -9f, yMax = 9f;
-        public float integrity = 1f; public Vector4 baseLim;   // 1 = intact .. 0 = torn through (joint goes slack and floppy)
+        public float integrity = 1f, damage; public Vector4 baseLim;   // 1 = intact .. 0 = torn through (joint goes slack and floppy)
         public int triTotal, carved;
         public readonly List<Vector3> wounds = new List<Vector3>();   // where bullets went in/out (local): repeated hits widen the hole
         public readonly List<Vector2> holes = new List<Vector2>(); // (height along the bone, angle around it) of every hole
@@ -1722,6 +1722,23 @@ namespace VITS
             sk.tris = keep; sk.mesh.SetTriangles(keep, 0);
             // stains and runs that sat on the skin that is now gone must go too (no blood floating over a hole)
             foreach (var q in allParts) if (q != null && q.skin == sk) Blood.I.CullSkin(q.transform, lp => (q.transform.TransformPoint(lp) - world).sqrMagnitude < r2 * 1.2f);
+            // the body is as solid as what is left of it: a segment that has lost much of its flesh gets thinner
+            // colliders, less mass and a slack joint, so it bends and folds where the meat is gone
+            foreach (var q in allParts)
+            {
+                if (q == null || q.skin != sk || q.idx < 0 || q.idx >= BodyMesh.NB) continue;
+                float lost = Mathf.Clamp01(carvedBone[q.idx] / Mathf.Max(1f, (float)BodyMesh.TrisPerBone[q.idx]));
+                if (lost <= 0.02f) continue;
+                if (!baseMass.ContainsKey(q)) baseMass[q] = q.rb.mass;
+                q.rb.mass = Mathf.Max(0.2f, baseMass[q] * (1f - lost * 0.7f));
+                foreach (var col in q.GetComponents<CapsuleCollider>())
+                {
+                    if (!baseRad.ContainsKey(col)) baseRad[col] = col.radius;
+                    col.radius = Mathf.Max(0.015f, baseRad[col] * (1f - lost * 0.75f));
+                }
+                if (q.joint != null) Weaken(q, Mathf.Clamp01(lost * 1.6f));
+                else if (q.key == "pelvis" && !parts["chest"].severed) Weaken(parts["chest"], Mathf.Clamp01(lost * 1.6f));   // pelvis eaten away: the waist joint above it gives
+            }
             if (p.isHead && !headMashed && carvedBone[BodyMesh.HEA] > BodyMesh.TrisPerBone[BodyMesh.HEA] * 0.4f) MashHead(p);   // only after very many hits
         }
 
@@ -2018,12 +2035,15 @@ namespace VITS
             FinishCut(p, np, new Vector3(0, -c, 0), dir);
         }
 
+        readonly Dictionary<Part, float> baseMass = new Dictionary<Part, float>();
+        readonly Dictionary<CapsuleCollider, float> baseRad = new Dictionary<CapsuleCollider, float>();
         const float WaistSplit = 55f;
 
         // a joint whose muscle and bone are being shot away: weaker drive, wider (sagging) limits, until it just hangs
         void Weaken(Part p, float dmg)
         {
             if (p.joint == null) return;
+            dmg = Mathf.Max(dmg, p.damage); p.damage = dmg;
             p.integrity = Mathf.Min(p.integrity, 1f - dmg * 0.95f);
             float w = 1f + dmg * 2.2f;
             var j = p.joint;

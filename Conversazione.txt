@@ -503,3 +503,7 @@ Fatto: una goccia che cade dentro una pozza non lascia piu una macchia: si unisc
 --- PROMPT 65 ---
 Utente (screenshot: vita crivellata ma il corpo resta rigido): non dovrebbe piegarsi?
 Fatto: ogni parte ha integrity (1 intatta -> 0 squarciata). Weaken(): la forza del giunto scala con integrity e i limiti di rotazione si allargano fino a 3,2x (max 170 gradi) -> la parte si affloscia e pende. Vita: in base al danno accumulato alla vita (verso il taglio a meta), >30% "SPINE DAMAGED", >50% gambe dimezzate e crolla. Arti: si indeboliscono con il numero di fori (9 = completamente molli).
+
+--- PROMPT 66 ---
+Utente: visivamente la carne non c e piu ma fisicamente si comporta come se ci fosse tutta.
+Fatto: dopo ogni asportazione di carne, per ogni segmento si calcola la frazione di pelle/carne persa: i collider capsula si assottigliano (fino a -75%), la massa cala (fino a -70%) e il giunto si indebolisce e si allenta in proporzione (Weaken, danno massimo memorizzato per parte); se e il bacino a essere mangiato, cede il giunto della vita sopra. Cosi il corpo si piega e si affloscia proprio dove manca la carne.
