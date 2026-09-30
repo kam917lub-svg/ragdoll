@@ -437,7 +437,8 @@ namespace VITS
                 transform.rotation = Quaternion.RotateTowards(transform.rotation, Quaternion.LookRotation(dir.normalized), turnRate * dt);
                 // people slow down to turn
                 float turnSlow = Mathf.Clamp01(1f - turn / 100f);
-                Vector3 fwd = transform.forward, step = fwd * speed * Mathf.Max(0.25f, turnSlow) * dt;
+                float gait = Hopping ? Mathf.Max(0f, Mathf.Sin(phase * Mathf.PI * 2f)) * 2f : 1f; // hop: forward only while airborne
+                Vector3 fwd = transform.forward, step = fwd * speed * Mathf.Max(0.25f, turnSlow) * gait * dt;
                 if (!Free(pos + fwd * 0.35f))
                 {
                     Vector3 to = dir.normalized; float bestA = 999; Vector3 bestD = Vector3.zero;
@@ -455,9 +456,70 @@ namespace VITS
                 float gy = Ground(np, pos.y);
                 if (gy - pos.y < 0.5f) np.y = Mathf.MoveTowards(pos.y, gy, dt * 3f); else np = pos;
                 transform.position = np;
-                phase += dt * (0.35f + speed * 0.65f);
+                float moved = new Vector3(np.x - pos.x, 0, np.z - pos.z).magnitude;
+                phase += Hopping ? dt * 1.6f : moved / Stride();
             }
             vel = Vector3.ClampMagnitude((transform.position - lastPos) / dt, 2.5f); lastPos = transform.position;
+            Bumps(dt);
+        }
+
+        // leg swing amplitude grows with speed; one gait cycle covers two steps of real leg length
+        float Amp() => Mathf.Lerp(12f, state == S.Flee ? 38f : 26f, Mathf.Clamp01(speed / 2.2f)) * Mathf.Clamp01(speed * 4f);
+        float Stride() => Mathf.Max(0.3f, 4f * 0.9f * Mathf.Sin(Mathf.Max(8f, Amp()) * Mathf.Deg2Rad));
+
+        // pushed by the player, other people, flying objects; slipping on blood
+        float bumpT, stumble;
+        void Bumps(float dt)
+        {
+            bumpT -= dt; stumble = Mathf.Max(0f, stumble - dt * 2f);
+            if (bumpT > 0 || mode != M.Anim) return;
+            Vector3 pos = transform.position, chest = pos + Vector3.up * 1.1f;
+            // the player walking/running into them
+            var pl = Game.I != null ? Game.I.player : null;
+            if (pl != null)
+            {
+                Vector3 d = pos - pl.transform.position; d.y = 0;
+                var cc = pl.GetComponent<CharacterController>();
+                Vector3 pv = cc != null ? cc.velocity : Vector3.zero; pv.y = 0;
+                if (d.magnitude < 0.7f && Vector3.Dot(pv, d.normalized) > 1.2f) { Knock(pv * 0.9f, pv.magnitude > 4.5f || Random.value < 0.25f); return; }
+            }
+            // other people bumping into them (both moving)
+            foreach (var o in All)
+            {
+                if (o == this || o.mode != M.Anim || o.dead) continue;
+                Vector3 d = pos - o.transform.position; d.y = 0;
+                float rel = Vector3.Dot(o.vel - vel, d.normalized);
+                if (d.magnitude < 0.6f && rel > 1.2f) { Knock(d.normalized * rel * 0.7f, rel > 3f && Random.value < 0.5f); o.bumpT = 0.8f; return; }
+            }
+            // flying things (pieces, bodies, crates)
+            int n = Physics.OverlapSphereNonAlloc(chest, 0.45f, buf, ~0, QueryTriggerInteraction.Collide);
+            for (int i = 0; i < n; i++)
+            {
+                var rb = buf[i].attachedRigidbody;
+                if (rb == null || rb.isKinematic || buf[i].transform.IsChildOf(transform)) continue;
+                float sp = rb.linearVelocity.magnitude;
+                if (sp > 2.5f && rb.mass > 0.5f) { Knock(rb.linearVelocity * Mathf.Min(1f, rb.mass / 10f), sp * rb.mass > 20f); return; }
+            }
+            // running through a blood pool
+            if (speed > 1.4f && Blood.I != null && Blood.I.PoolAt(pos) && Random.value < dt * 1.5f) Knock(transform.forward * 1.5f + Vector3.up, true);
+        }
+
+        void Knock(Vector3 push, bool fall)
+        {
+            bumpT = 0.8f;
+            if (!fall)
+            {
+                // stumble: pushed a step, torso rocks, then walks on
+                Vector3 np = Game.Clamp(transform.position + new Vector3(push.x, 0, push.z) * 0.12f);
+                if (Free(np, false)) transform.position = np;
+                stumble = 1f;
+                return;
+            }
+            lastHitTime = Time.time; shock = 1f; provoked = true;
+            injuries.Add("KNOCKED DOWN");
+            GoActive();
+            parts["chest"].rb.AddForce(push * parts["chest"].rb.mass * 0.6f, ForceMode.Impulse);
+            parts["pelvis"].rb.AddForce(-push * parts["pelvis"].rb.mass * 0.2f, ForceMode.Impulse);
         }
 
         void NewGoal(S s, Vector3 t, float time)
@@ -490,19 +552,22 @@ namespace VITS
             }
             headYaw = Mathf.MoveTowards(headYaw, headYawT, dt * 120f);
 
-            float a = Mathf.Clamp01(speed / 1.2f) * (state == S.Flee ? 34f : 22f);
+            float a = Amp();
             float s = Mathf.Sin(phase * Mathf.PI * 2f);
             float kneeL = Mathf.Max(0, Mathf.Sin(phase * Mathf.PI * 2f - 1.2f)) * a * 1.5f;
             float kneeR = Mathf.Max(0, Mathf.Sin(phase * Mathf.PI * 2f + Mathf.PI - 1.2f)) * a * 1.5f;
-            float thL = -s * a, thR = s * a, pelvisY = 0.95f;
+            float thL = -s * a, thR = s * a;
+            // body rises over the standing leg twice per cycle, hips sway side to side
+            float bob = Mathf.Abs(Mathf.Cos(phase * Mathf.PI * 2f)) * 0.022f * Mathf.Clamp01(a / 20f);
+            float pelvisY = 0.935f + bob;
             if (Hopping)
             {
                 // one bad leg: keep it off the ground and hop on the good one
                 bool badL = legFn[0] < legFn[1];
-                float hop = Mathf.Abs(Mathf.Sin(phase * Mathf.PI * 2f));
+                float hop = Mathf.Max(0f, Mathf.Sin(phase * Mathf.PI * 2f)); // airborne half of the hop
                 if (badL) { thL = -25f; kneeL = 75f; thR = -8f * hop; kneeR = 12f + 25f * (1f - hop); }
                 else { thR = -25f; kneeR = 75f; thL = -8f * hop; kneeL = 12f + 25f * (1f - hop); }
-                pelvisY = 0.9f + 0.05f * hop * Mathf.Clamp01(speed * 3f);
+                pelvisY = 0.9f + 0.07f * hop;
             }
             // crouch in cover: knees bent, back fairly straight, hands resting forward
             pelvisY -= crouch * 0.3f;
@@ -511,7 +576,10 @@ namespace VITS
             Set("uarmL", Quaternion.Euler(s * a * 0.7f - crouch * 25f, 0, -4 - crouch * 4f), k); Set("uarmR", Quaternion.Euler(-s * a * 0.7f - crouch * 25f, 0, 4 + crouch * 4f), k);
             Set("farmL", Quaternion.Euler(-10 - a * 0.3f - crouch * 35f, 0, 0), k); Set("farmR", Quaternion.Euler(-10 - a * 0.3f - crouch * 35f, 0, 0), k);
             float lean = hurt * 14f + (state == S.Flee ? 8f : 0f) + crouch * 18f;
-            Set("chest", Quaternion.Euler(lean, headYaw * 0.25f, 0), k);
+            float sway = s * a * 0.12f;
+            lean += stumble * 20f;
+            Set("pelvis", Quaternion.Euler(0, -s * a * 0.15f, sway * 0.5f), k);
+            Set("chest", Quaternion.Euler(lean, headYaw * 0.25f + s * a * 0.2f, -sway * 0.6f), k);
             Set("head", Quaternion.Euler(-lean * 0.5f + (state == S.Idle ? 4f : 0f), headYaw * 0.75f, 0), k);
             var pv = parts["pelvis"].transform;
             pv.localPosition = Vector3.Lerp(pv.localPosition, new Vector3(0, pelvisY, 0), k);

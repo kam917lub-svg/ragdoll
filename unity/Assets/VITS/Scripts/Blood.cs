@@ -266,6 +266,13 @@ namespace VITS
             else wet[cell] = w;
         }
 
+        public bool PoolAt(Vector3 p)
+        {
+            foreach (var P in pools)
+                if (Mathf.Abs(P.p.y - p.y) < 0.3f && new Vector2(P.p.x - p.x, P.p.z - p.z).magnitude < P.r * 0.8f && P.r > 0.08f) return true;
+            return false;
+        }
+
         static void Grow(Pool P, float ml)
         {
             P.vol += ml;

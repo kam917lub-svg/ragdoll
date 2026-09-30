@@ -245,3 +245,7 @@ Fatto: 5 modi di cadere (ginocchia che cedono, postura "da scherma" braccia su g
 Utente: posa in ginocchio assurda, cerchio grigio + giallo grande quando spara da vicino, mano precisa sulla ferita (anche se irraggiungibile ci prova), piu sangue.
 Causa cerchi: il tracciante (1,2 cm) visto quasi di punta da vicino = disco; il giallo era il marcatore d impatto. Tolti: tracciante 2,5 mm e solo oltre 3 m, marcatore rimosso.
 Fatto: IK a due ossa (braccio 0,30+0,30 m) che porta il palmo sul punto esatto della ferita, gomito in basso/fuori; se fuori portata si allunga al massimo; sceglie la mano piu vicina non ferita. In ginocchio su un ginocchio (gamba piu debole) con l altro piede piantato. Sangue: ferite 1,5-10 ml/s, visibile x3, spruzzi +50%, colature piu lunghe.
+
+--- PROMPT 18 ---
+Utente: camminata e saltello non realistici (scivolano), devono poter cadere, scivolare, essere urtati da oggetti, dal giocatore e da altri Carl.
+Fatto: passo legato alla distanza percorsa (ciclo = 2 passi con lunghezza gamba reale, ampiezza che cresce con la velocita) -> piede d appoggio fermo; molleggio del bacino 2 volte per ciclo, rotazione e ondeggiamento di bacino/torace; saltello: avanzano solo in volo. Urti: giocatore che li investe (camminando barcollano, correndo cadono), Carl contro Carl, oggetti volanti pesanti; scivolata correndo sulle pozze di sangue; caduta = ragdoll attivo che si rialza se illeso.
