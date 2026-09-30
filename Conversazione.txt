@@ -101,3 +101,8 @@ Utente: "il gioco originale e' in Unity, puoi farlo in Unity?"
 Risposta: si', come progetto Unity (script C# + scena generata da script),
 ma qui non c'e' Unity: non posso compilarlo ne' testarlo. In attesa di
 conferma su versione Unity e avvio.
+
+--- PROMPT 5 -------------------------------------------------------
+Utente: "manda l'artifact senza testare; sto installando Unity 6.6".
+Pubblicata la versione 3 dell'artifact (patch3, non testata).
+Prossimo passo: progetto Unity 6 (URP).
