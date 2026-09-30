@@ -240,3 +240,8 @@ Fatto: mano sulla ferita (spalla ruotata verso l interno + gomito piegato; petto
 --- PROMPT 16 ---
 Utente: la caduta alla morte non deve essere sempre uguale.
 Fatto: 5 modi di cadere (ginocchia che cedono, postura "da scherma" braccia su gomiti piegati rigido, rigido come un asse avanti/indietro secondo la direzione dello sparo, in ginocchio poi in avanti, torsione e crollo di lato), scelti a caso con pesi diversi per headshot/altre cause, tono muscolare e durata variabili per persona, spinta dal lato dello sparo.
+
+--- PROMPT 17 ---
+Utente: posa in ginocchio assurda, cerchio grigio + giallo grande quando spara da vicino, mano precisa sulla ferita (anche se irraggiungibile ci prova), piu sangue.
+Causa cerchi: il tracciante (1,2 cm) visto quasi di punta da vicino = disco; il giallo era il marcatore d impatto. Tolti: tracciante 2,5 mm e solo oltre 3 m, marcatore rimosso.
+Fatto: IK a due ossa (braccio 0,30+0,30 m) che porta il palmo sul punto esatto della ferita, gomito in basso/fuori; se fuori portata si allunga al massimo; sceglie la mano piu vicina non ferita. In ginocchio su un ginocchio (gamba piu debole) con l altro piede piantato. Sangue: ferite 1,5-10 ml/s, visibile x3, spruzzi +50%, colature piu lunghe.

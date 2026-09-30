@@ -79,7 +79,7 @@ namespace VITS
 
             var tgo = new GameObject("Tracer");
             tracer = tgo.AddComponent<LineRenderer>();
-            tracer.positionCount = 2; tracer.startWidth = 0.012f; tracer.endWidth = 0.004f;
+            tracer.positionCount = 2; tracer.startWidth = 0.0025f; tracer.endWidth = 0.0015f;
             tracer.sharedMaterial = Mats.Decal(Texture2D.whiteTexture, new Color(1f, 0.95f, 0.8f, 0.8f));
             tracer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; tracer.enabled = false;
             beam = new GameObject("GrabBeam").AddComponent<LineRenderer>();
@@ -229,10 +229,9 @@ namespace VITS
                 }
             }
             else if (Mannequin.Pick(ray.origin, dir, 200f, out Part sp2, out float st2)) { end = ray.origin + dir * st2; sp2.owner.Hit(sp2, null, end, dir, -dir); hitMarkT = 0.2f; }
-            ShowImpact(end);
             tracer.SetPosition(0, flash.transform.position);
             tracer.SetPosition(1, end);
-            tracerT = 0.03f;
+            tracerT = (end - cam.transform.position).magnitude > 3f ? 0.025f : 0f;
             if (Game.I != null) Game.I.Gunshot(cam.transform.position, end);
         }
 

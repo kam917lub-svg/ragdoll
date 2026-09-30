@@ -128,7 +128,7 @@ namespace VITS
         float turnRate, headYaw, headYawT, lookT, peekT, peek, stateT, phase, speed, heart, writheT, hurt, crawlT, detourT, stuckT, bestDist, foldT, groundY, groundT, deathT, shock;
         int torsoHits, headHits;
         Vector3 target, lastPos, vel, detour, anchor, lastDir = Vector3.forward;
-        Part clutch;
+        Part clutch; Vector3 clutchLocal;
         float totalMass;
         static readonly Collider[] buf = new Collider[32];
         static Material skinMat, innerMat, visorMat, tagMat, stumpMat, boneMat;
@@ -517,14 +517,43 @@ namespace VITS
             pv.localPosition = Vector3.Lerp(pv.localPosition, new Vector3(0, pelvisY, 0), k);
             if (clutch != null && !clutch.severed)
             {
-                string arm = clutch.key.EndsWith("R") ? "L" : "R";
+                string arm = ClutchArm();
                 if (!parts["farm" + arm].severed && !parts["uarm" + arm].severed)
                 {
-                    ClutchTarget(arm, out float ux, out float uy, out float uz, out float fx);
-                    Set("uarm" + arm, Quaternion.Euler(ux, uy, uz), k);
-                    Set("farm" + arm, Quaternion.Euler(fx, 0, 0), k);
+                    if (HandIK(arm, out Quaternion qu, out Quaternion qf)) { Set("uarm" + arm, qu, k); Set("farm" + arm, qf, k); }
                 }
             }
+        }
+
+        // two-bone IK: shoulder -> elbow -> palm onto the wound (real arm lengths; if out of reach, stretch toward it)
+        bool HandIK(string arm, out Quaternion qu, out Quaternion qf)
+        {
+            qu = qf = Quaternion.identity;
+            var ch = parts["chest"]; var ua = parts["uarm" + arm];
+            if (clutch == null || clutch.severed) return false;
+            const float L1 = 0.3f, L2 = 0.3f;
+            Vector3 wn = clutch.transform.TransformDirection(clutch.Normal(clutchLocal));
+            Vector3 t = clutch.transform.TransformPoint(clutchLocal) + wn * 0.035f;   // palm pressed on the skin
+            Vector3 s = ua.transform.position;
+            Vector3 to = t - s; float d = to.magnitude;
+            if (d < 1e-4f) return false;
+            Vector3 dir = to / d; d = Mathf.Clamp(d, 0.1f, L1 + L2 - 0.005f);
+            float side = arm == "R" ? 1f : -1f;
+            // elbow points down, a bit out and back, like a real arm
+            Vector3 pole = ch.transform.TransformDirection(new Vector3(0.6f * side, -1f, -0.4f)).normalized;
+            Vector3 perp = pole - dir * Vector3.Dot(pole, dir);
+            if (perp.sqrMagnitude < 1e-6f) perp = ch.transform.TransformDirection(Vector3.down);
+            perp.Normalize();
+            float a = Mathf.Acos(Mathf.Clamp((L1 * L1 + d * d - L2 * L2) / (2f * L1 * d), -1f, 1f));
+            Vector3 u = dir * Mathf.Cos(a) + perp * Mathf.Sin(a);
+            Vector3 e = s + u * L1;
+            Vector3 f = (s + dir * d - e).normalized;
+            // to local rotations (rest pose: segments point down -Y)
+            Quaternion chestRot = ch.transform.rotation;
+            qu = Quaternion.FromToRotation(Vector3.down, Quaternion.Inverse(chestRot) * u);
+            Quaternion uaRot = chestRot * qu;
+            qf = Quaternion.FromToRotation(Vector3.down, Quaternion.Inverse(uaRot) * f);
+            return true;
         }
 
         // arm pose that puts the hand on the wound: raise a little, rotate the shoulder inward, bend the elbow
@@ -537,6 +566,16 @@ namespace VITS
             else if (c.key == "pelvis") { ux = -10f; uy = 60f * s; uz = 6f * s; fx = -80f; }
             else if (c.isLeg) { ux = -12f; uy = 20f * s; uz = 4f * s; fx = -25f; }
             else { ux = -25f; uy = 60f * s; uz = 6f * s; fx = -95f; } // other arm
+        }
+
+        string ClutchArm()
+        {
+            if (clutch.isArm) return clutch.key.EndsWith("R") ? "L" : "R";
+            Vector3 w = clutch.transform.TransformPoint(clutchLocal);
+            float dl = (parts["uarmL"].transform.position - w).sqrMagnitude, dr = (parts["uarmR"].transform.position - w).sqrMagnitude;
+            if (parts["farmL"].severed || parts["uarmL"].severed) return "R";
+            if (parts["farmR"].severed || parts["uarmR"].severed) return "L";
+            return dl < dr ? "L" : "R";
         }
 
         // picked up with the middle mouse button
@@ -615,8 +654,10 @@ namespace VITS
             {
                 status = kneel > 0.5f ? "HURT / KNEELING" : "HURT / STANDING";
                 T("chest", 10f + cl + kneel * 12f); T("head", -8f + kneel * 10f);
-                T("thighL", Mathf.Lerp(-4f, 2f, kneel)); T("thighR", Mathf.Lerp(-4f, 2f, kneel));
-                T("shinL", Mathf.Lerp(6f, 95f, kneel)); T("shinR", Mathf.Lerp(6f, 95f, kneel));
+                // going down on one knee (the weaker leg), the other foot planted in front
+                bool kneeL = legFn[0] <= legFn[1];
+                T(kneeL ? "thighL" : "thighR", Mathf.Lerp(-4f, 5f, kneel)); T(kneeL ? "shinL" : "shinR", Mathf.Lerp(6f, 100f, kneel));
+                T(kneeL ? "thighR" : "thighL", Mathf.Lerp(-4f, -80f, kneel)); T(kneeL ? "shinR" : "shinL", Mathf.Lerp(6f, 85f, kneel));
                 T("uarmL", -6f, -6f); T("uarmR", -6f, 6f); T("farmL", -18f); T("farmR", -18f);
                 Tone(1f);
             }
@@ -634,11 +675,10 @@ namespace VITS
             }
             if (clutch != null && !clutch.severed && conscious)
             {
-                string arm = clutch.key.EndsWith("R") ? "L" : "R";
+                string arm = ClutchArm();
                 if (!parts["farm" + arm].severed && !parts["uarm" + arm].severed)
                 {
-                    ClutchTarget(arm, out float ux, out float uy, out float uz, out float fx);
-                    Target(parts["uarm" + arm], Quaternion.Euler(ux, uy, uz)); T("farm" + arm, fx);
+                    if (HandIK(arm, out Quaternion qu, out Quaternion qf)) { Target(parts["uarm" + arm], qu); Target(parts["farm" + arm], qf); }
                 }
             }
             // light wounds only, standing and steady for a while: walk (or hop) away
@@ -873,12 +913,12 @@ namespace VITS
             B.SkinDecal(p.transform, inL, p.Normal(inL), 0.008f, 5);
             if (exits) B.SkinDecal(p.transform, outL, p.Normal(outL), Player.AK ? 0.02f : 0.014f, 5);
 
-            B.Spray(inW + inN * 0.01f, (-dir + inN) * 0.5f, 10, 1.4f, 0.45f, 0.05f, 0.35f);
-            if (exits) B.Spray(outW + outN * 0.01f, dir, p.isHead ? 90 : 45, p.isHead ? 5.5f : 3.8f, 0.4f, 0.15f, 1.1f);
+            B.Spray(inW + inN * 0.01f, (-dir + inN) * 0.5f, 16, 1.5f, 0.45f, 0.05f, 0.4f);
+            if (exits) B.Spray(outW + outN * 0.01f, dir, p.isHead ? 130 : 70, p.isHead ? 5.5f : 4f, 0.4f, 0.15f, 1.2f);
             if (exits && (p.isHead || Random.value < 0.35f)) Gib.Spawn(outW, dir * Random.Range(1.5f, 3.5f) + Random.insideUnitSphere + Vector3.up * 0.8f, Random.Range(0.01f, 0.02f));
 
-            AddWound(p, inL, p.Normal(inL), p.isHead ? 2.5f : p.isTorso ? 1f : 0.6f, false, 0, "");
-            if (exits) AddWound(p, outL, p.Normal(outL), p.isHead ? 6f : p.isTorso ? 3f : 1.5f, false, 0, "");
+            AddWound(p, inL, p.Normal(inL), p.isHead ? 4f : p.isTorso ? 2.5f : 1.5f, false, 0, "");
+            if (exits) AddWound(p, outL, p.Normal(outL), p.isHead ? 10f : p.isTorso ? 6f : 4f, false, 0, "");
 
             // arteries: big pulsing jets out of the wound
             int art = ArteryHit(p, inL, exits ? outL : inL + dirL * 0.1f);
@@ -906,7 +946,7 @@ namespace VITS
                 injuries.Add((p.key == "chest" ? "CHEST" : "ABDOMEN") + "  GUNSHOT" + (exits ? "  THROUGH" : ""));
                 if (!dead)
                 {
-                    clutch = p; shock = 0.35f;
+                    clutch = p; clutchLocal = inL; shock = 0.35f;
                     if (torsoHits >= 5) Die("MASSIVE TRAUMA");
                     else GoActive();
                 }
@@ -914,7 +954,7 @@ namespace VITS
             else if (p.isArm || p.isLeg)
             {
                 injuries.Add(p.key.ToUpper() + "  GUNSHOT");
-                if (!p.severed && !dead) clutch = p;
+                if (!p.severed && !dead) { clutch = p; clutchLocal = inL; }
                 if (p.isLeg && !p.severed) legFn[p.key.EndsWith("R") ? 1 : 0] -= 0.45f;
                 bool cut = Player.AK ? (p.hits >= 2 || Random.value < 0.3f) : (p.hits >= 3 || (p.hits >= 2 && Random.value < 0.5f));
                 if (cut) SeverAt(p, -inL.y, dir);
@@ -993,9 +1033,9 @@ namespace VITS
                 if (w.runT <= 0)
                 {
                     w.runT = Random.Range(0.2f, 0.5f);
-                    if (runners.Count < 50) runners.Add(new Runner { part = w.part, lp = w.lp, left = Mathf.Clamp(rate * (spurt ? 0.02f : 0.06f), 0.05f, 1.8f) });
+                    if (runners.Count < 50) runners.Add(new Runner { part = w.part, lp = w.lp, left = Mathf.Clamp(rate * (spurt ? 0.04f : 0.15f), 0.1f, 1.8f) });
                 }
-                w.acc += rate * dt * 2f;
+                w.acc += rate * dt * 3f;
                 if (w.acc < dv) continue;
                 Vector3 p = t.TransformPoint(w.lp);
                 Vector3 bv = !w.part.rb.isKinematic ? w.part.rb.linearVelocity : vel;
@@ -1007,7 +1047,7 @@ namespace VITS
                     Vector3 v = spurt ? (n * (0.6f + 1.6f * pulse * pressure) + Vector3.down * 0.3f) + Random.insideUnitSphere * 0.15f
                                       : n * 0.05f + Random.insideUnitSphere * 0.04f;
                     if (spurt || Random.value < 0.5f) Blood.I.Emit(p + n * 0.012f, v + bv, dv);
-                    if (!dead && mine) blood -= dv * 0.5f;
+                    if (!dead && mine) blood -= dv / 3f;
                 }
             }
             // heart / aorta: most of the blood goes inside
