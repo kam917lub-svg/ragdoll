@@ -411,3 +411,7 @@ Fatto: nuovo shader VITS/Pool (incluso nella build): opaco (alpha clip, ZWrite, 
 Utente: colpo in testa a terra crea ancora una pozza istantanea.
 Causa: lo spruzzo di uscita (320 gocce fino a 2 ml x3,5) finiva subito sul pavimento sotto la testa = centinaia di ml in un colpo.
 Fatto: uscita testa 110 gocce 0,1-0,7 ml (nebbia + frammenti, ~30-60 ml), entrata testa 30 gocce; le gocce veloci (spruzzi) contano 1/4 per le pozze: le pozze nascono dal sangue che continua a uscire, non dallo schizzo.
+
+--- PROMPT 45 ---
+Utente: il pannello in alto a sinistra sempre visibile (se nessun Kekko sotto il mirino: WAITING... senza info), TAB per nasconderlo.
+Fatto: pannello sempre disegnato; senza bersaglio mostra "WAITING..." animato e "NO SPECIMEN IN SIGHT"; TAB lo mostra/nasconde.

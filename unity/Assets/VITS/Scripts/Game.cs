@@ -204,6 +204,7 @@ namespace VITS
             if (GI.Down(K.N)) Spawn();
             if (GI.Down(K.Y)) SpawnAtCrosshair();
             if (GI.Down(K.T)) XRay.Toggle();
+            if (GI.Down(K.Tab)) showMonitor = !showMonitor;
             if (GI.Down(K.Back)) { ResetAll(); return; }
             if (GI.Down(K.LBracket)) { tsi = Mathf.Max(0, tsi - 1); ApplyTime(); }
             if (GI.Down(K.RBracket)) { tsi = Mathf.Min(TS.Length - 1, tsi + 1); ApplyTime(); }
@@ -211,6 +212,7 @@ namespace VITS
         }
 
         // ---------------- HUD ----------------
+        bool showMonitor = true;   // TAB
         public const string Discord = "elliotalderson1338_30647";
         static readonly Color Yel = new Color(1f, 0.8f, 0.05f);
         Texture2D dummyTex, stripeTex; GUIStyle dst;
@@ -325,10 +327,10 @@ namespace VITS
 
             // crash test dummy monitor: yellow/black, hazard stripes, the quartered target mark
             var d = player.looked;
-            if (d != null)
+            if (showMonitor)
             {
                 if (dummyTex == null) MakeDummyTex();
-                float w = 400 * s, hh = (236 + d.injuries.Count * 19) * s;
+                float w = 400 * s, hh = (d == null ? 150 : 236 + d.injuries.Count * 19) * s;
                 var r = new Rect(16 * s, 16 * s, w, hh);
                 GUI.color = Color.black; GUI.DrawTexture(new Rect(r.x - 3 * s, r.y - 3 * s, r.width + 6 * s, r.height + 6 * s), Texture2D.whiteTexture);
                 GUI.color = Yel; GUI.DrawTexture(r, Texture2D.whiteTexture);
@@ -338,6 +340,14 @@ namespace VITS
                 GUI.DrawTexture(new Rect(r.xMax - 70 * s, r.y + 20 * s, 56 * s, 56 * s), dummyTex);
                 float y = r.y + 18 * s, x = r.x + 14 * s;
                 Dark(new Rect(x, y, w, 20 * s), "CRASH TEST SPECIMEN  ·  VITAL MONITOR", 11, s, FontStyle.Bold, 0.75f); y += 16 * s;
+                if (d == null)
+                {
+                    int dots = 1 + (int)(Time.unscaledTime * 2f) % 3;
+                    Dark(new Rect(x, y, w, 40 * s), "WAITING" + new string('.', dots), 30, s, FontStyle.Bold, 1f); y += 38 * s;
+                    Dark(new Rect(x, y, w, 22 * s), "NO SPECIMEN IN SIGHT  ·  AIM AT A KEKKO", 13, s, FontStyle.Bold, 0.7f); y += 20 * s;
+                    Dark(new Rect(x, y, w, 22 * s), "TAB  hide / show", 11, s, FontStyle.Normal, 0.55f);
+                }
+                else {
                 Dark(new Rect(x, y, w, 40 * s), d.displayName, 30, s, FontStyle.Bold, 1f); y += 38 * s;
                 string life = d.dead ? "<color=#b00010>■ DEAD</color>" : d.conscious ? "<color=#0a6a2a>■ ALIVE · CONSCIOUS</color>" : "<color=#9a5200>■ ALIVE · FAINTED</color>";
                 Dark(new Rect(x, y, w, 24 * s), life, 15, s, FontStyle.Bold, 1f); y += 24 * s;
@@ -350,6 +360,7 @@ namespace VITS
                 Dark(new Rect(x, y, w, 22 * s), "IMPACT   " + d.lastHit + (d.lastHitTime > 0 ? $"  ·  T+{Time.time - d.lastHitTime:0} S" : ""), 13, s, FontStyle.Bold, 0.9f); y += 22 * s;
                 Dark(new Rect(x, y, w, 20 * s), "DAMAGE LOG", 11, s, FontStyle.Bold, 0.6f); y += 17 * s;
                 foreach (var inj in d.injuries) { Dark(new Rect(x, y, w, 20 * s), "▸ " + inj, 12, s, FontStyle.Normal, 0.9f); y += 19 * s; }
+                }
             }
             // watermark
             Label(new Rect(W - 430 * s, 72 * s, 400 * s, 20 * s), Discord + " on Discord!", (int)(13 * s), TextAnchor.UpperRight, 0.55f);

@@ -35,6 +35,7 @@ Perché prima era nero: il gioco crea i materiali dal codice e nella build Unity
 | Clic destro (tenuto) | mirare con le mire metalliche allineate al centro (il mirino dell HUD sparisce); con l AWP = cannocchiale (girare la rotella = zoom 4x-12x) |
 | Rotella (tenuta) | afferrare un Kekko (vivo o morto, cervello ON o OFF) o un pezzo fino a 60 m e portarlo dove vuoi; girare la rotella = avvicina/allontana |
 | R | ricaricare |
+| TAB | mostra / nasconde il monitor in alto a sinistra |
 | T | raggi X (ossa, organi, arterie, vene, nervi) |
 | Y | nuovo Kekko nel punto indicato dal mirino (a terra, rivolto verso di te) |
 | N | nuovo Kekko in un punto casuale |
