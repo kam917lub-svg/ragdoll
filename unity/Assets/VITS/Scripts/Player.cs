@@ -11,6 +11,9 @@ namespace VITS
         public static int Weapon;
         public static bool AK => Weapon == 1;
         public static bool AWP => Weapon == 2;
+        public static float Sens = 1f, AdsSens = 0.7f;   // saved between sessions
+        public static void LoadSens() { Sens = PlayerPrefs.GetFloat("vits_sens", 1f); AdsSens = PlayerPrefs.GetFloat("vits_ads", 0.7f); }
+        public static void SaveSens() { PlayerPrefs.SetFloat("vits_sens", Sens); PlayerPrefs.SetFloat("vits_ads", AdsSens); PlayerPrefs.Save(); }
         public static readonly string[] Names = { "PISTOL / 9MM", "AK-47 / 7.62", "AWP / .338 LAPUA" };
         static readonly int[] MAG = { 15, 30, 10 };
         public int ammo = 15; public int MaxAmmo => MAG[Weapon];
@@ -35,7 +38,7 @@ namespace VITS
 
         void Start()
         {
-            Weapon = 0;
+            Weapon = 0; LoadSens();
             cc = gameObject.AddComponent<CharacterController>();
             cc.height = 1.8f; cc.radius = 0.3f; cc.center = new Vector3(0, 0.9f, 0); cc.stepOffset = 0.45f; cc.slopeLimit = 50f;
 
@@ -159,7 +162,10 @@ namespace VITS
             if (locked)
             {
                 var md = GI.MouseDelta();
-                yaw += md.x * 2f; pitch = Mathf.Clamp(pitch - md.y * 2f, -88f, 88f);
+                // sensitivity from the Esc menu; aiming uses the ADS multiplier, the scope also scales with zoom so it feels the same
+                float k = 2f * Sens;
+                if (GI.AimHeld()) k *= AdsSens * (Scoped ? cam.fieldOfView / 55f : 1f);
+                yaw += md.x * k; pitch = Mathf.Clamp(pitch - md.y * k, -88f, 88f);
             }
             transform.rotation = Quaternion.Euler(0, yaw, 0);
             cam.transform.localRotation = Quaternion.Euler(pitch - recoil * 2.5f, 0, 0);
@@ -352,7 +358,7 @@ namespace VITS
             if (AWP) boltT = 1.2f;
             au.PlayOneShot(AWP ? awpClip : shotClip, AWP ? 1f : 0.8f);
             // AWP: dead on through the scope, wild when fired from the hip
-            float spread = AWP ? (Scoped ? 0.0003f : 0.04f) : 0.004f;
+            float spread = AWP ? (Scoped ? 0f : 0.02f) : 0.004f;
             var dir = (cam.transform.forward + Random.insideUnitSphere * spread).normalized;
             var ray = new Ray(cam.transform.position, dir);
             Vector3 end = ray.origin + dir * 200f;

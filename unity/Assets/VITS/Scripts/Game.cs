@@ -235,7 +235,7 @@ namespace VITS
             if (player.menu)
             {
                 GUI.color = Color.white;
-                var box = new Rect(W / 2f - 190 * s, H / 2f - 190 * s, 380 * s, 390 * s);
+                var box = new Rect(W / 2f - 190 * s, H / 2f - 250 * s, 380 * s, 500 * s);
                 GUI.DrawTexture(box, panelTex);
                 Label(new Rect(box.x, box.y + 14 * s, box.width, 30 * s), "VERTICAL IMPACT TESTSITE", (int)(20 * s), TextAnchor.UpperCenter);
                 var bs = new GUIStyle(GUI.skin.button) { fontSize = (int)(18 * s), fontStyle = FontStyle.Bold };
@@ -244,7 +244,14 @@ namespace VITS
                 if (GUI.Button(new Rect(bx, y0 + 52 * s, bw, bh), (Player.Weapon == 1 ? "▶ " : "  ") + "AK-47  (7.62, full auto)", bs)) player.SetWeapon(1);
                 if (GUI.Button(new Rect(bx, y0 + 104 * s, bw, bh), (Player.Weapon == 2 ? "▶ " : "  ") + "AWP  (.338, bolt, scope)", bs)) player.SetWeapon(2);
                 if (GUI.Button(new Rect(bx, y0 + 156 * s, bw, bh), "CARL BRAINS: " + (Brains ? "ON (walk around)" : "OFF (wait until shot)"), bs)) Brains = !Brains;
-                if (GUI.Button(new Rect(bx, y0 + 222 * s, bw, bh), "RESUME  (Esc)", bs)) player.SetMenu(false);
+                // settings: mouse sensitivity and aim (ADS) sensitivity multiplier
+                float sy = y0 + 214 * s;
+                Label(new Rect(bx, sy, bw, 22 * s), $"SENSITIVITY  {Player.Sens:0.00}", (int)(15 * s), TextAnchor.UpperLeft);
+                float ns = GUI.HorizontalSlider(new Rect(bx, sy + 24 * s, bw, 20 * s), Player.Sens, 0.1f, 4f);
+                Label(new Rect(bx, sy + 50 * s, bw, 22 * s), $"ADS SENSITIVITY  {Player.AdsSens:0.00}x", (int)(15 * s), TextAnchor.UpperLeft);
+                float na = GUI.HorizontalSlider(new Rect(bx, sy + 74 * s, bw, 20 * s), Player.AdsSens, 0.1f, 2f);
+                if (ns != Player.Sens || na != Player.AdsSens) { Player.Sens = Mathf.Round(ns * 20f) / 20f; Player.AdsSens = Mathf.Round(na * 20f) / 20f; Player.SaveSens(); }
+                if (GUI.Button(new Rect(bx, sy + 110 * s, bw, bh), "RESUME  (Esc)", bs)) player.SetMenu(false);
                 return;
             }
             if (!player.locked) Label(new Rect(0, H * 0.55f, W, 30 * s), "CLICK TO PLAY", (int)(22 * s), TextAnchor.UpperCenter);

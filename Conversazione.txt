@@ -289,3 +289,10 @@ Fatto:
 - Colpi da vicino: PickSkin non usa piu i bounds del SkinnedMeshRenderer (sbagliati per ragdoll e a distanza ravvicinata); controlla le ossa entro 1 m dal raggio, poi test triangoli.
 - Sangue: 1/3 delle gocce ma 3x volume + goccioline satellite sulla stessa traiettoria; macchie piu grandi (min 1,8 cm). Meno "pixel", piu schizzi e grumi.
 - Spinte: si usa la velocita voluta del giocatore (quella del CharacterController e ~0 perche il corpo lo blocca); spinta x1,6, correndo 75% di cadere; un Carl a terra/ferito viene spostato camminandogli contro.
+
+--- PROMPT 25 ---
+Utente: pistola e AK in testa devono fare un grosso foro d uscita, non un esplosione (solo AWP); AWP buggato e impreciso; aggiungere sensibilita e sensibilita ADS (default 0,7x).
+Fatto:
+- Testa: foro d uscita x1,8 (pistola, ~4,5 cm) / x1,9 (AK, ~6,5 cm); esplosione del cranio solo con AWP; soglia poltiglia per accumulo di fori alzata dal 30% al 60%.
+- AWP: nel cannocchiale dispersione zero, dall anca 0,02 (era 0,04). (Il bug dei colpi da vicino era gia corretto nel prompt 24: test pelle senza bounds.)
+- Menu Esc: slider SENSITIVITY (0,1-4) e ADS SENSITIVITY (0,1-2x, default 0,7), salvati in PlayerPrefs; nello scope la sensibilita scala anche con lo zoom.

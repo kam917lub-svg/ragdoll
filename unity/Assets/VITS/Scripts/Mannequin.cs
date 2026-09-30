@@ -1045,7 +1045,7 @@ namespace VITS
             if (exits) B.SkinDecal(p.transform, outL, p.Normal(outL), Player.AWP ? 0.035f : Player.AK ? 0.02f : 0.014f, 5);
 
             // flesh is torn away: a small piece at the entry, a bigger one at the exit, and it flies off
-            float rin = Player.AWP ? 0.028f : Player.AK ? 0.02f : 0.015f, rout = (Player.AWP ? 0.06f : Player.AK ? 0.034f : 0.025f) * (p.isHead ? 1.3f : 1f);
+            float rin = Player.AWP ? 0.028f : Player.AK ? 0.02f : 0.015f, rout = (Player.AWP ? 0.06f : Player.AK ? 0.034f : 0.025f) * (p.isHead ? (Player.AK ? 1.9f : 1.8f) : 1f);   // skull exit wounds are big and ragged
             Carve(p, inW, rin);
             if (exits) { Carve(p, outW, rout); Gib.Spawn(outW + outN * 0.02f, dir * Random.Range(2f, 4.5f) + Random.insideUnitSphere + Vector3.up * 0.6f, rout * Random.Range(0.8f, 1.2f)); }
             float cal = Player.AWP ? 2.5f : Player.AK ? 1.5f : 1f;   // bigger round, more tissue destroyed, more blood thrown
@@ -1080,10 +1080,8 @@ namespace VITS
                 headHits++;
                 injuries.Add("HEAD  GUNSHOT  FATAL");
                 Die("HEADSHOT");
-                // a rifle round can burst the skull: AK sometimes (more likely at close range / repeated hits), AWP always
-                float range = Vector3.Distance(Camera.main != null ? Camera.main.transform.position : pt, pt);
-                bool burst = Player.AWP || (Player.AK && (headHits >= 3 || Random.value < (range < 10f ? 0.45f : 0.25f)));
-                if (burst && !headMashed) MashHead(p);
+                // pistol / AK: a big torn exit wound, not an explosion. Only the .338 bursts the skull.
+                if (Player.AWP && !headMashed) MashHead(p);
                 else if (headHits >= 7 && !headMashed) SeverJoint(p, dir);
             }
             else if (p.isTorso)
@@ -1167,7 +1165,7 @@ namespace VITS
             }
             if (removed == 0) return;
             sk.tris = keep; sk.mesh.SetTriangles(keep, 0);
-            if (p.isHead && !headMashed && carvedBone[BodyMesh.HEA] > BodyMesh.TrisPerBone[BodyMesh.HEA] * 0.3f) MashHead(p);
+            if (p.isHead && !headMashed && carvedBone[BodyMesh.HEA] > BodyMesh.TrisPerBone[BodyMesh.HEA] * 0.6f) MashHead(p);   // only after very many hits
         }
 
         // too much of the head is gone: it bursts
