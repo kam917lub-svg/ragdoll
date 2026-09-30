@@ -328,3 +328,12 @@ Fatto:
 - AK: mirino anteriore 4 mm con cima a y 0,09 (nel modello AK) + blocchetto e orecchie di protezione; alzo posteriore a U con cime a filo e tacca da 6 mm.
 - ADS: la pistola va a (0, -0,057, 0,30), l AK a (-0,02, -0,09, 0,20) -> la linea di mira coincide con l asse della camera (= direzione del colpo). Transizione morbida (aimT, 7/s), niente bob con le mire alzate. Il mirino HUD sparisce quando aimT > 0,85 (resta l indicatore di colpo). AWP: si usa il cannocchiale.
 - Verificato con render three.js (ads_pistol.png, ads_ak.png): cima del mirino anteriore esattamente al centro dello schermo dentro la tacca.
+
+--- PROMPT 30 ---
+Utente: come compilo? ho fatto Build, vedo il logo Unity e poi schermo nero.
+Causa: tutti i materiali sono creati da codice con Shader.Find; nella build Unity include solo gli shader usati da qualche asset -> VITS/Decal, VITS/Flesh, VITS/Text, VITS/XRay e anche URP Lit mancavano -> new Material(null) -> eccezione in Level.Build prima di creare il giocatore/camera (la camera del template era gia spenta) -> nero.
+Fatto:
+- Assets/VITS/Editor/VITSBuildSetup.cs: [InitializeOnLoad] + IPreprocessBuildWithReport + menu "VITS/Prepare build": crea in Assets/VITS/Resources/BuildMaterials un materiale per ogni shader (URP Lit, VITS/Decal, Flesh, Text, XRay) con GPU instancing attivo (cosi restano anche le varianti instanced per gocce e macchie); se la lista scene della build e vuota aggiunge la scena aperta.
+- Mats.Find non restituisce mai null: Shader.Find -> materiale in Resources -> fallback -> URP Lit -> Sprites/Default -> errore a log.
+- Game.Awake: prima crea il giocatore (camera), poi livello/sangue/Carl ognuno in try/catch: un errore non lascia piu lo schermo nero, compare la riga rossa ERROR.
+- README: sezione "Creare il gioco (.exe)" passo per passo.

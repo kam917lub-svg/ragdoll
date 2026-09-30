@@ -10,6 +10,20 @@ Serve Unity 6 (testato come codice per 6000.x) con **URP**.
    (la camera e le luci del template vengono disattivate).
 4. Clicca nella finestra Game per catturare il mouse.
 
+## Creare il gioco (.exe)
+1. Chiudi Play. Cancella la vecchia cartella `Assets/VITS` e metti quella nuova dello zip.
+2. Aspetta che Unity finisca di compilare. Nella Console compare `VITS: build materials ready in Assets/VITS/Resources/BuildMaterials`
+   (lo script `Assets/VITS/Editor/VITSBuildSetup.cs` crea da solo i materiali che portano gli shader nel gioco;
+   c'è anche il menu **VITS > Prepare build** per rifarlo a mano).
+3. **File > Build Profiles** → scegli **Windows** → controlla che nella **Scene List** ci sia la scena (es. `Scenes/SampleScene`, spuntata;
+   se manca: **Add Open Scenes**).
+4. **Build** → scegli una cartella vuota (es. `Build`) → dentro trovi il .exe da avviare.
+5. All'avvio lo schermo resta nero 2-5 secondi mentre vengono generati corpo e livello: è normale.
+   Se qualcosa va storto, in basso compare una riga rossa `ERROR: ...` (per più dettagli spunta **Development Build** prima di Build).
+
+Perché prima era nero: il gioco crea i materiali dal codice e nella build Unity non include gli shader che nessun asset usa
+(nemmeno URP Lit), quindi la creazione del livello si fermava prima della camera.
+
 ## Comandi
 | Tasto | Azione |
 |---|---|

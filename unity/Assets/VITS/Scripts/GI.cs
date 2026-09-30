@@ -58,7 +58,24 @@ namespace VITS
     public static class Mats
     {
         static Shader lit, dec, txt, flesh;
-        static Shader Find(string a, string b) { var s = Shader.Find(a); return s != null ? s : Shader.Find(b); }
+        // never returns null: a missing shader in a build must not stop the game from starting
+        public static Shader Find(string a, string b)
+        {
+            var s = Shader.Find(a);
+            if (s == null)
+            {
+                // the material kept in Resources by the editor build setup carries the shader into the build
+                var m = Resources.Load<Material>("BuildMaterials/" + a.Replace('/', '_').Replace(' ', '_'));
+                if (m != null) s = m.shader;
+            }
+            if (s == null && b != null) s = Shader.Find(b);
+            if (s == null) { var m = Resources.Load<Material>("BuildMaterials/Universal_Render_Pipeline_Lit"); if (m != null) s = m.shader; }
+            if (s == null) s = Shader.Find("Universal Render Pipeline/Lit");
+            if (s == null) s = Shader.Find("Sprites/Default");
+            if (s == null) s = Shader.Find("Hidden/InternalErrorShader");
+            if (s == null) Debug.LogError("VITS: no usable shader for " + a);
+            return s;
+        }
         public static Material Lit(Color c, float smooth = 0.25f)
         {
             if (lit == null) lit = Find("Universal Render Pipeline/Lit", "Standard");
@@ -80,7 +97,7 @@ namespace VITS
         }
         public static Material Text(Font f)
         {
-            if (txt == null) txt = Shader.Find("VITS/Text");
+            if (txt == null) txt = Find("VITS/Text", null);
             if (txt == null) return f.material;
             return new Material(txt) { mainTexture = f.material.mainTexture, renderQueue = 3002 };
         }

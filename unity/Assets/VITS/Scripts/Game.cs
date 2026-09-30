@@ -39,12 +39,13 @@ namespace VITS
             Physics.gravity = new Vector3(0, -9.81f, 0);
             ApplyTime();
 
-            Level.Build();
-            new GameObject("Blood").AddComponent<Blood>();
+            // the player (and its camera) first: whatever goes wrong after this, you still see the site and the error line
             var pgo = new GameObject("Player");
             pgo.transform.SetPositionAndRotation(new Vector3(0, 0.05f, -14f), Quaternion.identity);
             player = pgo.AddComponent<Player>();
-            for (int i = 0; i < 10; i++) Spawn();
+            try { Level.Build(); } catch (System.Exception e) { Debug.LogException(e); }
+            try { new GameObject("Blood").AddComponent<Blood>(); } catch (System.Exception e) { Debug.LogException(e); }
+            for (int i = 0; i < 10; i++) { try { Spawn(); } catch (System.Exception e) { Debug.LogException(e); } }
         }
 
         public static string LastError = "";

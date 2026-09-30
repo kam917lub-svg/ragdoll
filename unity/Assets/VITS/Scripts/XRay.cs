@@ -17,7 +17,7 @@ namespace VITS
             {
                 if (ghost == null)
                 {
-                    var sh = Shader.Find("VITS/XRay");
+                    var sh = Mats.Find("VITS/XRay", null);
                     ghost = sh != null ? new Material(sh) : Mats.Decal(Texture2D.whiteTexture, new Color(0.55f, 0.8f, 1f, 0.15f));
                 }
                 return ghost;
