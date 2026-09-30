@@ -33,14 +33,14 @@ namespace VITS
             Physics.defaultSolverIterations = 20; Physics.defaultSolverVelocityIterations = 8;
             // walking (animated) people must not bulldoze bodies and pieces lying around
             Physics.IgnoreLayerCollision(Mannequin.LayerWalk, Mannequin.LayerRag, true);
-            Physics.IgnoreLayerCollision(Mannequin.LayerWalk, 2, true);
+            Physics.IgnoreLayerCollision(Mannequin.LayerWalk, 2, false);   // the player (layer 2) must bump into walking Carls
             Application.logMessageReceived += OnLog;
             FlatLook(true);
             Physics.gravity = new Vector3(0, -9.81f, 0);
             ApplyTime();
 
             // the player (and its camera) first: whatever goes wrong after this, you still see the site and the error line
-            var pgo = new GameObject("Player");
+            var pgo = new GameObject("Player") { layer = 2 };   // Ignore Raycast: bullets and aim rays start inside your own capsule
             pgo.transform.SetPositionAndRotation(new Vector3(0, 0.05f, -14f), Quaternion.identity);
             player = pgo.AddComponent<Player>();
             try { Level.Build(); } catch (System.Exception e) { Debug.LogException(e); }

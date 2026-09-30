@@ -175,11 +175,11 @@ namespace VITS
         public void Spray(Vector3 p, Vector3 dir, int n, float speed, float spread, float volMin = 0.08f, float volMax = 0.6f)
         {
             // fewer, bigger, clumped drops (same total volume): real spatter is streams and blobs, not a cloud of pixels
-            int m = Mathf.Max(1, n / 3);
+            int m = Mathf.Max(1, n / 2);
             for (int i = 0; i < m; i++)
             {
                 var d = (dir + Random.insideUnitSphere * spread).normalized;
-                float sp = speed * Random.Range(0.3f, 1f), vol = Random.Range(volMin, volMax) * 3f;
+                float sp = speed * Random.Range(0.3f, 1f), vol = Random.Range(volMin, volMax) * 3.5f;
                 Emit(p, d * sp, vol);
                 // satellites trailing the main drop along the same path
                 if (Random.value < 0.5f) Emit(p - d * 0.01f, d * sp * 0.9f + Random.insideUnitSphere * 0.15f, vol * 0.3f);
@@ -223,7 +223,7 @@ namespace VITS
             float sp = v.magnitude;
             float r = Mathf.Pow(vol * 1e-6f * 0.75f / Mathf.PI, 1f / 3f);          // drop radius (m)
             float size = Mathf.Clamp(r * 2f * (3.2f + sp * 0.6f), 0.018f, 0.2f);   // stain grows with impact speed
-            float el = 1f + Mathf.Clamp(vt.magnitude / (vn + 0.6f), 0f, 2.2f);       // oblique impact -> ellipse
+            float el = 1f + Mathf.Clamp(vt.magnitude / (vn + 1.2f), 0f, 1.3f);   // mostly round splats, only fast grazing drops stretch       // oblique impact -> ellipse
             Vector3 up = vt.sqrMagnitude > 1e-4f ? vt.normalized : RandomTangent(n);
 
             if (h.rigidbody != null)
@@ -316,7 +316,7 @@ namespace VITS
         {
             P.vol += ml;
             // ~2.5 mm thick layer: 100 ml covers a ~11 cm radius disc
-            P.r = Mathf.Min(1.5f, Mathf.Sqrt(P.vol * 1e-6f / 0.0025f / Mathf.PI));
+            P.r = Mathf.Min(2.2f, Mathf.Sqrt(P.vol * 1e-6f / 0.0015f / Mathf.PI));
             float d = P.r * 2.3f;
             P.t.localScale = new Vector3(d, d, 1);
         }

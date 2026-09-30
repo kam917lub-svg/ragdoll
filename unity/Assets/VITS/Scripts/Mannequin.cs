@@ -1451,7 +1451,7 @@ namespace VITS
                     w.runT = Random.Range(0.2f, 0.5f);
                     if (runners.Count < 50) runners.Add(new Runner { part = w.part, lp = w.lp, left = Mathf.Clamp(rate * (spurt ? 0.04f : 0.15f), 0.1f, 1.8f) });
                 }
-                w.acc += rate * dt * 3f;
+                w.acc += rate * dt * 5f;   // what you see is exaggerated like the reference game
                 if (w.acc < dv) continue;
                 Vector3 p = t.TransformPoint(w.lp);
                 Vector3 bv = !w.part.rb.isKinematic ? w.part.rb.linearVelocity : vel;

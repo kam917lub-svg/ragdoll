@@ -388,7 +388,7 @@ namespace VITS
             if (AWP) boltT = 1.2f;
             au.PlayOneShot(AWP ? awpClip : shotClip, AWP ? 1f : 0.8f);
             // AWP: dead on through the scope, wild when fired from the hip
-            float spread = AWP ? (Scoped ? 0f : 0.02f) : 0.004f;
+            float spread = AWP ? (Scoped ? 0f : 0.008f) : 0.004f;
             var dir = (cam.transform.forward + Random.insideUnitSphere * spread).normalized;
             var ray = new Ray(cam.transform.position, dir);
             Vector3 end = ray.origin + dir * 200f;

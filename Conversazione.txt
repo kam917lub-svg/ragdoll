@@ -337,3 +337,11 @@ Fatto:
 - Mats.Find non restituisce mai null: Shader.Find -> materiale in Resources -> fallback -> URP Lit -> Sprites/Default -> errore a log.
 - Game.Awake: prima crea il giocatore (camera), poi livello/sangue/Carl ognuno in try/catch: un errore non lascia piu lo schermo nero, compare la riga rossa ERROR.
 - README: sezione "Creare il gioco (.exe)" passo per passo.
+
+--- PROMPT 31 ---
+Utente (screenshot: sotto il mirino "PLAYER · 0.0 M"): AWP ancora impreciso; sangue poco e non realistico.
+Causa trovata: i raggi del mirino/colpo partono dentro la capsula del giocatore e la colpivano a 0 m -> il colpo si fermava sul giocatore (MISS) invece di arrivare al Carl.
+Fatto:
+- Giocatore sul layer 2 (Ignore Raycast): i raggi non lo vedono piu; resta la collisione con i Carl che camminano.
+- AWP dall anca: dispersione 0,008 (nello scope 0).
+- Sangue: sanguinamento visibile x5 (era x3), spruzzi con meta delle gocce ma 3,5x volume (piu grosse e raggruppate), macchie quasi sempre tonde (niente piu pioggia di goccioline a lacrima), pozze sottili 1,5 mm = piu larghe, fino a 2,2 m di raggio.
