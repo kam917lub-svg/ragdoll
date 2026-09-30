@@ -133,6 +133,7 @@ namespace VITS
 
         enum S { Idle, Walk, Flee, Cover }
         S state = S.Idle;
+        public float pain; int woundCount;
         float turnRate, headYaw, headYawT, lookT, peekT, peek, stateT, phase, speed, heart, writheT, hurt, crawlT, detourT, stuckT, bestDist, foldT, groundY, groundT, deathT, shock;
         int torsoHits, headHits; bool headMashed;
         readonly int[] carvedBone = new int[BodyMesh.NB];
@@ -352,6 +353,7 @@ namespace VITS
             heart += dt * (dead ? 0 : (1.3f + hurt * 0.9f));
             hurt = Mathf.Max(0, hurt - dt * 0.02f);
             shock = Mathf.Max(0, shock - dt * 0.6f);
+            pain = Mathf.Max(0, pain - dt * 0.004f);   // pain barely fades while the wounds are open
             if (!dead)
             {
                 if (blood < BloodMax * 0.65f && conscious) { conscious = false; crawling = false; injuries.Add("LOST CONSCIOUSNESS"); GoActive(); }
@@ -747,7 +749,7 @@ namespace VITS
         {
             // how well can the body hold itself up
             float legs = Mathf.Min(legFn[0], legFn[1]) * 0.65f + (legFn[0] + legFn[1]) * 0.175f;
-            float want = Mathf.Min(strength, legs) - shock;
+            float want = Mathf.Min(strength, legs) - shock - pain * 0.35f;
             support = Mathf.MoveTowards(support, Mathf.Clamp01(want), dt * (want < support ? 0.45f : 0.12f));
             float kneel = Mathf.InverseLerp(0.72f, 0.45f, support);   // 0 standing .. 1 kneeling
             bool down = support < 0.35f;
@@ -773,8 +775,8 @@ namespace VITS
                 T("thighL", -60f * c); T("thighR", -55f * c); T("shinL", 100f * c); T("shinR", 95f * c);
                 T("uarmL", -40f * c, 20f * c); T("uarmR", -40f * c, -20f * c); T("farmL", -100f * c); T("farmR", -100f * c);
                 Tone(crawling ? 0.25f : conscious ? 0.35f : 0.08f);
-                if (conscious && !crawling) Writhe(dt);
-                if (conscious && !crawling && (legFn[0] < 0.5f || legFn[1] < 0.5f) && strength > 0.35f && Random.value < dt * 0.3f) StartCrawl();
+                if (conscious && !crawling) Writhe(dt * (1f + pain * 3f));
+                if (conscious && !crawling && strength > 0.15f && Time.time - lastHitTime > 0.25f) StartCrawl();   // down: straight away, drag yourself off
             }
             if (clutch != null && !clutch.severed && conscious)
             {
@@ -785,8 +787,23 @@ namespace VITS
                 }
             }
             // light wounds only, standing and steady for a while: walk (or hop) away
-            if (!Held && Time.time - heldT > 1.5f && !down && support > 0.85f && Mathf.Max(legFn[0], legFn[1]) > 0.7f && Mathf.Min(legFn[0], legFn[1]) > 0.3f && strength > 0.75f && Time.time - lastHitTime > 2f)
+            if (!Held && Time.time - heldT > 1.5f && !down && support > 0.85f && Mathf.Max(legFn[0], legFn[1]) > 0.7f && Mathf.Min(legFn[0], legFn[1]) > 0.3f && strength > 0.75f && Time.time - lastHitTime > 0.6f)
                 Recover();
+        }
+
+        // the instant reaction to a bullet: the body jerks, curls toward the wound
+        void Flinch(Part p, Vector3 dir)
+        {
+            shock = Mathf.Max(shock, 0.25f + pain * 0.5f);
+            if (mode == M.Anim) { stumble = 1f; return; }
+            if (!conscious) return;
+            float k = 0.6f + pain * 1.4f;
+            var ch = parts["chest"];
+            ch.rb.AddTorque(Vector3.Cross(ch.transform.up, (p.transform.position - ch.transform.position).normalized + Vector3.down * 0.3f) * ch.rb.mass * 3f * k, ForceMode.Impulse);
+            foreach (var q in parts.Values)
+                if (!q.severed && (q.isArm || q.isLeg) && q.rb != null)
+                    q.rb.AddForce((Random.insideUnitSphere * 0.6f + Vector3.up * 0.3f) * q.rb.mass * k, ForceMode.Impulse);
+            writheT = 0;
         }
 
         void Writhe(float dt)
@@ -841,22 +858,28 @@ namespace VITS
             Vector3 to = Flat(target - ch.transform.position);
             if (to.magnitude < 0.7f) { crawling = false; injuries.Add("REACHED COVER"); return; }
             Vector3 d = to.normalized;
-            float k = Mathf.Clamp01(strength * 1.3f);
-            crawlT += Time.fixedDeltaTime;
+            // adrenaline: the more it hurts, the faster and more frantic the pulls
+            float k = Mathf.Clamp01(strength * 1.3f) * (1f + pain * 0.8f);
+            crawlT += Time.fixedDeltaTime * (1f + pain * 0.85f);
             float pull = Mathf.Max(0, Mathf.Sin(crawlT * 3.5f));
-            ch.rb.AddForce(d * 160f * k * pull + Vector3.up * 60f * k);
-            parts["pelvis"].rb.AddForce(d * 35f * k * pull);
+            ch.rb.AddForce(d * 300f * k * pull + Vector3.up * 70f * k);
+            parts["pelvis"].rb.AddForce(d * 90f * k * pull);
             if (!parts["head"].severed) parts["head"].rb.AddForce(Vector3.up * 30f * k);
             string arm = ((int)(crawlT * 3.5f / Mathf.PI)) % 2 == 0 ? "L" : "R";
             var fa = parts["farm" + arm];
             if (!fa.severed) fa.rb.AddForce((d * 50f + Vector3.up * 22f) * k * (1f - pull));
-            if (strength < 0.3f) crawling = false;
+            if (strength < 0.12f) crawling = false;
         }
 
         void StartCrawl()
         {
             if (!conscious || dead) return;
-            crawling = true; target = Game.CoverPoint(parts["chest"].transform.position, Vector3.one * 999f);
+            crawling = true;
+            // away from the shooter: a cover behind you if there is one close, otherwise just away
+            Vector3 pos = parts["chest"].transform.position, shooter = Game.I != null && Game.I.player != null ? Game.I.player.transform.position : pos;
+            Vector3 c = Game.CoverPoint(pos, Vector3.one * 999f);
+            Vector3 away = Flat(pos - shooter); if (away.sqrMagnitude < 0.01f) away = Vector3.forward;
+            target = (c - shooter).magnitude > (pos - shooter).magnitude && (c - pos).magnitude < 8f ? c : Game.Clamp(pos + away.normalized * 8f);
         }
 
         // kept for callers: hurt -> physical body; dead -> limp
@@ -1002,6 +1025,10 @@ namespace VITS
         void DoHit(Part p, Vector3 pt, Vector3 dir)
         {
             provoked = true;
+            // pain adds up and each new wound hurts more than the last (exponential), capped at 1
+            woundCount++;
+            pain = Mathf.Min(1f, pain + 0.07f * Mathf.Pow(1.3f, woundCount - 1) * (p.isHead || p.isTorso ? 1.3f : 1f));
+            if (!dead) Flinch(p, dir);
             p.hits++; lastHit = p.key.ToUpper(); lastHitTime = Time.time; lastDir = dir;
             hurt = Mathf.Min(1, hurt + 0.3f);
             var B = Blood.I;
@@ -1067,7 +1094,8 @@ namespace VITS
                 {
                     clutch = p; clutchLocal = inL; shock = 0.35f;
                     if (torsoHits >= 5) Die("MASSIVE TRAUMA");
-                    else GoActive();
+                    else if (torsoHits >= 3 || pain > 0.6f || art >= 0 || Random.value < 0.25f) GoActive();   // doubles over
+                    else if (mode == M.Anim) Flee();                                                          // hand on it, and runs at once
                 }
             }
             else if (p.isArm || p.isLeg)
@@ -1082,10 +1110,10 @@ namespace VITS
                 else if (p.isLeg && !dead && !p.severed)
                 {
                     bool bothBad = legFn[0] < 0.6f && legFn[1] < 0.6f, gone = Mathf.Min(legFn[0], legFn[1]) < 0.15f;
-                    if (bothBad || gone || art >= 0 || Random.value < 0.35f) { shock = 0.3f; GoActive(); }
+                    if (bothBad || gone || art >= 0 || pain > 0.55f || Random.value < 0.2f) { shock = 0.3f; GoActive(); }
                     else { shock = 0.2f; if (mode == M.Anim) Flee(); } // hops away on the good leg
                 }
-                else if (!dead) shock = Mathf.Max(shock, 0.15f);
+                else if (!dead) { shock = Mathf.Max(shock, 0.15f); if (mode == M.Anim) Flee(); }
             }
             for (int i = 0; i < 2; i++) legFn[i] = Mathf.Max(0, legFn[i]);
 

@@ -16,6 +16,7 @@ Serve Unity 6 (testato come codice per 6000.x) con **URP**.
 | W A S D | muoversi |
 | Shift | correre |
 | Spazio | saltare |
+| Ctrl sinistro (tenuto) | accovacciarsi (più lento; ti rialzi solo se c'è spazio) |
 | Clic sinistro | sparare (pistola: un colpo per clic; AK-47: tieni premuto; AWP: un colpo, poi 1,2 s di otturatore) |
 | Clic destro (tenuto) | mirare; con l'AWP = cannocchiale (girare la rotella = zoom 4x-12x) |
 | Rotella (tenuta) | afferrare un Carl (vivo o morto, cervello ON o OFF) o un pezzo fino a 60 m e portarlo dove vuoi; girare la rotella = avvicina/allontana |

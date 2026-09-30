@@ -5,7 +5,7 @@ using UnityEngine.InputSystem;
 
 namespace VITS
 {
-    public enum K { W, A, S, D, Shift, Space, R, T, N, Esc, LBracket, RBracket, P, M, Back, Y }
+    public enum K { W, A, S, D, Shift, Space, R, T, N, Esc, LBracket, RBracket, P, M, Back, Y, Ctrl }
 
     // Input wrapper: works with the new Input System (Unity 6 default) or the old Input Manager.
     public static class GI
@@ -19,7 +19,7 @@ namespace VITS
                 case K.Shift: return Key.LeftShift; case K.Space: return Key.Space; case K.R: return Key.R;
                 case K.T: return Key.T; case K.N: return Key.N; case K.Esc: return Key.Escape;
                 case K.LBracket: return Key.LeftBracket; case K.RBracket: return Key.RightBracket;
-                case K.P: return Key.P; case K.Back: return Key.Backspace; case K.Y: return Key.Y; default: return Key.M;
+                case K.P: return Key.P; case K.Back: return Key.Backspace; case K.Y: return Key.Y; case K.Ctrl: return Key.LeftCtrl; default: return Key.M;
             }
         }
         public static bool Held(K k) { var kb = Keyboard.current; return kb != null && kb[Map(k)].isPressed; }
@@ -40,7 +40,7 @@ namespace VITS
                 case K.Shift: return KeyCode.LeftShift; case K.Space: return KeyCode.Space; case K.R: return KeyCode.R;
                 case K.T: return KeyCode.T; case K.N: return KeyCode.N; case K.Esc: return KeyCode.Escape;
                 case K.LBracket: return KeyCode.LeftBracket; case K.RBracket: return KeyCode.RightBracket;
-                case K.P: return KeyCode.P; case K.Back: return KeyCode.Backspace; case K.Y: return KeyCode.Y; default: return KeyCode.M;
+                case K.P: return KeyCode.P; case K.Back: return KeyCode.Backspace; case K.Y: return KeyCode.Y; case K.Ctrl: return KeyCode.LeftControl; default: return KeyCode.M;
             }
         }
         public static bool Held(K k) => Input.GetKey(Map(k));

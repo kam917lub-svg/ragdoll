@@ -25,6 +25,7 @@ namespace VITS
         public Rigidbody held; Vector3 heldLocal; float heldDist; LineRenderer beam;
 
         CharacterController cc;
+        float crouch;
         float yaw, pitch, vy, cool, recoil, flashT, tracerT, bob;
         Transform gun, slide;
         Light flash;
@@ -167,7 +168,13 @@ namespace VITS
             if (GI.Held(K.W)) mv += transform.forward; if (GI.Held(K.S)) mv -= transform.forward;
             if (GI.Held(K.D)) mv += transform.right; if (GI.Held(K.A)) mv -= transform.right;
             if (mv.sqrMagnitude > 1) mv.Normalize();
-            float sp = GI.Held(K.Shift) ? 6f : 3.4f;
+            // crouch (left Ctrl): lower eyes and body, slower; stands up only where there is room
+            bool wantCrouch = GI.Held(K.Ctrl);
+            if (!wantCrouch && crouch > 0.5f && Physics.SphereCast(transform.position + Vector3.up * 0.6f, 0.28f, Vector3.up, out _, 1.0f, ~((1 << 2) | (1 << Mannequin.LayerWalk) | (1 << Mannequin.LayerRag)), QueryTriggerInteraction.Ignore)) wantCrouch = true;
+            crouch = Mathf.MoveTowards(crouch, wantCrouch ? 1f : 0f, dt * 6f);
+            cc.height = Mathf.Lerp(1.8f, 1.05f, crouch); cc.center = new Vector3(0, cc.height / 2f, 0);
+            cam.transform.localPosition = new Vector3(0, Mathf.Lerp(1.65f, 0.95f, crouch), 0);
+            float sp = crouch > 0.5f ? 1.7f : GI.Held(K.Shift) ? 6f : 3.4f;
             if (cc.isGrounded) { vy = -1f; if (GI.Down(K.Space)) vy = 5.2f; } else vy -= 14f * dt;
             cc.Move((mv * sp + Vector3.up * vy) * dt);
             bob += mv.magnitude * dt * (GI.Held(K.Shift) ? 11f : 7f);
