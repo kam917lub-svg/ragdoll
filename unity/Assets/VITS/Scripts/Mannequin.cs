@@ -23,6 +23,7 @@ namespace VITS
         public Vector3 sdfOff;          // local -> original segment space (for lower pieces of a cut limb)
         public float yMin = -9f, yMax = 9f;
         public int triTotal, carved;
+        public readonly List<Vector3> wounds = new List<Vector3>();   // where bullets went in/out (local): repeated hits widen the hole
         public readonly List<Vector2> holes = new List<Vector2>(); // (height along the bone, angle around it) of every hole
 
         public float Sdf(Vector3 local) => BodyMesh.Sdf(idx, local + sdfOff);
@@ -1246,6 +1247,12 @@ namespace VITS
 
             // flesh is torn away: a small piece at the entry, a bigger one at the exit, and it flies off
             float rin = Player.AWP ? 0.028f : Player.AK ? 0.02f : 0.015f, rout = (Player.AWP ? 0.06f : Player.AK ? 0.034f : 0.025f) * (p.isHead ? (Player.AK ? 1.9f : 1.8f) : 1f);   // skull exit wounds are big and ragged
+            // shot after shot into the same spot tears it wider: a crater, then a hole you can see through
+            int nIn = 0, nOut = 0;
+            foreach (var w in p.wounds) { if ((w - inL).sqrMagnitude < 0.045f * 0.045f) nIn++; if (exits && (w - outL).sqrMagnitude < 0.05f * 0.05f) nOut++; }
+            p.wounds.Add(inL); if (exits) p.wounds.Add(outL);
+            rin *= 1f + 0.45f * Mathf.Min(nIn, 6); rout *= 1f + 0.35f * Mathf.Min(nOut, 6);
+            if (nIn >= 2) Gib.Spawn(pt - dir * 0.02f, (-dir * 0.8f + Random.insideUnitSphere) * Random.Range(1f, 2.5f) + Vector3.up * 0.5f, Random.Range(0.012f, 0.022f));
             Carve(p, pt, rin);
             if (exits) { Carve(p, skinExit ? outSkin : outW, rout); Gib.Spawn(outW + outN * 0.02f, dir * Random.Range(2f, 4.5f) + Random.insideUnitSphere + Vector3.up * 0.6f, rout * Random.Range(0.8f, 1.2f)); }
             float cal = Player.AWP ? 2.5f : Player.AK ? 1.5f : 1f;   // bigger round, more tissue destroyed, more blood thrown

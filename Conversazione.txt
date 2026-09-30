@@ -419,3 +419,7 @@ Fatto: pannello sempre disegnato; senza bersaglio mostra "WAITING..." animato e 
 --- PROMPT 46 ---
 Utente: colpire la testa deve romperla, non decapitare; solo una linea di colpi sul collo la stacca.
 Fatto: tolta la decapitazione al 7o colpo in testa. La testa si rompe: ogni colpo asporta pelle, al 40% della testa asportata il cranio va in pezzi (era 60%); AWP la fa esplodere subito. Collo (parte bassa della testa o alto del busto): pistola 5, AK 3, AWP 1 colpi -> testa staccata.
+
+--- PROMPT 47 ---
+Utente: vale per tutto il corpo: tanti colpi al centro devono fare un semi-buco o un buco passante.
+Fatto: ogni parte ricorda dove sono entrati/usciti i colpi (Part.wounds, locale). Un nuovo colpo entro 4,5 cm da colpi precedenti scava un foro piu grande: ingresso x(1+0,45 per colpo vicino, max 6), uscita x(1+0,35...); dal 3o colpo nello stesso punto volano pezzi di carne. Con ingresso e uscita allargati si vede attraverso il corpo (la carne interna e disegnata solo dove c e ancora pelle).
