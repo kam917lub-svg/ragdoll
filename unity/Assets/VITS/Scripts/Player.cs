@@ -107,6 +107,7 @@ namespace VITS
                 var p = lh.collider.GetComponent<Part>();
                 if (p != null) looked = p.owner;
             }
+            if (Mannequin.Pick(cam.transform.position, cam.transform.forward, 40f, out Part lp, out float _)) looked = lp.owner;
         }
 
         void Shoot()
@@ -121,11 +122,17 @@ namespace VITS
             if (Physics.Raycast(ray, out RaycastHit h, 200f, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore))
             {
                 end = h.point;
-                var part = h.collider.GetComponent<Part>();
-                if (part != null) part.owner.Hit(part, h.collider, h.point, dir, h.normal);
-                else if (h.rigidbody != null) h.rigidbody.AddForceAtPosition(dir * Game.BulletImpulse, h.point, ForceMode.Impulse);
-                else Blood.I.Hole(h.point, h.normal);
+                // a body in front of what the physics hit? (bullets hit the visible skin, not the rough colliders)
+                if (Mannequin.Pick(ray.origin, dir, h.distance + 0.02f, out Part sp, out float st)) { end = ray.origin + dir * st; sp.owner.Hit(sp, null, end, dir, -dir); }
+                else
+                {
+                    var part = h.collider.GetComponent<Part>();
+                    if (part != null) part.owner.Hit(part, h.collider, h.point, dir, h.normal);
+                    else if (h.rigidbody != null) h.rigidbody.AddForceAtPosition(dir * Game.BulletImpulse, h.point, ForceMode.Impulse);
+                    else Blood.I.Hole(h.point, h.normal);
+                }
             }
+            else if (Mannequin.Pick(ray.origin, dir, 200f, out Part sp2, out float st2)) { end = ray.origin + dir * st2; sp2.owner.Hit(sp2, null, end, dir, -dir); }
             tracer.SetPosition(0, gun.TransformPoint(new Vector3(0, 0.03f, 0.14f)));
             tracer.SetPosition(1, end);
             tracerT = 0.03f;

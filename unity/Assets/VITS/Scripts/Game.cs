@@ -147,7 +147,8 @@ namespace VITS
         void Update()
         {
             if (GI.Down(K.N)) Spawn();
-            if (GI.Down(K.T)) { SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex); return; }
+            if (GI.Down(K.T)) XRay.Toggle();
+            if (GI.Down(K.Back)) { XRay.On = false; Skin.All.Clear(); SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex); return; }
             if (GI.Down(K.LBracket)) { tsi = Mathf.Max(0, tsi - 1); ApplyTime(); }
             if (GI.Down(K.RBracket)) { tsi = Mathf.Min(TS.Length - 1, tsi + 1); ApplyTime(); }
             if (GI.Down(K.P)) { paused = !paused; ApplyTime(); }
@@ -170,13 +171,13 @@ namespace VITS
 
             Label(new Rect(0, 14 * s, W, 30 * s), $"SPECIMENS  {alive:00} / 100   <size={(int)(14 * s)}>· 90 HZ</size>", (int)(20 * s), TextAnchor.UpperCenter);
             Label(new Rect(W - 330 * s, 14 * s, 300 * s, 34 * s), paused ? "TIME  PAUSED" : $"TIME  {TS[tsi]:0.0}x", (int)(26 * s), TextAnchor.UpperRight);
-            Label(new Rect(W - 330 * s, 48 * s, 300 * s, 22 * s), "FREE MOVEMENT", (int)(14 * s), TextAnchor.UpperRight, 0.7f);
+            Label(new Rect(W - 330 * s, 48 * s, 300 * s, 22 * s), XRay.On ? "X-RAY  ·  FREE MOVEMENT" : "FREE MOVEMENT", (int)(14 * s), TextAnchor.UpperRight, 0.7f);
 
             Label(new Rect(W - 330 * s, H - 150 * s, 300 * s, 22 * s), "PISTOL / 9MM", (int)(14 * s), TextAnchor.UpperRight, 0.7f);
             string am = player.reloadT > 0 ? "..." : player.ammo.ToString("00");
             Label(new Rect(W - 330 * s, H - 128 * s, 300 * s, 70 * s), $"{am}<size={(int)(24 * s)}> / {Player.MaxAmmo}</size>", (int)(56 * s), TextAnchor.UpperRight);
             Label(new Rect(W - 330 * s, H - 58 * s, 300 * s, 22 * s), "∞  RESERVE", (int)(14 * s), TextAnchor.UpperRight, 0.6f);
-            Label(new Rect(20 * s, H - 36 * s, W, 24 * s), "WASD move · SHIFT run · SPACE jump · LMB fire · RMB aim · R reload · [ ] time · P pause · N spawn · T reset · ESC mouse", (int)(13 * s), TextAnchor.UpperLeft, 0.55f);
+            Label(new Rect(20 * s, H - 36 * s, W, 24 * s), "WASD move · SHIFT run · SPACE jump · LMB fire · RMB aim · R reload · T x-ray · [ ] time · P pause · N spawn · BACKSPACE reset · ESC mouse", (int)(13 * s), TextAnchor.UpperLeft, 0.55f);
 
             // crosshair
             var cc = player.looked != null ? new Color(1f, 0.35f, 0.3f, 0.95f) : new Color(1, 1, 1, 0.9f);

@@ -13,7 +13,7 @@ Serve Unity 6 (testato come codice per 6000.x) con **URP**.
 ## Comandi
 WASD muoviti · Shift corri · Spazio salta · clic sinistro spara (semiautomatica, 15 colpi) ·
 clic destro mira · R ricarica · `[` `]` velocità del tempo · P pausa · N nuovo manichino ·
-T ricomincia · Esc libera il mouse.
+Backspace ricomincia · T raggi X · Esc libera il mouse.
 
 ## Cosa fa
 - Manichini con ragdoll vero (Rigidbody + CharacterJoint): camminano, scappano quando spari,
@@ -32,6 +32,8 @@ T ricomincia · Esc libera il mouse.
 - Il sangue cola sulla pelle da una parte all'altra del corpo e gocciola a terra; pozze sotto i corpi.
 - 6 muri COVER / 01-06: i Carl ci corrono dietro, o ci strisciano se colpiti alle gambe.
 - Si possono colpire e tagliare anche i corpi a terra; i pezzi di carne non fermano i proiettili.
+
+- T = raggi X: pelle trasparente, si vedono ossa, organi, arterie (rosse), vene (blu), nervi (gialli).
 
 ## Se qualcosa non va
 Copia gli errori della **Console** e mandameli. Il codice non è stato compilato qui

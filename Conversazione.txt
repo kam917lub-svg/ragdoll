@@ -187,3 +187,19 @@ Fix:
 - SSAO e Global Volume del template disattivati durante il gioco (ripristinati all'uscita).
 - Errori mostrati in rosso nell'HUD; monitor con LEG SUPPORT ed EFFORT.
 Compilazione verificata (dotnet + assembly UnityEngine 2021.3).
+
+--- PROMPT 11 ---
+Utente (screenshot): a terra/morti non si colpiscono, cerchi neri sui colpi, i corpi "cadono a pezzi
+come lego" -> vuole una massa di carne unica; T = raggi X come nell'HTML (arterie, organi, ossa).
+Analisi: i cerchi neri erano i fori del pavimento SOTTO il corpo (il proiettile passava dove la forma
+visibile non coincide coi collider) disegnati sopra il corpo per via dell'"Offset" dello shader decal.
+Fix:
+- Corpo UNICO skinnato (surface nets 1,2 cm sull'unione liscia dei segmenti, braccia costruite in
+  posa ad A per non fondere mani e fianchi); pesi fusi alle articolazioni. Verificato con render
+  (posa normale e piegata): massa unica, nessuna fessura.
+- Taglio/amputazione: la pelle viene divisa e i pesi riassegnati (niente lenzuoli stirati);
+  il pezzo ha la sua SkinnedMeshRenderer con le stesse ossa (si piega ancora).
+- Colpi calcolati sulla superficie visibile (Mannequin.Pick con sphere-tracing) oltre ai collider:
+  corpi a terra/morti/pezzi sempre colpibili.
+- Shader decal senza Offset; niente alone nero; ferita rosso scuro.
+- XRay.cs + shader VITS/XRay: T mostra ossa, organi, arterie, vene, nervi. Reset = Backspace.

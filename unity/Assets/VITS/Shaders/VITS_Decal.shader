@@ -12,7 +12,6 @@ Shader "VITS/Decal"
         ZWrite Off
         Cull Off
         Blend SrcAlpha OneMinusSrcAlpha
-        Offset -1, -1
         Pass
         {
             CGPROGRAM

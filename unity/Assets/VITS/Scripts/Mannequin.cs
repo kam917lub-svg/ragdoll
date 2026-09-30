@@ -15,6 +15,7 @@ namespace VITS
         public float radius, length;
         public int hits;
         public bool severed, isHead, isLeg, isArm, isTorso;
+        public Skin skin;
         public MeshFilter mf;
         public Mesh mesh;               // own copy once modified
         public Vector3[] verts;
@@ -26,6 +27,20 @@ namespace VITS
         public float Sdf(Vector3 local) => BodyMesh.Sdf(idx, local + sdfOff);
         public Vector3 Normal(Vector3 local) => BodyMesh.Normal(idx, local + sdfOff);
         public Vector3 Project(Vector3 local) => BodyMesh.Project(idx, local + sdfOff) - sdfOff;
+    }
+
+    // one skinned mesh (the body, or a piece that was cut off). All share the body vertices;
+    // each has its own triangles, bone weights, bones and bind poses.
+    public class Skin
+    {
+        public SkinnedMeshRenderer r;
+        public Mesh mesh;
+        public List<int> tris;
+        public BoneWeight[] bw;
+        public Transform[] bones;
+        public Matrix4x4[] bind;
+        public Material[] mats;
+        public static readonly List<Skin> All = new List<Skin>();
     }
 
     public class Wound
@@ -171,7 +186,7 @@ namespace VITS
                 stumpMat = Mats.Lit(new Color(0.45f, 0.03f, 0.05f), 0.75f);
                 boneMat = Mats.Lit(new Color(0.93f, 0.9f, 0.82f), 0.4f);
             }
-            if (BodyMesh.Meshes[0] == null) BodyMesh.Build();
+            if (BodyMesh.Body == null) BodyMesh.Build();
             Build();
             lastPos = transform.position;
             stateT = Random.Range(0.5f, 3f);
@@ -179,6 +194,8 @@ namespace VITS
         }
 
         void OnDestroy() { All.Remove(this); }
+
+        public List<Part> Parts => allParts;
 
         void Build()
         {
@@ -204,9 +221,6 @@ namespace VITS
                 rb.maxDepenetrationVelocity = 1f;
                 part.rb = rb; totalMass += d.mass;
 
-                part.mf = go.AddComponent<MeshFilter>(); part.mf.sharedMesh = BodyMesh.Meshes[n];
-                var mr = go.AddComponent<MeshRenderer>(); mr.sharedMaterials = new[] { skinMat, innerMat };
-                part.verts = BodyMesh.Verts[n]; part.triTotal = BodyMesh.Tris[n].Length / 3;
 
                 switch (d.k)
                 {
@@ -236,6 +250,27 @@ namespace VITS
             Joint(parts["farmL"], -3, 145, 5, 5); Joint(parts["farmR"], -3, 145, 5, 5);
             Joint(parts["thighL"], -25, 110, 35, 20); Joint(parts["thighR"], -25, 110, 35, 20);
             Joint(parts["shinL"], -140, 0, 4, 4); Joint(parts["shinR"], -140, 0, 4, 4);
+
+            // the whole body is one smooth skinned mesh
+            var bones = new Transform[DEFS.Length];
+            for (int n = 0; n < DEFS.Length; n++) bones[n] = parts[DEFS[n].k].transform;
+            var skin = MakeSkin(gameObject, new List<int>(BodyMesh.BodyTris), (BoneWeight[])BodyMesh.Weights.Clone(), bones, BodyMesh.Bind);
+            foreach (var p in parts.Values) p.skin = skin;
+            foreach (var p in parts.Values) XRay.AddInternals(p);
+        }
+
+        Skin MakeSkin(GameObject host, List<int> tris, BoneWeight[] bw, Transform[] bones, Matrix4x4[] bind)
+        {
+            var mesh = Object.Instantiate(BodyMesh.Body);
+            mesh.boneWeights = bw; mesh.bindposes = bind; mesh.SetTriangles(tris, 0);
+            var r = host.AddComponent<SkinnedMeshRenderer>();
+            r.sharedMesh = mesh; r.bones = bones; r.rootBone = bones[0] != null ? bones[0] : host.transform;
+            r.updateWhenOffscreen = true;
+            var mats = new[] { skinMat, innerMat };
+            r.sharedMaterials = XRay.On ? new[] { XRay.Ghost } : mats;
+            var sk = new Skin { r = r, mesh = mesh, tris = tris, bw = bw, bones = bones, bind = bind, mats = mats };
+            Skin.All.Add(sk);
+            return sk;
         }
 
         static void AddLimbColliders(Part p, float from, float to)
@@ -785,12 +820,37 @@ namespace VITS
             while (injuries.Count > 12) injuries.RemoveAt(0);
         }
 
-        static void OwnMesh(Part p)
+        // move every weight that points at a bone we are cutting away onto 'to'
+        static BoneWeight Rebind(BoneWeight w, System.Func<int, bool> bad, int to)
         {
-            if (p.mesh != null) return;
-            p.mesh = Object.Instantiate(p.mf.sharedMesh);
-            p.mf.sharedMesh = p.mesh;
-            if (p.tris == null) p.tris = new List<int>(BodyMesh.Tris[p.idx]);
+            bool b0 = bad(w.boneIndex0), b1 = w.weight1 > 0 && bad(w.boneIndex1);
+            if (!b0 && !b1) return w;
+            return new BoneWeight { boneIndex0 = to, weight0 = 1f };
+        }
+
+        // what does a bullet along this ray really hit? (the visible skin, not the rough colliders)
+        public static bool Pick(Vector3 o, Vector3 d, float maxT, out Part best, out float bestT)
+        {
+            best = null; bestT = maxT;
+            foreach (var m in All)
+            {
+                if (m == null) continue;
+                foreach (var p in m.allParts)
+                {
+                    if (p == null) continue;
+                    Vector3 c = p.transform.position;
+                    float tc = Vector3.Dot(c - o, d);
+                    if (tc < -0.8f || tc > bestT + 0.8f) continue;
+                    if ((o + d * tc - c).sqrMagnitude > 0.8f * 0.8f) continue;
+                    float t0 = Mathf.Max(0f, tc - 0.8f);
+                    if (Trace(p, o + d * t0, d, 1.6f, out Vector3 lp))
+                    {
+                        float t = t0 + Vector3.Dot(p.transform.TransformPoint(lp) - (o + d * t0), d);
+                        if (t < bestT) { bestT = t; best = p; }
+                    }
+                }
+            }
+            return best != null;
         }
 
         void AddWound(Part p, Vector3 lp, Vector3 ln, float rate, bool arterial, float life, string name)
@@ -886,28 +946,40 @@ namespace VITS
             c = Mathf.Min(c, p.length - 0.05f);
             if (c < 0.07f) return;
 
-            OwnMesh(p);
-            var v = p.verts;
+            var sk = p.skin;
+            int bi = System.Array.IndexOf(sk.bones, p.transform);
+            if (bi < 0) return;
+            // bones below the cut: the children of this segment
+            var below = new bool[sk.bones.Length];
+            for (int i = 0; i < sk.bones.Length; i++) below[i] = sk.bones[i] != null && sk.bones[i] != p.transform && sk.bones[i].IsChildOf(p.transform);
+            var V = BodyMesh.BodyVerts; var D = BodyMesh.Dom;
+            var lower = new bool[V.Length];
+            for (int i = 0; i < V.Length; i++)
+                lower[i] = below[D[i]] || (D[i] == bi && sk.bind[bi].MultiplyPoint3x4(V[i]).y < -c);
             var up = new List<int>(); var lo = new List<int>();
-            for (int t = 0; t < p.tris.Count; t += 3)
+            for (int t = 0; t < sk.tris.Count; t += 3)
             {
-                int a = p.tris[t], b = p.tris[t + 1], cc = p.tris[t + 2];
-                float y = (v[a].y + v[b].y + v[cc].y) / 3f;
-                if (y >= -c) { up.Add(a); up.Add(b); up.Add(cc); } else { lo.Add(a); lo.Add(b); lo.Add(cc); }
+                int a = sk.tris[t], b = sk.tris[t + 1], cc = sk.tris[t + 2];
+                bool la = lower[a], lb = lower[b], lc = lower[cc];
+                if (la && lb && lc) { lo.Add(a); lo.Add(b); lo.Add(cc); }
+                else if (!la && !lb && !lc) { up.Add(a); up.Add(b); up.Add(cc); }
             }
-            p.tris = up; p.mesh.SetTriangles(up, 0);
-
             var go = new GameObject(p.key + " (piece)") { layer = LayerRag };
             go.transform.SetPositionAndRotation(p.transform.TransformPoint(new Vector3(0, -c, 0)), p.transform.rotation);
             var np = go.AddComponent<Part>();
             np.owner = this; np.key = p.key; np.idx = p.idx; np.isArm = p.isArm; np.isLeg = p.isLeg; np.radius = p.radius;
             np.length = p.length - c; np.severed = true; np.sdfOff = p.sdfOff + new Vector3(0, -c, 0); np.yMax = 0f;
-            var shifted = new Vector3[v.Length];
-            for (int i = 0; i < v.Length; i++) shifted[i] = v[i] + new Vector3(0, c, 0);
-            np.verts = shifted; np.tris = lo; np.triTotal = p.triTotal;
-            np.mesh = Object.Instantiate(p.mesh); np.mesh.SetVertices(shifted); np.mesh.SetTriangles(lo, 0); np.mesh.RecalculateBounds();
-            np.mf = go.AddComponent<MeshFilter>(); np.mf.sharedMesh = np.mesh;
-            go.AddComponent<MeshRenderer>().sharedMaterials = new[] { skinMat, innerMat };
+            // body keeps the upper part; everything weighted to the lower bones goes back to this segment
+            var bwUp = (BoneWeight[])sk.bw.Clone();
+            for (int i = 0; i < bwUp.Length; i++) if (!lower[i]) bwUp[i] = Rebind(bwUp[i], j => below[j], bi);
+            sk.bw = bwUp; sk.tris = up; sk.mesh.boneWeights = bwUp; sk.mesh.SetTriangles(up, 0);
+            // the piece: same vertices, this segment's bone replaced by the new piece transform
+            var pBones = (Transform[])sk.bones.Clone(); pBones[bi] = go.transform;
+            var pBind = (Matrix4x4[])sk.bind.Clone(); pBind[bi] = Matrix4x4.Translate(new Vector3(0, c, 0)) * sk.bind[bi];
+            var bwLo = (BoneWeight[])sk.bw.Clone();
+            for (int i = 0; i < bwLo.Length; i++) if (lower[i]) bwLo[i] = Rebind(bwLo[i], j => j != bi && !below[j], D[i]);
+            var psk = MakeSkin(go, lo, bwLo, pBones, pBind);
+            np.skin = psk;
             var rb = go.AddComponent<Rigidbody>();
             float frac = np.length / Mathf.Max(0.01f, p.length);
             rb.mass = Mathf.Max(0.3f, p.rb.mass * frac); p.rb.mass = Mathf.Max(0.3f, p.rb.mass * (1f - frac));
@@ -930,6 +1002,7 @@ namespace VITS
             }
             foreach (var cp in go.GetComponentsInChildren<Part>())
             {
+                cp.skin = np.skin == null ? cp.skin : np.skin;
                 cp.severed = true; cp.rb.isKinematic = false; cp.rb.interpolation = RigidbodyInterpolation.Interpolate; cp.gameObject.layer = LayerRag;
                 if (cp.joint != null) cp.joint.slerpDrive = new JointDrive { positionSpring = cp.driveK * 0.03f, positionDamper = 2f, maximumForce = float.MaxValue };
             }
@@ -952,6 +1025,29 @@ namespace VITS
             {
                 c.severed = true; c.rb.isKinematic = false; c.rb.interpolation = RigidbodyInterpolation.Interpolate; c.rb.linearVelocity = baseVel; c.gameObject.layer = LayerRag;
                 if (c.joint != null && c != p) c.joint.slerpDrive = new JointDrive { positionSpring = c.driveK * 0.03f, positionDamper = 2f, maximumForce = float.MaxValue };
+            }
+            {
+                var sk = par.skin;
+                var inSub = new bool[sk.bones.Length];
+                for (int i = 0; i < sk.bones.Length; i++) inSub[i] = sk.bones[i] != null && (sk.bones[i] == p.transform || sk.bones[i].IsChildOf(p.transform));
+                var D = BodyMesh.Dom;
+                var keep = new List<int>(); var piece = new List<int>();
+                for (int t = 0; t < sk.tris.Count; t += 3)
+                {
+                    int a = sk.tris[t], b = sk.tris[t + 1], cc = sk.tris[t + 2];
+                    bool ia = inSub[D[a]], ib = inSub[D[b]], ic = inSub[D[cc]];
+                    if (ia && ib && ic) { piece.Add(a); piece.Add(b); piece.Add(cc); }
+                    else if (!ia && !ib && !ic) { keep.Add(a); keep.Add(b); keep.Add(cc); }
+                }
+                var bwBody = (BoneWeight[])sk.bw.Clone(); var bwPiece = (BoneWeight[])sk.bw.Clone();
+                for (int i = 0; i < bwBody.Length; i++)
+                {
+                    if (!inSub[D[i]]) bwBody[i] = Rebind(bwBody[i], j => inSub[j], D[i]);
+                    else bwPiece[i] = Rebind(bwPiece[i], j => !inSub[j], D[i]);
+                }
+                sk.bw = bwBody; sk.tris = keep; sk.mesh.boneWeights = bwBody; sk.mesh.SetTriangles(keep, 0);
+                var psk = MakeSkin(p.gameObject, piece, bwPiece, sk.bones, sk.bind);
+                foreach (var c in p.GetComponentsInChildren<Part>()) if (c.skin == sk) c.skin = psk;
             }
             if (p.joint != null) DestroyImmediate(p.joint);
             p.transform.SetParent(null, true);
