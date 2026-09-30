@@ -432,3 +432,7 @@ Fatto: camminando contro un Kekko = barcollamento (spinta x0,7, 8% cade); corren
 Utente: a volte sangue sospeso in aria (screenshot: strisce verticali nel vuoto).
 Causa: le gocce colpivano la capsula invisibile del giocatore (e i pezzi di carne) e lasciavano macchie/colature li.
 Fatto: le gocce ignorano il layer 2 (giocatore e pezzi di carne).
+
+--- PROMPT 49 ---
+Utente: colpo AWP al cuore e il Kekko non e morto; sistemare la logica.
+Fatto: organi vitali controllati lungo il tragitto del proiettile (ingresso->uscita nello spazio del busto): CUORE (AWP/AK morte immediata; pistola collasso e morte in 3-8 s, getto 50 ml/s), COLONNA (paralisi: gambe a 0, a terra; AWP morte), POLMONI (dolore, morte in 40-90 s se non peggio). AWP al torso senza organi vitali: 75% morte immediata (era 40%), altrimenti a terra e morte in 3-8 s.

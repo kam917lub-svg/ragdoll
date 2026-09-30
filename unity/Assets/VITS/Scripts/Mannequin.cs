@@ -1355,7 +1355,41 @@ namespace VITS
                 if (!dead)
                 {
                     clutch = p; clutchLocal = inL; shock = 0.35f;
-                    if (Player.AWP)
+                    // vital organs along the bullet's path (chest space: y up from the waist, +z = front, +x = his left)
+                    Vector3 pA = inL, pB = exits ? outL : inL + dirL * 0.3f;
+                    bool heart = false, lung = false, spine = false;
+                    if (p.key == "chest")
+                    {
+                        var H = new Vector3(0.025f, 0.24f, 0.02f);
+                        heart = SegSeg(pA, pB, H, H) < 0.055f;
+                        lung = SegSeg(pA, pB, new Vector3(-0.075f, 0.26f, 0f), new Vector3(-0.075f, 0.26f, 0f)) < 0.075f
+                            || SegSeg(pA, pB, new Vector3(0.075f, 0.26f, 0f), new Vector3(0.075f, 0.26f, 0f)) < 0.075f;
+                        spine = SegSeg(pA, pB, new Vector3(0, 0f, -0.085f), new Vector3(0, 0.42f, -0.085f)) < 0.03f;
+                    }
+                    else spine = SegSeg(pA, pB, new Vector3(0, -0.05f, -0.075f), new Vector3(0, 0.12f, -0.075f)) < 0.03f;
+                    if (heart)
+                    {
+                        injuries.Add("HEART  HIT");
+                        AddWound(p, pB, p.Normal(pB), 50f, true, 0, "HEART");
+                        // a rifle round through the heart: dead before hitting the ground; a 9 mm: collapses, gone in seconds
+                        if (Player.AWP || Player.AK) Die("HEART");
+                        else { shock = 1f; legFn[0] *= 0.3f; legFn[1] *= 0.3f; deathT = deathT > 0 ? Mathf.Min(deathT, Time.time + Random.Range(3f, 8f)) : Time.time + Random.Range(3f, 8f); GoActive(); }
+                    }
+                    if (!dead && spine)
+                    {
+                        injuries.Add("SPINE  SEVERED  ·  PARALYSED");
+                        legFn[0] = 0; legFn[1] = 0; support = 0; shock = 1f; GoActive();
+                        if (Player.AWP) Die("SPINE");
+                    }
+                    if (!dead && lung)
+                    {
+                        injuries.Add("LUNG  PUNCTURED");
+                        pain = Mathf.Min(1f, pain + 0.2f);
+                        float t = Time.time + Random.Range(40f, 90f);
+                        deathT = deathT > 0 ? Mathf.Min(deathT, t) : t;
+                    }
+                    if (dead) { }
+                    else if (Player.AWP)
                     {
                         // .338 Lapua through the torso: hydrostatic shock, massive cavity - straight down, no walking away
                         shock = 1f; pain = 1f; legFn[0] *= 0.15f; legFn[1] *= 0.15f;
@@ -1363,7 +1397,7 @@ namespace VITS
                         B.Spray(exits ? outW : inW, dir + Vector3.up * 0.2f, 400, 6f, 0.7f, 0.3f, 2.5f);
                         B.Spray(inW, Vector3.down, 200, 1.2f, 0.8f, 0.8f, 3f);
                         injuries.Add("AWP  TORSO  CAVITY");
-                        if (Random.value < 0.4f) Die("AWP TORSO"); else { deathT = Time.time + Random.Range(4f, 12f); GoActive(); }
+                        if (Random.value < 0.75f) Die("AWP TORSO"); else { deathT = Time.time + Random.Range(3f, 8f); GoActive(); }
                     }
                     else if (torsoHits >= 5) Die("MASSIVE TRAUMA");
                     else if (torsoHits >= 3 || pain > 0.6f || art >= 0 || Random.value < 0.25f) GoActive();   // doubles over
