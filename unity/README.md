@@ -33,25 +33,25 @@ Perché prima era nero: il gioco crea i materiali dal codice e nella build Unity
 | Ctrl sinistro (tenuto) | accovacciarsi (più lento; ti rialzi solo se c'è spazio) |
 | Clic sinistro | sparare (pistola: un colpo per clic; AK-47: tieni premuto; AWP: un colpo, poi 1,2 s di otturatore) |
 | Clic destro (tenuto) | mirare con le mire metalliche allineate al centro (il mirino dell HUD sparisce); con l AWP = cannocchiale (girare la rotella = zoom 4x-12x) |
-| Rotella (tenuta) | afferrare un Carl (vivo o morto, cervello ON o OFF) o un pezzo fino a 60 m e portarlo dove vuoi; girare la rotella = avvicina/allontana |
+| Rotella (tenuta) | afferrare un Kekko (vivo o morto, cervello ON o OFF) o un pezzo fino a 60 m e portarlo dove vuoi; girare la rotella = avvicina/allontana |
 | R | ricaricare |
 | T | raggi X (ossa, organi, arterie, vene, nervi) |
-| Y | nuovo Carl nel punto indicato dal mirino (a terra, rivolto verso di te) |
-| N | nuovo Carl in un punto casuale |
+| Y | nuovo Kekko nel punto indicato dal mirino (a terra, rivolto verso di te) |
+| N | nuovo Kekko in un punto casuale |
 | [ ] | rallenta / accelera il tempo |
 | P | pausa |
 | Backspace | ricomincia (anche pulsante RESET nel menu Esc) |
-| Esc | menu: scegli PISTOLA, AK-47 o AWP, SENSIBILITA mouse, SENSIBILITA ADS (default 0,7x) e VOLUME (salvati), RESET, CARL BRAINS on/off (off = stanno fermi finché non vengono presi di mira), riprendi |
+| Esc | menu: scegli PISTOLA, AK-47 o AWP, SENSIBILITA mouse, SENSIBILITA ADS (default 0,7x) e VOLUME (salvati), RESET, KEKKO BRAINS on/off (off = stanno fermi finché non vengono presi di mira), riprendi |
 
 Sotto il mirino c'è scritto cosa stai puntando; una X rossa conferma che il colpo ha preso un corpo.
 
 ## Cosa fa
-- Tagliare un Carl a metà: bisogna distruggere la pancia tutto attorno alla vita, caricatore dopo caricatore (circa 4 caricatori di pistola, 2 di AK, 7 colpi di AWP se arrivano tutti vicino alla vita). Ogni colpo lì strappa fori sempre più grandi e fa volare più carne; a metà strada l'addome risulta "SHREDDED", alla fine il busto si stacca dal bacino.
+- Tagliare un Kekko a metà: bisogna distruggere la pancia tutto attorno alla vita, caricatore dopo caricatore (circa 4 caricatori di pistola, 2 di AK, 7 colpi di AWP se arrivano tutti vicino alla vita). Ogni colpo lì strappa fori sempre più grandi e fa volare più carne; a metà strada l'addome risulta "SHREDDED", alla fine il busto si stacca dal bacino.
 - Sangue scuro (rosso quasi bordeaux, pozze più scure); le strisciate e le impronte sono più chiare e trasparenti, come un velo sottile.
 - Colpi: ogni proiettile viene provato sulla pelle esattamente come è disegnata (skinning calcolato sulla CPU con le stesse ossa della GPU) e sulla forma solida del corpo; vince il più vicino, prima di muri e pavimento. Sotto il mirino LAST SHOT dice cosa hai colpito e a che distanza (oppure MISS e cosa c'era dietro).
 - Sangue che si sbava: camminando in una pozza lasci impronte sempre più deboli (anche i Carl); corpi trascinati, che strisciano o scivolano spalmano il sangue e, se sanguinano, lasciano la scia.
 - Torri per i drop test sul muro di fondo (dietro la partenza): 5, 8, 10 e 15 m, con tacche ogni metro. Sali sulla pedana arancione davanti: ti porta in cima (e giù); si chiama anche da sotto o da sopra. Con il tasto centrale puoi tirare su i Carl.
-- Scale normali (alzata 18 cm, pedata 30 cm) per le due piattaforme; i Carl le usano camminando e strisciando, e cadono se non hanno niente sotto i piedi.
+- Scale normali (alzata 18 cm, pedata 30 cm) per le due piattaforme; i Kekko le usano camminando e strisciando, e cadono se non hanno niente sotto i piedi.
 - Armi: pistola 9 mm (15), AK-47 7.62 (30; in testa grosso foro d uscita, niente esplosione), AWP .338 Lapua (10, otturatore, cannocchiale; stacca un arto in un colpo, esplode sempre la testa, attraversa un corpo e colpisce quello dietro).
 - Il sangue non sparisce: ~24 000 macchie per tipo, 8 000 sui corpi, fino a 2 000 pozze (poi si allargano quelle esistenti).
 - Manichini con ragdoll vero (Rigidbody + CharacterJoint): camminano, scappano quando spari,
@@ -68,7 +68,7 @@ Sotto il mirino c'è scritto cosa stai puntando; una X rossa conferma che il col
   generati da codice; la carne si strappa dove escono i proiettili e sotto si vede l'interno.
 - Gli arti si tagliano nel punto colpito (3° colpo, 2° al 50%, o troppa carne persa); i pezzi cadono con la fisica.
 - Il sangue cola sulla pelle da una parte all'altra del corpo e gocciola a terra; pozze sotto i corpi.
-- 6 muri COVER / 01-06: i Carl ci corrono dietro, o ci strisciano se colpiti alle gambe.
+- 6 muri COVER / 01-06: i Kekko ci corrono dietro, o ci strisciano se colpiti alle gambe.
 - Si possono colpire e tagliare anche i corpi a terra; i pezzi di carne non fermano i proiettili.
 
 - T = raggi X: pelle trasparente, si vedono ossa, organi, arterie (rosse), vene (blu), nervi (gialli).

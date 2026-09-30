@@ -373,13 +373,21 @@ namespace VITS
         }
 
         // ---------- drawing
+        // explicit huge bounds: DrawMeshInstanced culled whole batches by a guessed box, so stains vanished when you turned
+        static readonly Bounds World = new Bounds(Vector3.zero, Vector3.one * 2000f);
+        static void Draw(Mesh m, Material mat, Matrix4x4[] arr, int n)
+        {
+            if (n <= 0) return;
+            var rp = new RenderParams(mat) { worldBounds = World, shadowCastingMode = ShadowCastingMode.Off, receiveShadows = false };
+            Graphics.RenderMeshInstanced(rp, m, 0, arr, n);
+        }
         void LateUpdate()
         {
             for (int v = 0; v < decMat.Length; v++)
             {
                 int n = decN[v];
                 for (int b = 0; b * B < n; b++)
-                    Graphics.DrawMeshInstanced(quad, 0, decMat[v], dec[v][b], Mathf.Min(B, n - b * B), null, ShadowCastingMode.Off, false);
+                    Draw(quad, decMat[v], dec[v][b], Mathf.Min(B, n - b * B));
             }
             for (int v = 0; v < 6; v++)
             {
@@ -389,9 +397,9 @@ namespace VITS
                     var t = arr[i].t;
                     if (t == null) continue;
                     skinBatches[v * 2 + b][n++] = t.localToWorldMatrix * arr[i].m;
-                    if (n == B) { Graphics.DrawMeshInstanced(quad, 0, decMat[v], skinBatches[v * 2 + b], n, null, ShadowCastingMode.Off, false); n = 0; b = 1 - b; }
+                    if (n == B) { Draw(quad, decMat[v], skinBatches[v * 2 + b], n); n = 0; b = 1 - b; }
                 }
-                if (n > 0) Graphics.DrawMeshInstanced(quad, 0, decMat[v], skinBatches[v * 2 + b], n, null, ShadowCastingMode.Off, false);
+                if (n > 0) Draw(quad, decMat[v], skinBatches[v * 2 + b], n);
             }
             for (int i = 0; i < dn; i++)
             {
@@ -401,7 +409,7 @@ namespace VITS
                 dropBatches[i / B][i % B] = Matrix4x4.TRS(dp[i], rot, new Vector3(r, r, r * (1f + Mathf.Min(sp * 0.08f, 1.5f))));
             }
             for (int b = 0; b * B < dn; b++)
-                Graphics.DrawMeshInstanced(sphere, 0, dropMat, dropBatches[b], Mathf.Min(B, dn - b * B), null, ShadowCastingMode.Off, false);
+                Draw(sphere, dropMat, dropBatches[b], Mathf.Min(B, dn - b * B));
         }
     }
 }

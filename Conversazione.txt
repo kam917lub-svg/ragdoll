@@ -345,3 +345,12 @@ Fatto:
 - Giocatore sul layer 2 (Ignore Raycast): i raggi non lo vedono piu; resta la collisione con i Carl che camminano.
 - AWP dall anca: dispersione 0,008 (nello scope 0).
 - Sangue: sanguinamento visibile x5 (era x3), spruzzi con meta delle gocce ma 3,5x volume (piu grosse e raggruppate), macchie quasi sempre tonde (niente piu pioggia di goccioline a lacrima), pozze sottili 1,5 mm = piu larghe, fino a 2,2 m di raggio.
+
+--- PROMPT 32 ---
+Utente: dopo un colpo AWP al corpo non deve camminare, tantissimo sangue; il sangue a volte sparisce; rinominare Carl in Kekko; discord elliotalderson1338_30647 nel menu Esc e come watermark; pannello in alto a sinistra unico, stile crash test dummy.
+Fatto:
+- AWP al torso: shock e dolore al massimo, gambe al 15%, ferita cavitaria 45 ml/s, 400+200 gocce; 40% morte subito, altrimenti a terra e morte in 4-12 s.
+- Sangue che spariva: Graphics.DrawMeshInstanced scartava interi gruppi di macchie per bounds sbagliati girando la visuale -> ora Graphics.RenderMeshInstanced con bounds enormi (2 km).
+- Nomi: KEKKO #NN, menu "KEKKO BRAINS".
+- Discord: riga nel menu Esc + watermark fisso in alto a destra.
+- Monitor in alto a sinistra: pannello giallo crash test con bordo nero, strisce di pericolo giallo/nere sopra e sotto, simbolo a quadranti del manichino, testi neri (CRASH TEST SPECIMEN, stato, gambe/sforzo/dolore, barra sangue, IMPACT, DAMAGE LOG).

@@ -210,7 +210,7 @@ namespace VITS
         {
             All.Add(this);
             seq++;
-            displayName = "CARL #" + seq.ToString("00");
+            displayName = "KEKKO #" + seq.ToString("00");
             gameObject.name = displayName;
             if (skinMat == null)
             {
@@ -1222,7 +1222,17 @@ namespace VITS
                 if (!dead)
                 {
                     clutch = p; clutchLocal = inL; shock = 0.35f;
-                    if (torsoHits >= 5) Die("MASSIVE TRAUMA");
+                    if (Player.AWP)
+                    {
+                        // .338 Lapua through the torso: hydrostatic shock, massive cavity - straight down, no walking away
+                        shock = 1f; pain = 1f; legFn[0] *= 0.15f; legFn[1] *= 0.15f;
+                        AddWound(p, exits ? outL : inL, p.Normal(exits ? outL : inL), 45f, true, 0, "AWP WOUND CAVITY");
+                        B.Spray(exits ? outW : inW, dir + Vector3.up * 0.2f, 400, 6f, 0.7f, 0.3f, 2.5f);
+                        B.Spray(inW, Vector3.down, 200, 1.2f, 0.8f, 0.8f, 3f);
+                        injuries.Add("AWP  TORSO  CAVITY");
+                        if (Random.value < 0.4f) Die("AWP TORSO"); else { deathT = Time.time + Random.Range(4f, 12f); GoActive(); }
+                    }
+                    else if (torsoHits >= 5) Die("MASSIVE TRAUMA");
                     else if (torsoHits >= 3 || pain > 0.6f || art >= 0 || Random.value < 0.25f) GoActive();   // doubles over
                     else if (mode == M.Anim) Flee();                                                          // hand on it, and runs at once
                 }

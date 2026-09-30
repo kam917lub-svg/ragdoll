@@ -203,6 +203,32 @@ namespace VITS
         }
 
         // ---------------- HUD ----------------
+        public const string Discord = "elliotalderson1338_30647";
+        static readonly Color Yel = new Color(1f, 0.8f, 0.05f);
+        Texture2D dummyTex, stripeTex; GUIStyle dst;
+        void MakeDummyTex()
+        {
+            // the crash test target: circle split in four, black and yellow
+            const int S = 64; dummyTex = new Texture2D(S, S) { filterMode = FilterMode.Bilinear };
+            for (int y = 0; y < S; y++) for (int x = 0; x < S; x++)
+            {
+                float dx = x - S / 2f + 0.5f, dy = y - S / 2f + 0.5f, rr = Mathf.Sqrt(dx * dx + dy * dy);
+                Color c = rr > 31f ? Color.clear : rr > 28f ? Color.black : ((dx >= 0) == (dy >= 0) ? Color.black : Yel);
+                dummyTex.SetPixel(x, y, c);
+            }
+            dummyTex.Apply();
+            stripeTex = new Texture2D(16, 16) { wrapMode = TextureWrapMode.Repeat };
+            for (int y = 0; y < 16; y++) for (int x = 0; x < 16; x++) stripeTex.SetPixel(x, y, ((x + y) % 16) < 8 ? Color.black : Yel);
+            stripeTex.Apply();
+        }
+        void Dark(Rect r, string text, int size, float s, FontStyle fs, float alpha)
+        {
+            if (dst == null) dst = new GUIStyle(GUI.skin.label) { richText = true };
+            dst.fontSize = (int)(size * s); dst.fontStyle = fs; dst.alignment = TextAnchor.UpperLeft;
+            dst.normal.textColor = new Color(0.05f, 0.05f, 0.05f, alpha);
+            GUI.Label(r, text, dst);
+        }
+
         void Label(Rect r, string s, int size, TextAnchor a, float alpha = 0.92f)
         {
             st.fontSize = size; st.alignment = a;
@@ -255,7 +281,7 @@ namespace VITS
             if (player.menu)
             {
                 GUI.color = Color.white;
-                var box = new Rect(W / 2f - 190 * s, H / 2f - 295 * s, 380 * s, 600 * s);
+                var box = new Rect(W / 2f - 190 * s, H / 2f - 305 * s, 380 * s, 630 * s);
                 GUI.DrawTexture(box, panelTex);
                 Label(new Rect(box.x, box.y + 14 * s, box.width, 30 * s), "VERTICAL IMPACT TESTSITE", (int)(20 * s), TextAnchor.UpperCenter);
                 var bs = new GUIStyle(GUI.skin.button) { fontSize = (int)(18 * s), fontStyle = FontStyle.Bold };
@@ -263,7 +289,7 @@ namespace VITS
                 if (GUI.Button(new Rect(bx, y0, bw, bh), (Player.Weapon == 0 ? "▶ " : "  ") + "PISTOL  (9 mm, semi-auto)", bs)) player.SetWeapon(0);
                 if (GUI.Button(new Rect(bx, y0 + 52 * s, bw, bh), (Player.Weapon == 1 ? "▶ " : "  ") + "AK-47  (7.62, full auto)", bs)) player.SetWeapon(1);
                 if (GUI.Button(new Rect(bx, y0 + 104 * s, bw, bh), (Player.Weapon == 2 ? "▶ " : "  ") + "AWP  (.338, bolt, scope)", bs)) player.SetWeapon(2);
-                if (GUI.Button(new Rect(bx, y0 + 156 * s, bw, bh), "CARL BRAINS: " + (Brains ? "ON (walk around)" : "OFF (wait until shot)"), bs)) Brains = !Brains;
+                if (GUI.Button(new Rect(bx, y0 + 156 * s, bw, bh), "KEKKO BRAINS: " + (Brains ? "ON (walk around)" : "OFF (wait until shot)"), bs)) Brains = !Brains;
                 // settings: mouse sensitivity and aim (ADS) sensitivity multiplier
                 float sy = y0 + 214 * s;
                 Label(new Rect(bx, sy, bw, 22 * s), $"SENSITIVITY  {Player.Sens:0.00}", (int)(15 * s), TextAnchor.UpperLeft);
@@ -279,33 +305,41 @@ namespace VITS
                 }
                 if (GUI.Button(new Rect(bx, sy + 160 * s, bw, bh), "RESUME  (Esc)", bs)) player.SetMenu(false);
                 if (GUI.Button(new Rect(bx, sy + 210 * s, bw, bh), "RESET  (everything)", bs)) { player.SetMenu(false); ResetAll(); }
+                Label(new Rect(bx, sy + 258 * s, bw, 22 * s), "discord: " + Discord, (int)(15 * s), TextAnchor.UpperCenter, 0.9f);
                 return;
             }
             if (!player.locked) Label(new Rect(0, H * 0.55f, W, 30 * s), "CLICK TO PLAY", (int)(22 * s), TextAnchor.UpperCenter);
 
-            // medical monitor
+            // crash test dummy monitor: yellow/black, hazard stripes, the quartered target mark
             var d = player.looked;
             if (d != null)
             {
-                var r = new Rect(16 * s, 16 * s, 380 * s, (212 + d.injuries.Count * 20) * s);
-                GUI.DrawTexture(r, panelTex);
-                GUI.DrawTexture(new Rect(r.x, r.y, 4 * s, r.height), Texture2D.whiteTexture, ScaleMode.StretchToFill, false, 0, new Color(1f, 0.45f, 0.18f), 0, 0);
-                float y = r.y + 10 * s; float x = r.x + 16 * s;
-                Label(new Rect(x, y, 360 * s, 30 * s), "VITAL MONITOR", (int)(12 * s), TextAnchor.UpperLeft, 0.5f); y += 18 * s;
-                Label(new Rect(x, y, 360 * s, 34 * s), d.displayName, (int)(24 * s), TextAnchor.UpperLeft); y += 32 * s;
-                string life = d.dead ? "<color=#ff5a50>DEAD</color>" : d.conscious ? "<color=#5cd08f>ALIVE · CONSCIOUS</color>" : "<color=#f0b040>ALIVE · FAINTED</color>";
-                Label(new Rect(x, y, 360 * s, 24 * s), life, (int)(14 * s), TextAnchor.UpperLeft); y += 24 * s;
-                Label(new Rect(x, y, 360 * s, 24 * s), "STATUS  " + d.status, (int)(13 * s), TextAnchor.UpperLeft, 0.8f); y += 22 * s;
-                Label(new Rect(x, y, 360 * s, 24 * s), $"LEG SUPPORT  L {d.legFn[0] * 100f:0}%  R {d.legFn[1] * 100f:0}%   EFFORT {d.support * 100f:0}%", (int)(12 * s), TextAnchor.UpperLeft, 0.7f); y += 20 * s;
-                float bl = Mathf.Max(0, d.blood) / 1000f;
-                Label(new Rect(x, y, 360 * s, 24 * s), $"BLOOD  {bl:0.00} OF 5.0 L  ({d.blood / Mannequin.BloodMax * 100f:0}%)", (int)(13 * s), TextAnchor.UpperLeft, 0.8f); y += 20 * s;
-                GUI.DrawTexture(new Rect(x, y, 340 * s, 5 * s), Texture2D.whiteTexture, ScaleMode.StretchToFill, false, 0, new Color(1, 1, 1, 0.15f), 0, 0);
-                GUI.DrawTexture(new Rect(x, y, 340 * s * Mathf.Clamp01(d.blood / Mannequin.BloodMax), 5 * s), Texture2D.whiteTexture, ScaleMode.StretchToFill, false, 0, new Color(0.85f, 0.1f, 0.12f), 0, 0);
-                y += 14 * s;
-                Label(new Rect(x, y, 360 * s, 24 * s), "LAST HIT  " + d.lastHit + (d.lastHitTime > 0 ? $"  ·  {Time.time - d.lastHitTime:0} S AGO" : ""), (int)(13 * s), TextAnchor.UpperLeft, 0.8f); y += 24 * s;
-                Label(new Rect(x, y, 360 * s, 24 * s), "<color=#ff7a3c>ACTIVE WOUNDS</color>", (int)(12 * s), TextAnchor.UpperLeft); y += 20 * s;
-                foreach (var inj in d.injuries) { Label(new Rect(x, y, 360 * s, 22 * s), inj, (int)(12 * s), TextAnchor.UpperLeft, 0.75f); y += 20 * s; }
+                if (dummyTex == null) MakeDummyTex();
+                float w = 400 * s, hh = (236 + d.injuries.Count * 19) * s;
+                var r = new Rect(16 * s, 16 * s, w, hh);
+                GUI.color = Color.black; GUI.DrawTexture(new Rect(r.x - 3 * s, r.y - 3 * s, r.width + 6 * s, r.height + 6 * s), Texture2D.whiteTexture);
+                GUI.color = Yel; GUI.DrawTexture(r, Texture2D.whiteTexture);
+                GUI.color = Color.white;
+                GUI.DrawTextureWithTexCoords(new Rect(r.x, r.y, r.width, 12 * s), stripeTex, new Rect(0, 0, r.width / (12 * s), 1));
+                GUI.DrawTextureWithTexCoords(new Rect(r.x, r.yMax - 12 * s, r.width, 12 * s), stripeTex, new Rect(0, 0, r.width / (12 * s), 1));
+                GUI.DrawTexture(new Rect(r.xMax - 70 * s, r.y + 20 * s, 56 * s, 56 * s), dummyTex);
+                float y = r.y + 18 * s, x = r.x + 14 * s;
+                Dark(new Rect(x, y, w, 20 * s), "CRASH TEST SPECIMEN  ·  VITAL MONITOR", 11, s, FontStyle.Bold, 0.75f); y += 16 * s;
+                Dark(new Rect(x, y, w, 40 * s), d.displayName, 30, s, FontStyle.Bold, 1f); y += 38 * s;
+                string life = d.dead ? "<color=#b00010>■ DEAD</color>" : d.conscious ? "<color=#0a6a2a>■ ALIVE · CONSCIOUS</color>" : "<color=#9a5200>■ ALIVE · FAINTED</color>";
+                Dark(new Rect(x, y, w, 24 * s), life, 15, s, FontStyle.Bold, 1f); y += 24 * s;
+                Dark(new Rect(x, y, w, 22 * s), "STATUS   " + d.status, 13, s, FontStyle.Bold, 0.9f); y += 20 * s;
+                Dark(new Rect(x, y, w, 22 * s), $"LEGS  L {d.legFn[0] * 100f:0}%  R {d.legFn[1] * 100f:0}%    EFFORT {d.support * 100f:0}%    PAIN {d.pain * 100f:0}%", 12, s, FontStyle.Normal, 0.85f); y += 20 * s;
+                Dark(new Rect(x, y, w, 22 * s), $"BLOOD  {Mathf.Max(0, d.blood) / 1000f:0.00} / 5.00 L", 13, s, FontStyle.Bold, 0.9f); y += 20 * s;
+                GUI.color = Color.black; GUI.DrawTexture(new Rect(x, y, w - 28 * s, 10 * s), Texture2D.whiteTexture);
+                GUI.color = new Color(0.75f, 0.05f, 0.08f); GUI.DrawTexture(new Rect(x + 2 * s, y + 2 * s, (w - 32 * s) * Mathf.Clamp01(d.blood / Mannequin.BloodMax), 6 * s), Texture2D.whiteTexture);
+                GUI.color = Color.white; y += 16 * s;
+                Dark(new Rect(x, y, w, 22 * s), "IMPACT   " + d.lastHit + (d.lastHitTime > 0 ? $"  ·  T+{Time.time - d.lastHitTime:0} S" : ""), 13, s, FontStyle.Bold, 0.9f); y += 22 * s;
+                Dark(new Rect(x, y, w, 20 * s), "DAMAGE LOG", 11, s, FontStyle.Bold, 0.6f); y += 17 * s;
+                foreach (var inj in d.injuries) { Dark(new Rect(x, y, w, 20 * s), "▸ " + inj, 12, s, FontStyle.Normal, 0.9f); y += 19 * s; }
             }
+            // watermark
+            Label(new Rect(W - 430 * s, 72 * s, 400 * s, 20 * s), "discord: " + Discord, (int)(13 * s), TextAnchor.UpperRight, 0.55f);
         }
     }
 }
