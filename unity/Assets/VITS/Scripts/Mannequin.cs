@@ -1006,7 +1006,14 @@ namespace VITS
             if (getUp > 0f)
             {
                 if (Held || Mathf.Min(legFn[0], legFn[1]) < 0.3f || strength < 0.35f || !conscious) getUp = 0f;   // too hurt to stand: stay down
-                else { getUp = Mathf.Min(1f, getUp + dt / (3f + pain * 4f)); support = Mathf.Max(support, getUp * 1.05f); }   // hurt: slower, laboured
+                else
+                {
+                    getUp = Mathf.Min(1f, getUp + dt / (3.2f + pain * 4f));   // hurt: slower, laboured
+                    support = getUp;
+                    GetUpPose(getUp);
+                    if (getUp >= 1f) { getUp = 0f; support = 1f; Recover(); }
+                    return;
+                }
             }
             float kneel = Mathf.InverseLerp(0.72f, 0.45f, support);   // 0 standing .. 1 kneeling
             bool down = support < 0.35f;
@@ -1065,8 +1072,7 @@ namespace VITS
             if (!Injured && !Held && Time.time - heldT > 1.2f && !crawling && Time.time - lastHitTime > 1.2f && Time.time - airT > 1.2f && OnGround())
             {
                 // get up like a person: roll onto the belly, hands and knees, one knee, stand (about 3 s)
-                if (getUp <= 0f) { getUp = 0.001f; injuries.Add("GETTING UP"); }
-                if (getUp >= 1f && support > 0.9f) { getUp = 0f; Recover(); }
+                if (getUp <= 0f) { getUp = 0.001f; anchor = parts["pelvis"].transform.position; injuries.Add("GETTING UP"); }
                 return;
             }
             // legs still work: get up and run (hand on the wound) as soon as the jolt is over - pain drives you away, it doesn't keep you sitting
@@ -1074,7 +1080,7 @@ namespace VITS
             {
                 // only switch to walking once actually standing; from the floor, get up for real first
                 if (support > 0.85f && (getUp <= 0f || getUp >= 1f)) { getUp = 0f; Recover(); }
-                else if (getUp <= 0f) { getUp = 0.001f; injuries.Add("GETTING UP"); }
+                else if (getUp <= 0f) { getUp = 0.001f; anchor = parts["pelvis"].transform.position; injuries.Add("GETTING UP"); }
             }
         }
 
@@ -1093,7 +1099,7 @@ namespace VITS
             writheT = 0;
         }
 
-        float getUp;
+        float getUp, airTop = -999f;
         float diveT, lastVy, airT = -9f, gbT, gbY; float gGround, gGroundT; float rootMove, lastFootZ, lastFootZR; int lastStance = -1; Vector3 coverFace;
         // hitting the ground hard: ~9 m/s (4 m) breaks legs, ~14 m/s (10 m) and up is usually fatal
         void Landed(float speed)
@@ -1146,18 +1152,19 @@ namespace VITS
             float vy = pel.rb.linearVelocity.y;
             // thrown / flung / dropped: nobody lands on their feet from that. No muscles hold him up until he has
             // hit the ground and come to rest for a moment; then he gets up like anyone knocked down.
-            if (fallH > 0.35f || Flat(pel.rb.linearVelocity).magnitude > 2.5f || vy < -2.5f) { airT = Time.time; support = Mathf.Min(support, 0.15f); }
+            if (getUp <= 0f && (fallH > 1.3f * Scale || Flat(pel.rb.linearVelocity).magnitude > 3f || vy < -3f)) { airT = Time.time; support = Mathf.Min(support, 0.15f); airTop = Mathf.Max(airTop, pel.transform.position.y); }
             if (Time.time - airT < 0.9f)
             {
-                if (conscious && fallH > 0.35f && Random.value < 0.15f)
+                if (conscious && fallH > 1.3f * Scale && Random.value < 0.15f)
                     foreach (var q in parts.Values)
                         if (!q.severed && (q.isArm || q.isLeg) && q.rb != null) q.rb.AddTorque(Random.insideUnitSphere * q.rb.mass * 1.2f, ForceMode.Impulse);
-                if (lastVy < -9f && vy > lastVy + 6f && fallH < 1.3f) Landed(-lastVy);
+                if (lastVy < -9f && vy > lastVy + 6f && fallH < 1.3f && airTop - gbY > 2.5f) Landed(-lastVy);   // a real drop, not a jolt
                 lastVy = vy;
                 return;
             }
-            if (lastVy < -9f && vy > lastVy + 6f && fallH < 1.3f) Landed(-lastVy);
+            if (lastVy < -9f && vy > lastVy + 6f && fallH < 1.3f && airTop - gbY > 2.5f) Landed(-lastVy);
             lastVy = vy;
+            if (Time.time - airT > 1.5f) airTop = -999f;
             if (fallH > 1.4f)
             {
                 // in the air: arms and legs flail (conscious), nothing holds the body up
@@ -1167,6 +1174,7 @@ namespace VITS
                 return;
             }
             if (crawling) { Crawl(); return; }
+            if (getUp > 0f) { GetUpForces(pel, ch); return; }
             float s = support;
             if (s < 0.35f)
             {
@@ -1193,6 +1201,51 @@ namespace VITS
             pel.rb.AddForce(Vector3.ClampMagnitude(dxz * m * 20f - vxz * m * 5f, m * g * 0.6f));
             Upright(pel.rb, pel.transform.up, Vector3.up, 500f, 45f);
             Upright(ch.rb, ch.transform.up, Vector3.up, 120f, 12f);
+        }
+
+        // getting up, one flowing movement driven by g (0..1):
+        // 0-.3 roll to the belly, hands under the shoulders, push up, knees drawn under the hips (all fours)
+        // .3-.65 bring one foot forward: kneeling on one knee, a hand on the front knee
+        // .65-1 push off the front leg and stand
+        void GetUpPose(float g)
+        {
+            status = "GETTING UP";
+            float a = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.0f, 0.3f, g));    // all fours
+            float b = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.3f, 0.65f, g));   // one knee
+            float c = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.65f, 1f, g));     // standing
+            bool lead = legFn[1] >= legFn[0];   // the better leg goes forward
+            string F = lead ? "R" : "L", K = lead ? "L" : "R";
+            // all fours -> one knee -> standing
+            float chest = Mathf.Lerp(Mathf.Lerp(10f, 45f, a), 15f, b); chest = Mathf.Lerp(chest, 4f, c);
+            T("chest", chest); T("head", Mathf.Lerp(-30f * a, -5f, c));
+            T("thigh" + K, Mathf.Lerp(Mathf.Lerp(-20f, -95f, a), 5f, b) * (1f - c) + c * -2f);
+            T("shin" + K, Mathf.Lerp(Mathf.Lerp(40f, 115f, a), 100f, b) * (1f - c) + c * 4f);
+            T("thigh" + F, Mathf.Lerp(Mathf.Lerp(-20f, -95f, a), -85f, b) * (1f - c) + c * -2f);
+            T("shin" + F, Mathf.Lerp(Mathf.Lerp(40f, 115f, a), 85f, b) * (1f - c) + c * 4f);
+            // arms: straight down to the floor, then one hand on the front knee, then relaxed
+            float arm = Mathf.Lerp(Mathf.Lerp(-40f, -80f, a), -35f, b); arm = Mathf.Lerp(arm, -6f, c);
+            T("uarmL", arm, 8f * (1f - c)); T("uarmR", arm, -8f * (1f - c));
+            T("farmL", Mathf.Lerp(-10f, -30f, b) * (1f - c) - 15f * c); T("farmR", Mathf.Lerp(-10f, -30f, b) * (1f - c) - 15f * c);
+            Tone(0.9f);
+        }
+
+        // the matching support: hips raised smoothly from the floor to standing height, body turned belly-down first,
+        // chest brought upright only in the last part (no jumps between stages)
+        void GetUpForces(Part pel, Part ch)
+        {
+            float g = getUp, m = totalMass, G = 9.81f;
+            if (Time.time > gbT) { gbT = Time.time + 0.1f; gbY = GroundBelow(pel.transform.position + Vector3.up * 0.2f); }
+            float targetH = Mathf.Lerp(0.2f, 0.93f, Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.12f, 1f, g))) * Scale;
+            float h = pel.transform.position.y - gbY;
+            float fy = m * G * 0.85f * Mathf.Clamp01(g * 4f) + (targetH - h) * m * 28f - pel.rb.linearVelocity.y * m * 6f;
+            pel.rb.AddForce(Vector3.up * Mathf.Clamp(fy, 0f, m * G * 1.4f));
+            if (g > 0.1f) ch.rb.AddForce(Vector3.up * m * G * 0.25f * Mathf.Clamp01((g - 0.1f) * 3f));
+            Vector3 dxz = Flat(anchor - pel.transform.position), vxz = Flat(pel.rb.linearVelocity);
+            pel.rb.AddForce(Vector3.ClampMagnitude(dxz * m * 10f - vxz * m * 4f, m * G * 0.4f));
+            if (g < 0.25f) Upright(ch.rb, ch.transform.forward, Vector3.down, 70f, 9f);          // onto the belly
+            float up = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.3f, 1f, g));
+            Upright(pel.rb, pel.transform.up, Vector3.up, 400f * up + 40f, 40f);
+            Upright(ch.rb, ch.transform.up, Vector3.up, 110f * up, 12f);
         }
 
         static void Upright(Rigidbody rb, Vector3 cur, Vector3 want, float k, float d)
@@ -1635,6 +1688,8 @@ namespace VITS
             }
             if (removed == 0) return;
             sk.tris = keep; sk.mesh.SetTriangles(keep, 0);
+            // stains and runs that sat on the skin that is now gone must go too (no blood floating over a hole)
+            foreach (var q in allParts) if (q != null && q.skin == sk) Blood.I.CullSkin(q.transform, lp => (q.transform.TransformPoint(lp) - world).sqrMagnitude < r2 * 1.2f);
             if (p.isHead && !headMashed && carvedBone[BodyMesh.HEA] > BodyMesh.TrisPerBone[BodyMesh.HEA] * 0.4f) MashHead(p);   // only after very many hits
         }
 
@@ -1642,6 +1697,7 @@ namespace VITS
         void MashHead(Part p)
         {
             headMashed = true;
+            Blood.I.CullSkin(p.transform, lp => lp.y > 0.06f);
             var sk = p.skin; var D = BodyMesh.Dom; var V = BodyMesh.BodyVerts;
             var keep = new List<int>(sk.tris.Count);
             for (int t = 0; t < sk.tris.Count; t += 3)
@@ -1905,6 +1961,7 @@ namespace VITS
             AddLimbColliders(p, 0f, c);
             AddLimbColliders(np, 0f, np.length);
             p.length = c; p.yMin = -c;
+            Blood.I.CullSkin(p.transform, lp => lp.y < -c + 0.01f);   // marks on the part that fell off stay on it, not in the air
 
             var kids = new List<Part>();
             foreach (Transform ch in p.transform) { var cp = ch.GetComponent<Part>(); if (cp != null) kids.Add(cp); }

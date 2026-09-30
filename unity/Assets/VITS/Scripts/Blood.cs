@@ -288,6 +288,18 @@ namespace VITS
             int i = skinHead[v]; skinHead[v] = (i + 1) % SKIN_MAX; if (skinN[v] < SKIN_MAX) skinN[v]++;
             skin[v][i] = new SkinDec { t = t, m = Matrix4x4.TRS(lp + ln * 0.0025f, Quaternion.LookRotation(ln, lup), new Vector3(sx, sy, 1f)) };
         }
+        // remove skin marks on t whose local position matches (skin carved away, limb cut off)
+        public void CullSkin(Transform t, System.Func<Vector3, bool> kill)
+        {
+            if (t == null) return;
+            for (int v = 0; v < skin.Length; v++)
+            {
+                var arr = skin[v];
+                for (int i = 0; i < skinN[v]; i++)
+                    if (arr[i].t == t && kill(arr[i].m.GetColumn(3))) arr[i].t = null;
+            }
+        }
+
         public void SkinDecal(Transform t, Vector3 lp, Vector3 ln, float size, int variant) => AddSkin(t, variant, lp, ln, RandomTangent(ln), size, size);
         public void SkinStreak(Transform t, Vector3 lp, Vector3 ln, Vector3 ltan, float width, float len) => AddSkin(t, 2, lp, ln, ltan, width, len);
 
