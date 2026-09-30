@@ -41,7 +41,29 @@ namespace VITS
         public Transform[] bones;
         public Matrix4x4[] bind;
         public Material[] mats;
+        public Mannequin owner;
         public static readonly List<Skin> All = new List<Skin>();
+
+        // where every vertex is right now, in world space: the same linear blend skinning the GPU does
+        // (bone.localToWorld * bindpose * rest vertex, weighted). Cached for the current frame.
+        Vector3[] wv; Matrix4x4[] bm; int wvFrame = -1; BoneWeight[] wvBw;
+        public Vector3[] World()
+        {
+            if (wv != null && wvFrame == Time.frameCount && ReferenceEquals(wvBw, bw)) return wv;
+            wvFrame = Time.frameCount; wvBw = bw;
+            var V = BodyMesh.BodyVerts;
+            if (wv == null || wv.Length != V.Length) wv = new Vector3[V.Length];
+            if (bm == null || bm.Length != bones.Length) bm = new Matrix4x4[bones.Length];
+            for (int i = 0; i < bones.Length; i++) bm[i] = bones[i] != null ? bones[i].localToWorldMatrix * bind[i] : Matrix4x4.zero;
+            for (int v = 0; v < V.Length; v++)
+            {
+                var w = bw[v];
+                Vector3 p = bm[w.boneIndex0].MultiplyPoint3x4(V[v]) * w.weight0;
+                if (w.weight1 > 0f) p += bm[w.boneIndex1].MultiplyPoint3x4(V[v]) * w.weight1;
+                wv[v] = p;
+            }
+            return wv;
+        }
     }
 
     public class Wound
@@ -281,7 +303,7 @@ namespace VITS
             r.updateWhenOffscreen = true;
             var mats = new[] { skinMat, innerMat };
             r.sharedMaterials = XRay.On ? new[] { XRay.Ghost } : mats;
-            var sk = new Skin { r = r, mesh = mesh, tris = tris, bw = bw, bones = bones, bind = bind, mats = mats };
+            var sk = new Skin { r = r, mesh = mesh, tris = tris, bw = bw, bones = bones, bind = bind, mats = mats, owner = this };
             Skin.All.Add(sk);
             return sk;
         }
@@ -351,6 +373,7 @@ namespace VITS
             else if (mode == M.Active) ActiveBrain(dt);
             Bleed(dt);
             RunBlood(dt);
+            if (Blood.I != null) Smears();
             heart += dt * (dead ? 0 : (1.3f + hurt * 0.9f));
             hurt = Mathf.Max(0, hurt - dt * 0.02f);
             shock = Mathf.Max(0, shock - dt * 0.6f);
@@ -390,13 +413,61 @@ namespace VITS
         float Ground(Vector3 p, float cur)
         {
             float best = cur - 1.5f; bool any = false;
-            var hs = Physics.RaycastAll(p + Vector3.up * 0.6f, Vector3.down, 2.5f, ~0, QueryTriggerInteraction.Ignore);
+            var hs = Physics.RaycastAll(p + Vector3.up * 0.6f, Vector3.down, 2.5f, ~((1 << 2) | (1 << LayerWalk) | (1 << LayerRag)), QueryTriggerInteraction.Ignore);
             foreach (var h in hs)
             {
-                if (h.rigidbody != null) continue;
+                if ((h.rigidbody != null && !h.rigidbody.isKinematic) || h.collider is CharacterController) continue;   // lifts count as ground
                 if (!any || h.point.y > best) { best = h.point.y; any = true; }
             }
             return any ? best : cur;
+        }
+
+        // the highest solid surface under a point (no bodies, no pieces, not the player)
+        // bloody footprints while walking; smears where the body (or a piece) slides over the floor
+        readonly Blood.Track feetTr = new Blood.Track();
+        readonly Dictionary<Part, Blood.Track> dragTr = new Dictionary<Part, Blood.Track>();
+        void Smears()
+        {
+            if (mode == M.Anim) { Blood.I.Step(feetTr, transform.position, true, Hopping ? 0.45f : 0.62f); return; }
+            feetTr.init = false;
+            foreach (var p in allParts)
+            {
+                if (p == null || p.rb == null || p.rb.isKinematic) continue;
+                if (!dragTr.TryGetValue(p, out var t)) dragTr[p] = t = new Blood.Track();
+                float bleed = 0;
+                foreach (var w in wounds) if (w.part == p && w.rate > 0.5f) { bleed = 0.12f; break; }
+                var col = p.GetComponent<Collider>();
+                Vector3 c = col != null && col.enabled ? col.bounds.center : p.transform.position;
+                Blood.I.Drag(t, c, Mathf.Max(0.06f, p.radius * 1.6f), p.radius + 0.06f, bleed);
+            }
+        }
+
+        public static float GroundBelow(Vector3 p)
+        {
+            float best = -100f;
+            var hs = Physics.RaycastAll(p + Vector3.up * 0.4f, Vector3.down, 200f, ~((1 << 2) | (1 << LayerWalk) | (1 << LayerRag)), QueryTriggerInteraction.Ignore);
+            foreach (var h in hs)
+            {
+                if ((h.rigidbody != null && !h.rigidbody.isKinematic) || h.collider is CharacterController) continue;
+                if (h.point.y > best) best = h.point.y;
+            }
+            return best < -99f ? 0f : best;
+        }
+
+        float fallV;
+        // walking people are not floating: nothing under the feet -> they drop (a long fall knocks them down)
+        void Gravity(float dt)
+        {
+            Vector3 p = transform.position;
+            float g = GroundBelow(p);
+            if (p.y > g + 0.02f)
+            {
+                fallV += 9.81f * dt;
+                p.y = Mathf.Max(g, p.y - fallV * dt);
+                transform.position = p;
+                if (p.y <= g && fallV > 5.5f) { fallV = 0; Knock(transform.forward * 1.5f, true); return; }
+            }
+            else { if (p.y < g - 0.02f && g - p.y < 0.5f) { p.y = g; transform.position = p; } fallV = 0; }
         }
 
         void Locomotion(float dt)
@@ -469,11 +540,14 @@ namespace VITS
                 Vector3 np = Game.Clamp(pos + step);
                 float gy = Ground(np, pos.y);
                 // up a step (< 0.5 m) or down a step; never walk off a platform edge - use the stairs
-                if (gy - pos.y < 0.5f && pos.y - gy < 0.6f) np.y = Mathf.MoveTowards(pos.y, gy, dt * 3f); else np = pos;
+                if (gy - pos.y < 0.5f && pos.y - gy < 0.45f) np.y = Mathf.MoveTowards(pos.y, gy, dt * 3f);   // a step up or down
+                else if (gy < pos.y && pos.y - gy < 1.3f) np.y = pos.y;                                  // hop down off a box: gravity does it
+                else np = pos;
                 transform.position = np;
                 float moved = new Vector3(np.x - pos.x, 0, np.z - pos.z).magnitude;
                 phase += Hopping ? dt * 1.6f : moved / Stride();
             }
+            Gravity(dt);
             vel = Vector3.ClampMagnitude((transform.position - lastPos) / dt, 2.5f); lastPos = transform.position;
             Bumps(dt);
         }
@@ -725,6 +799,14 @@ namespace VITS
             groundT = 0;
         }
 
+        // only get up from the floor: not in mid-air (thrown, falling, dropped from the grab), not while sliding
+        bool OnGround()
+        {
+            var pel = parts["pelvis"];
+            Vector3 p = pel.transform.position;
+            return p.y - GroundBelow(p + Vector3.up * 0.3f) < 1.15f && pel.rb.linearVelocity.magnitude < 1.5f;
+        }
+
         // back on its feet and able to walk (only light wounds)
         void Recover()
         {
@@ -732,7 +814,7 @@ namespace VITS
             Vector3 p = pel.transform.position;
             Vector3 fwd = Flat(parts["chest"].transform.forward);
             if (fwd.sqrMagnitude < 0.01f) fwd = transform.forward;
-            float gy = Ground(p, p.y - 0.95f);
+            float gy = GroundBelow(new Vector3(p.x, p.y + 0.3f, p.z)); fallV = 0;
             transform.SetPositionAndRotation(new Vector3(p.x, gy, p.z), Quaternion.LookRotation(fwd.normalized));
             for (int n = 0; n < DEFS.Length; n++)
             {
@@ -789,7 +871,7 @@ namespace VITS
             }
             // light wounds only, standing and steady for a while: walk (or hop) away
             // legs still work: get up and run (hand on the wound) as soon as the jolt is over - pain drives you away, it doesn't keep you sitting
-            if (!Held && Time.time - heldT > 1.5f && !crawling && Mathf.Max(legFn[0], legFn[1]) > 0.6f && Mathf.Min(legFn[0], legFn[1]) > 0.3f && strength > 0.5f && Time.time - lastHitTime > 0.7f && shock < 0.3f)
+            if (!Held && Time.time - heldT > 1.5f && !crawling && Mathf.Max(legFn[0], legFn[1]) > 0.6f && Mathf.Min(legFn[0], legFn[1]) > 0.3f && strength > 0.5f && Time.time - lastHitTime > 0.7f && shock < 0.3f && OnGround())
                 Recover();
         }
 
@@ -1055,8 +1137,16 @@ namespace VITS
             var B = Blood.I;
 
             Vector3 inL = p.transform.InverseTransformPoint(pt);
-            if (Trace(p, pt - dir * 0.2f, dir, 0.4f, out Vector3 tl)) inL = tl;
+            // the entry is where the bullet met the skin: only snap to the body shape if it is right there (+-3 cm)
+            if (Trace(p, pt - dir * 0.03f, dir, 0.06f, out Vector3 tl)) inL = tl;
             bool exits = Trace(p, pt + dir * 0.7f, -dir, 0.75f, out Vector3 outL);
+            // exit on the drawn skin, if the skin is there (bent joints move it away from the rigid body shape)
+            Vector3 outSkin = Vector3.zero; bool skinExit = false;
+            if (exits && p.skin != null)
+            {
+                float tt = 0.69f;
+                if (RayTris(p.skin.World(), p.skin.tris, pt + dir * 0.7f, -dir, ref tt) >= 0) { outSkin = pt + dir * (0.7f - tt); skinExit = (outSkin - p.transform.TransformPoint(outL)).sqrMagnitude < 0.06f * 0.06f; }
+            }
             Vector3 dirL = p.transform.InverseTransformDirection(dir);
             Vector3 inW = p.transform.TransformPoint(inL), inN = p.transform.TransformDirection(p.Normal(inL));
             Vector3 outW = exits ? p.transform.TransformPoint(outL) : inW, outN = exits ? p.transform.TransformDirection(p.Normal(outL)) : dir;
@@ -1067,8 +1157,8 @@ namespace VITS
 
             // flesh is torn away: a small piece at the entry, a bigger one at the exit, and it flies off
             float rin = Player.AWP ? 0.028f : Player.AK ? 0.02f : 0.015f, rout = (Player.AWP ? 0.06f : Player.AK ? 0.034f : 0.025f) * (p.isHead ? (Player.AK ? 1.9f : 1.8f) : 1f);   // skull exit wounds are big and ragged
-            Carve(p, inW, rin);
-            if (exits) { Carve(p, outW, rout); Gib.Spawn(outW + outN * 0.02f, dir * Random.Range(2f, 4.5f) + Random.insideUnitSphere + Vector3.up * 0.6f, rout * Random.Range(0.8f, 1.2f)); }
+            Carve(p, pt, rin);
+            if (exits) { Carve(p, skinExit ? outSkin : outW, rout); Gib.Spawn(outW + outN * 0.02f, dir * Random.Range(2f, 4.5f) + Random.insideUnitSphere + Vector3.up * 0.6f, rout * Random.Range(0.8f, 1.2f)); }
             float cal = Player.AWP ? 2.5f : Player.AK ? 1.5f : 1f;   // bigger round, more tissue destroyed, more blood thrown
             B.Spray(inW + inN * 0.01f, (-dir + inN) * 0.5f, (int)((p.isHead ? 60 : 22) * cal), p.isHead ? 2.2f : 1.5f, 0.5f, 0.05f, p.isHead ? 0.9f : 0.4f);
             if (exits) B.Spray(outW + outN * 0.01f, dir, (int)((p.isHead ? 320 : 90) * cal), p.isHead ? 6f : 4f, p.isHead ? 0.55f : 0.4f, 0.2f, p.isHead ? 2f : 1.2f);
@@ -1173,10 +1263,9 @@ namespace VITS
         // tear the skin away around a world point: the flesh inside shows, the piece flies off
         void Carve(Part p, Vector3 world, float r)
         {
+            // in world space, on the skin exactly as it is drawn (bent joints included)
             var sk = p.skin; if (sk == null) return;
-            int bi = System.Array.IndexOf(sk.bones, p.transform); if (bi < 0) return;
-            Vector3 rest = sk.bind[bi].inverse.MultiplyPoint3x4(p.transform.InverseTransformPoint(world));
-            var V = BodyMesh.BodyVerts; var D = BodyMesh.Dom; float r2 = r * r;
+            var V = sk.World(); var D = BodyMesh.Dom; float r2 = r * r; Vector3 rest = world;
             var keep = new List<int>(sk.tris.Count); int removed = 0;
             for (int t = 0; t < sk.tris.Count; t += 3)
             {
@@ -1231,17 +1320,34 @@ namespace VITS
             return best;
         }
 
-        // exact hit test against the skin triangles as they are drawn right now (two-sided: through a carved hole you hit the flesh behind it)
-        static Mesh bake;
-        static readonly List<Vector3> bv = new List<Vector3>();
+        // exact hit test against the skin triangles where they are drawn right now (skinned on the CPU with the same bones and
+        // bind poses the GPU uses). Two-sided: through a carved hole you hit the flesh behind it.
+        // nearest triangle along a ray (Moller-Trumbore, both faces); returns its index in T or -1, hitT = distance
+        static int RayTris(Vector3[] W, List<int> T, Vector3 o, Vector3 d, ref float hitT)
+        {
+            int hitTri = -1;
+            for (int t = 0; t < T.Count; t += 3)
+            {
+                Vector3 a = W[T[t]], e1 = W[T[t + 1]] - a, e2 = W[T[t + 2]] - a;
+                Vector3 pv = Vector3.Cross(d, e2); float det = Vector3.Dot(e1, pv);
+                if (det > -1e-10f && det < 1e-10f) continue;
+                float inv = 1f / det; Vector3 tv = o - a;
+                float u = Vector3.Dot(tv, pv) * inv; if (u < -1e-4f || u > 1.0001f) continue;
+                Vector3 qv = Vector3.Cross(tv, e1);
+                float v = Vector3.Dot(d, qv) * inv; if (v < -1e-4f || u + v > 1.0001f) continue;
+                float tt = Vector3.Dot(e2, qv) * inv;
+                if (tt > 0 && tt < hitT) { hitT = tt; hitTri = t; }
+            }
+            return hitTri;
+        }
+
         public static bool PickSkin(Vector3 o, Vector3 d, float maxT, out Part best, out float bestT, out Vector3 nrm, Mannequin skip = null)
         {
             best = null; bestT = maxT; nrm = -d;
-            if (bake == null) bake = new Mesh();
-            var ray = new Ray(o, d);
             foreach (var sk in Skin.All)
             {
-                if (sk == null || sk.r == null || !sk.r.enabled || !sk.r.gameObject.activeInHierarchy || sk.tris.Count == 0) continue;
+                if (sk == null || sk.r == null || !sk.r.gameObject.activeInHierarchy || sk.tris.Count == 0) continue;
+                if (skip != null && sk.owner == skip) continue;
                 bool near = false;
                 foreach (var bn in sk.bones)
                 {
@@ -1251,36 +1357,24 @@ namespace VITS
                     if ((o + d * Mathf.Max(0f, tc) - c).sqrMagnitude < 1f) { near = true; break; }
                 }
                 if (!near) continue;
-                sk.r.BakeMesh(bake, true);
-                bake.GetVertices(bv);
-                var M = sk.r.transform.localToWorldMatrix;
-                Vector3 lo = sk.r.transform.InverseTransformPoint(o), ld = sk.r.transform.InverseTransformDirection(d);
-                float scale = ld.magnitude; ld /= scale;
-                int hitTri = -1; float hitT = bestT * scale;
+                var W = sk.World();
                 var T = sk.tris;
-                for (int t = 0; t < T.Count; t += 3)
-                {
-                    Vector3 a = bv[T[t]], e1 = bv[T[t + 1]] - a, e2 = bv[T[t + 2]] - a;
-                    Vector3 pv = Vector3.Cross(ld, e2); float det = Vector3.Dot(e1, pv);
-                    if (det > -1e-9f && det < 1e-9f) continue;
-                    float inv = 1f / det; Vector3 tv = lo - a;
-                    float u = Vector3.Dot(tv, pv) * inv; if (u < 0 || u > 1) continue;
-                    Vector3 qv = Vector3.Cross(tv, e1);
-                    float v = Vector3.Dot(ld, qv) * inv; if (v < 0 || u + v > 1) continue;
-                    float tt = Vector3.Dot(e2, qv) * inv;
-                    if (tt > 0 && tt < hitT) { hitT = tt; hitTri = t; }
-                }
+                float hitT = bestT;
+                int hitTri = RayTris(W, T, o, d, ref hitT);
                 if (hitTri < 0) continue;
-                float wt = hitT / scale; Vector3 wp = o + d * wt;
+                Vector3 wp = o + d * hitT;
+                // the part = dominant bone of the triangle corner nearest to the hit
+                int vb = T[hitTri];
+                for (int k = 1; k < 3; k++) if ((W[T[hitTri + k]] - wp).sqrMagnitude < (W[vb] - wp).sqrMagnitude) vb = T[hitTri + k];
                 Part part = null;
-                var w = sk.bw[T[hitTri]];
+                var w = sk.bw[vb];
                 if (w.boneIndex0 < sk.bones.Length && sk.bones[w.boneIndex0] != null) part = sk.bones[w.boneIndex0].GetComponentInParent<Part>();
                 if (part == null) part = Nearest(wp, 0.3f);
                 if (part == null || part.owner == skip) continue;
-                Vector3 a2 = bv[T[hitTri]];
-                Vector3 n = M.MultiplyVector(Vector3.Cross(bv[T[hitTri + 1]] - a2, bv[T[hitTri + 2]] - a2)).normalized;
+                Vector3 a2 = W[T[hitTri]];
+                Vector3 n = Vector3.Cross(W[T[hitTri + 1]] - a2, W[T[hitTri + 2]] - a2).normalized;
                 if (Vector3.Dot(n, d) > 0) n = -n;
-                bestT = wt; best = part; nrm = n;
+                bestT = hitT; best = part; nrm = n;
             }
             return best != null;
         }
@@ -1299,7 +1393,7 @@ namespace VITS
                     if (tc < -0.8f || tc > bestT + 0.8f) continue;
                     if ((o + d * tc - c).sqrMagnitude > 0.8f * 0.8f) continue;
                     float t0 = Mathf.Max(0f, tc - 0.8f);
-                    if (Trace(p, o + d * t0, d, 1.6f, out Vector3 lp))
+                    if (Trace(p, o + d * t0, d, 1.6f, out Vector3 lp) && !(p.isHead && m.headMashed && lp.y > 0.07f))   // a burst skull is gone
                     {
                         float t = t0 + Vector3.Dot(p.transform.TransformPoint(lp) - (o + d * t0), d);
                         if (t < bestT) { bestT = t; best = p; }

@@ -32,6 +32,10 @@ Serve Unity 6 (testato come codice per 6000.x) con **URP**.
 Sotto il mirino c'è scritto cosa stai puntando; una X rossa conferma che il colpo ha preso un corpo.
 
 ## Cosa fa
+- Colpi: ogni proiettile viene provato sulla pelle esattamente come è disegnata (skinning calcolato sulla CPU con le stesse ossa della GPU) e sulla forma solida del corpo; vince il più vicino, prima di muri e pavimento. Sotto il mirino LAST SHOT dice cosa hai colpito e a che distanza (oppure MISS e cosa c'era dietro).
+- Sangue che si sbava: camminando in una pozza lasci impronte sempre più deboli (anche i Carl); corpi trascinati, che strisciano o scivolano spalmano il sangue e, se sanguinano, lasciano la scia.
+- Torri per i drop test sul muro di fondo (dietro la partenza): 5, 8, 10 e 15 m, con tacche ogni metro. Sali sulla pedana arancione davanti: ti porta in cima (e giù); si chiama anche da sotto o da sopra. Con il tasto centrale puoi tirare su i Carl.
+- Scale normali (alzata 18 cm, pedata 30 cm) per le due piattaforme; i Carl le usano camminando e strisciando, e cadono se non hanno niente sotto i piedi.
 - Armi: pistola 9 mm (15), AK-47 7.62 (30; in testa grosso foro d uscita, niente esplosione), AWP .338 Lapua (10, otturatore, cannocchiale; stacca un arto in un colpo, esplode sempre la testa, attraversa un corpo e colpisce quello dietro).
 - Il sangue non sparisce: ~24 000 macchie per tipo, 8 000 sui corpi, fino a 2 000 pozze (poi si allargano quelle esistenti).
 - Manichini con ragdoll vero (Rigidbody + CharacterJoint): camminano, scappano quando spari,

@@ -303,3 +303,13 @@ Fatto:
 - Menu Esc: RESET (everything) = ricarica tutto (Carl, sangue, pezzi, tempo); Backspace fa lo stesso (Game.ResetAll).
 - Scale: Level.Stairs (2 piattaforme: basso/alto, area piattaforma, area gradini) + Level.Route(pos, target) che manda al fondo/cima scala quando la meta e su un altro livello. Camminata usa Route; non scendono piu dal bordo (dislivello >0,6 m bloccato). RandomPoint sceglie a volte un punto sulle piattaforme, quindi ci salgono e scendono.
 - Strisciare (causa: forza troppo bassa contro l attrito di 70 kg, quindi restavano fermi): ora tutte le parti vengono trascinate verso il punto (velocita 0,35-0,9 m/s secondo forza e dolore, a strattoni), testa avanti, sollevano il petto sui gradini; segue Route per le scale; arrivato al riparo si ferma 6-12 s (riparte se colpito).
+
+--- PROMPT 27 ---
+Utente: AWP nello scope deve colpire al 100% al centro, i proiettili ancora non vanno a segno; alcuni Carl camminano in aria; sangue da spalmare camminando / con i Carl che si muovono; scalini troppo grandi; piattaforme da 5, 8, 10 m per drop test.
+Fatto:
+- Colpi riscritti: Skin.World() fa lo skinning sulla CPU (bone.localToWorld * bindpose * vertice, pesato) = cio che disegna la GPU; niente piu BakeMesh. PickSkin = raggio-triangolo su quei vertici; parte = osso dominante del vertice piu vicino. In Player.Shoot vince il piu vicino tra pelle e forma solida (SDF, cosi un buco scavato ferma il colpo nella carne dietro), prima del mondo; i collider dei corpi non contano. Ingresso scavato esattamente nel punto colpito, uscita sulla pelle vera. Testa esplosa: la parte mancante non si colpisce piu. Player gira dopo i Carl (DefaultExecutionOrder 100): il colpo usa la stessa posa disegnata. LAST SHOT: "CARL · PARTE · 12,3 M" oppure "MISS · FLOOR · 20,1 M".
+- Scavo delle ferite in spazio mondo sui vertici skinnati (prima in bind space con l osso sbagliato alle articolazioni -> fori spostati).
+- Carl in aria: gravita per i Carl che camminano (cadono se non c e niente sotto, caduta lunga = a terra); si rialzano solo se il bacino e vicino al suolo e fermo; scendono da scatole fino a 1,3 m, oltre usano le scale; Ground ignora il giocatore.
+- Sangue spalmato: griglia 25 cm di sangue fresco a terra + pozze; impronte di scarpa (giocatore e Carl) che si caricano e sbiadiscono (x0,8 a passo); parti del corpo che strisciano sul pavimento lasciano strisciate, e scie se sanguinano. 4 nuovi tipi di decal (strisciata forte/leggera, impronta forte/leggera).
+- Scale: alzata ~18 cm, pedata 30 cm (16 e 21 gradini). Cover 06 spostato fuori dalla scala.
+- Torri drop test sul muro sud: 5, 8, 10, 15 m, tacche ogni metro, scritta altezza, pedana ascensore (3 m/s) che si chiama da sotto/sopra. Muri esterni alti 20 m.

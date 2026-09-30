@@ -3,6 +3,7 @@ using UnityEngine;
 namespace VITS
 {
     // First person controller + semi-auto pistol (15 rounds, R reload).
+    [DefaultExecutionOrder(100)]   // after the Carls have posed: a shot tests exactly the pose that is drawn this frame
     public class Player : MonoBehaviour
     {
         public Camera cam;
@@ -28,7 +29,8 @@ namespace VITS
         public Rigidbody held; Vector3 heldLocal; float heldDist; LineRenderer beam;
 
         CharacterController cc;
-        float crouch; public Vector3 moveVel;
+        float crouch; public Vector3 moveVel; readonly Blood.Track feetTr = new Blood.Track();
+        public void Carry(Vector3 d) { if (cc != null) cc.Move(d); }   // standing on a moving lift
         static Vector3 Flat(Vector3 v) { v.y = 0; return v; }
         float yaw, pitch, vy, cool, recoil, flashT, tracerT, bob;
         Transform gun, slide;
@@ -185,6 +187,7 @@ namespace VITS
             if (cc.isGrounded) { vy = -1f; if (GI.Down(K.Space)) vy = 5.2f; } else vy -= 14f * dt;
             cc.Move((mv * sp + Vector3.up * vy) * dt);
             moveVel = mv * sp;
+            if (Blood.I != null) Blood.I.Step(feetTr, transform.position, cc.isGrounded, crouch > 0.5f ? 0.45f : GI.Held(K.Shift) ? 0.9f : 0.68f);
             // shoving a body that is down / hurt: push its parts out of the way
             if (moveVel.sqrMagnitude > 1f)
                 foreach (var m in Mannequin.All)
@@ -362,25 +365,27 @@ namespace VITS
             var dir = (cam.transform.forward + Random.insideUnitSphere * spread).normalized;
             var ray = new Ray(cam.transform.position, dir);
             Vector3 end = ray.origin + dir * 200f;
-            // 1) the drawn skin of every Carl (alive, down, dead, carved, cut pieces) - exactly what you see
-            if (AWP)
+            // what the bullet meets first: the world (walls, floor, crates) or a Carl.
+            // A Carl is tested two ways and the nearer wins: his skin triangles exactly as drawn, and his solid body shape
+            // (so a carved hole still stops the bullet in the flesh behind it). Body colliders are never used for bullets.
+            const int WORLD = ~((1 << 2) | (1 << Mannequin.LayerWalk) | (1 << Mannequin.LayerRag));
+            bool world = Physics.Raycast(ray, out RaycastHit h, 400f, WORLD, QueryTriggerInteraction.Ignore);
+            float wd = world ? h.distance : 400f;
+            Part bp = null; float bt = wd + 0.03f; Vector3 bn = -dir; string how = "";
+            if (Mannequin.PickSkin(ray.origin, dir, bt, out Part sp, out float st, out Vector3 sn)) { bp = sp; bt = st; bn = sn; how = "SKIN"; }
+            if (Mannequin.Pick(ray.origin, dir, bt, out Part pp, out float pt) && (bp == null || pt < bt - 0.01f)) { bp = pp; bt = pt; bn = -dir; how = "BODY"; }
+            if (bp != null)
             {
-                // .338 Lapua goes straight through a body and on into the next one
-                Mannequin first = null;
-                if (Mannequin.PickSkin(ray.origin, dir, 400f, out Part p1, out float t1, out Vector3 n1))
+                end = ray.origin + dir * bt;
+                bp.owner.Hit(bp, null, end, dir, bn); hitMarkT = 0.2f;
+                if (!Game.LastShot.StartsWith("HIT ERROR")) Game.LastShot += "  ·  " + bt.ToString("0.0") + " M";
+                // .338 Lapua goes straight through and on into the next Carl behind
+                if (AWP)
                 {
-                    first = p1.owner;
-                    bool wall1 = Physics.Raycast(ray, out RaycastHit w1, t1, ~((1 << 2) | (1 << Mannequin.LayerWalk) | (1 << Mannequin.LayerRag)), QueryTriggerInteraction.Ignore);
-                    if (!wall1 && Mannequin.PickSkin(ray.origin, dir, 400f, out Part p2, out float t2, out Vector3 n2, first) && t2 > t1 + 0.3f
-                        && !Physics.Raycast(ray, t2, ~((1 << 2) | (1 << Mannequin.LayerWalk) | (1 << Mannequin.LayerRag)), QueryTriggerInteraction.Ignore))
-                        p2.owner.Hit(p2, null, ray.origin + dir * t2, dir, n2);
+                    Vector3 o2 = end + dir * 0.35f; float left = wd - bt - 0.35f;
+                    if (left > 0 && Mannequin.PickSkin(o2, dir, left, out Part p2, out float t2, out Vector3 n2, bp.owner))
+                        p2.owner.Hit(p2, null, o2 + dir * t2, dir, n2);
                 }
-            }
-            bool body = Mannequin.PickSkin(ray.origin, dir, 400f, out Part bp, out float bt, out Vector3 bn);
-            bool world = Physics.Raycast(ray, out RaycastHit h, 400f, ~((1 << 2) | (1 << Mannequin.LayerWalk) | (1 << Mannequin.LayerRag)), QueryTriggerInteraction.Ignore);
-            if (body && (!world || bt <= h.distance + 0.02f))
-            {
-                end = ray.origin + dir * bt; bp.owner.Hit(bp, null, end, dir, bn); hitMarkT = 0.2f;
             }
             else if (world)
             {
@@ -388,8 +393,10 @@ namespace VITS
                 if (h.rigidbody != null) h.rigidbody.AddForceAtPosition(dir * Game.BulletImpulse, h.point, ForceMode.Impulse);
                 // no bullet marks on/under bodies (they showed through carved holes as grey discs)
                 else if (Mannequin.Nearest(h.point, 0.45f) == null) Blood.I.Hole(h.point, h.normal);
-                Game.LastShot = h.collider.name.ToUpper();
+                Game.LastShot = "MISS  ·  " + h.collider.name.ToUpper() + "  ·  " + h.distance.ToString("0.0") + " M";
             }
+            else Game.LastShot = "MISS";
+            _ = how;
             tracer.SetPosition(0, flash.transform.position);
             tracer.SetPosition(1, end);
             tracerT = (end - cam.transform.position).magnitude > 3f ? (AWP ? 0.06f : 0.025f) : 0f;

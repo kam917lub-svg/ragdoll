@@ -55,6 +55,10 @@ namespace VITS
                 Mats.Decal(Tex(3), new Color(0.5f, 0.53f, 0.58f, 0.7f)),  // bullet chip (light, small)
                 Mats.Decal(Tex(2), new Color(0.45f, 0.01f, 0.03f, 0.95f)), // wall drip (darker)
                 Mats.Decal(Tex(5), new Color(0.62f, 0.03f, 0.05f, 1f)),      // bullet wound on skin
+                Mats.Decal(Tex(6), new Color(0.5f, 0.015f, 0.03f, 0.9f)),    // smear (dragged body, crawling), wet
+                Mats.Decal(Tex(7), new Color(0.46f, 0.012f, 0.03f, 0.9f)),   // bloody footprint
+                Mats.Decal(Tex(7), new Color(0.46f, 0.012f, 0.03f, 0.42f)),  // fading footprint
+                Mats.Decal(Tex(6), new Color(0.5f, 0.015f, 0.03f, 0.4f)),    // thin smear
             };
             for (int v = 0; v < 6; v++) skin[v] = new SkinDec[SKIN_MAX];
             skinBatches = new Matrix4x4[12][]; for (int q = 0; q < 12; q++) skinBatches[q] = new Matrix4x4[B];
@@ -118,6 +122,27 @@ namespace VITS
                 // small gunshot wound: dark round core, ragged edge
                 disc(c, c, S * 0.3f, 1);
                 for (int i = 0; i < 9; i++) { float an = R() * 6.283f; disc(c + Mathf.Cos(an) * S * 0.26f, c + Mathf.Sin(an) * S * 0.26f, S * (0.06f + R() * 0.06f), 1); }
+            }
+            else if (kind == 6)
+            {
+                // wipe: parallel streaks along +Y (the direction it was dragged), ragged sides, thinner at both ends
+                var col = new float[S]; float acc = 0.5f;
+                for (int x = 0; x < S; x++) { acc = acc * 0.7f + R() * 0.3f; col[x] = acc; }
+                for (int y = 0; y < S; y++) for (int x = 0; x < S; x++)
+                {
+                    float fx = Mathf.Abs(x - c) / (S * 0.5f);
+                    float edge = Mathf.Clamp01((0.92f - fx - col[(x * 7 + y / 9) % S] * 0.3f) * 6f);
+                    float fy = y / (float)S;
+                    float ends = Mathf.Clamp01(fy * 6f) * Mathf.Clamp01((1f - fy) * 5f);
+                    a[y * S + x] = Mathf.Clamp01(edge * ends * (0.45f + 0.55f * col[x]) * 1.3f);
+                }
+            }
+            else if (kind == 7)
+            {
+                // shoe print (the quad is stretched to ~15 x 28 cm): forefoot, heel, tread lines
+                disc(c, c + S * 0.17f, S * 0.3f, 1);
+                disc(c, c - S * 0.29f, S * 0.2f, 1);
+                for (int y = 0; y < S; y++) if (Mathf.Sin(y * 0.9f) > 0.55f) for (int x = 0; x < S; x++) a[y * S + x] *= 0.35f;
             }
             else
             {
@@ -215,7 +240,7 @@ namespace VITS
             }
             int variant = sp > 4.5f ? 1 : (el > 1.6f ? 2 : 0);
             AddDecal(variant, h.point, n, up, size, size * el);
-            if (n.y > 0.7f) Wet(h.point, vol);
+            if (n.y > 0.7f) { Wet(h.point, vol); var sc = Cell(h.point); stain.TryGetValue(sc, out float sv); stain[sc] = sv + vol; }
             else if (Mathf.Abs(n.y) < 0.35f && vol > 0.25f && Random.value < 0.5f)
             {
                 // run down the wall
@@ -293,6 +318,57 @@ namespace VITS
             P.r = Mathf.Min(1.5f, Mathf.Sqrt(P.vol * 1e-6f / 0.0025f / Mathf.PI));
             float d = P.r * 2.3f;
             P.t.localScale = new Vector3(d, d, 1);
+        }
+
+        // ---------- smears: shoes, feet and bodies moving through fresh blood carry it and wipe it along
+        public class Track { public Vector3 last; public float load; public int side; public bool init; }
+        readonly Dictionary<Vector2Int, float> stain = new Dictionary<Vector2Int, float>();
+        static Vector2Int Cell(Vector3 p) => new Vector2Int(Mathf.FloorToInt(p.x / 0.25f), Mathf.FloorToInt(p.z / 0.25f));
+        const int WORLD = ~((1 << 2) | (1 << 8) | (1 << 9));
+
+        // fresh blood under this spot (ml); whatever is picked up is partly taken away from the floor
+        float Take(Vector3 p)
+        {
+            float ml = 0;
+            var c = Cell(p);
+            if (stain.TryGetValue(c, out float s)) { ml += s; stain[c] = s * 0.85f; }
+            foreach (var P in pools)
+                if (Mathf.Abs(P.p.y - p.y) < 0.3f && new Vector2(P.p.x - p.x, P.p.z - p.z).magnitude < P.r * 0.9f) { ml += 25f; break; }
+            return ml;
+        }
+
+        // footprints: one print per step, alternating feet; the sole loads up in blood and prints fainter each step
+        public void Step(Track t, Vector3 feet, bool grounded, float stride)
+        {
+            if (!t.init || !grounded) { t.last = feet; t.init = true; return; }
+            Vector3 mv = feet - t.last; mv.y = 0;
+            float L = mv.magnitude;
+            if (L < stride) return;
+            t.last = feet;
+            if (L > stride * 3f) return;   // teleported / carried
+            t.side = 1 - t.side;
+            Vector3 f = mv / L, r = Vector3.Cross(Vector3.up, f);
+            Vector3 fp = feet + r * (t.side == 0 ? -0.1f : 0.1f);
+            if (!Physics.Raycast(fp + Vector3.up * 0.4f, Vector3.down, out RaycastHit h, 0.8f, WORLD, QueryTriggerInteraction.Ignore) || h.normal.y < 0.7f) return;
+            t.load = Mathf.Min(1f, t.load * 0.8f + Take(h.point) / 6f);
+            if (t.load < 0.04f) return;
+            AddDecal(t.load > 0.35f ? 7 : 8, h.point, h.normal, f, 0.15f, 0.28f);
+        }
+
+        // a body part sliding on the floor (dragged, crawling, sliding after a fall) wipes blood along its path;
+        // a bleeding part leaves its own trail
+        public void Drag(Track t, Vector3 p, float width, float reach, float bleed)
+        {
+            if (!t.init) { t.last = p; t.init = true; return; }
+            Vector3 mv = p - t.last; mv.y = 0; float L = mv.magnitude;
+            if (L < 0.07f) return;
+            Vector3 from = t.last; t.last = p;
+            if (L > 1.2f) return;   // flew through the air
+            if (!Physics.Raycast(p + Vector3.up * 0.3f, Vector3.down, out RaycastHit h, 0.3f + reach, WORLD, QueryTriggerInteraction.Ignore) || h.normal.y < 0.7f) return;
+            t.load = Mathf.Min(1f, t.load * 0.9f + Take(h.point) / 10f + bleed);
+            if (t.load < 0.05f) return;
+            Vector3 mid = (from + p) * 0.5f; mid.y = h.point.y;
+            AddDecal(t.load > 0.3f ? 6 : 9, mid, h.normal, mv / L, width * (0.7f + 0.3f * t.load), L * 1.35f);
         }
 
         // ---------- drawing
