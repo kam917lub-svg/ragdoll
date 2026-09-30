@@ -462,7 +462,9 @@ namespace VITS
             au.PlayOneShot(swishClip, 0.7f);
             Vector3 o = cam.transform.position, f = cam.transform.forward, r = cam.transform.right * slashSide;
             Part best = null; float bt = 1.8f; Vector3 bn = -f, bd = f;
-            for (int i = -3; i <= 3; i++)
+            // the blade lands where the crosshair is; only if that misses, the rest of the arc can catch him
+            if (Mannequin.PickSkin(o, f, 1.8f, out Part cp, out float ct, out Vector3 cn) || Mannequin.Pick(o, f, 1.8f, out cp, out ct)) { best = cp; bt = ct; bn = cn; bd = f; }
+            else for (int i = -3; i <= 3; i++)
             {
                 Vector3 d = (f + r * (i * 0.12f) + cam.transform.up * (-i * 0.03f)).normalized;
                 if (Mannequin.PickSkin(o, d, bt, out Part p, out float t, out Vector3 n) || Mannequin.Pick(o, d, bt, out p, out t))

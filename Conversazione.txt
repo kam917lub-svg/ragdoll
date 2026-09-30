@@ -461,3 +461,7 @@ Fatto: ROOT MOTION: la fase del passo avanza alla velocita voluta, e il corpo si
 Utente: i manichini fanno l animazione di camminata ma non si muovono.
 Causa: il piede "d appoggio" era scelto dal ginocchio meno piegato, che nel ciclo non coincide con la gamba che spinge indietro -> spostamento quasi zero.
 Fatto: si prende la gamba che arretra di piu in quel frame (root motion corretta), e lo spostamento e limitato tra 0,6x e 1,6x del passo voluto, cosi non si fermano ne fanno balzi.
+
+--- PROMPT 56 ---
+Utente (screenshot: Kekko piegato sopra il muro COVER): come fa a stare cosi; strisciando deve usare davvero le braccia; sistemare il riparo vicino ai muri; il coltello deve essere animato e colpire dove c e il mirino.
+Fatto: tuffo al riparo solo se la traiettoria (sfera 30 cm a 50 cm da terra) e libera: niente piu tuffi sopra/dentro il muro. Strisciare braccio dopo braccio: un avambraccio si pianta (spinto nel pavimento, fermo) e il corpo viene tirato solo mentre quel braccio tira, l altro si allunga in avanti; senza braccia avanza appena; tolta la vecchia spinta invisibile sul busto. Coltello: prima prova il raggio esatto del mirino, solo se manca usa l arco del fendente.

@@ -594,7 +594,10 @@ namespace VITS
                     want = Hopping ? 0.8f : (provoked ? 3.4f : 2.0f);
                     if (provoked) status = "PANIC / SPRINTING TO COVER";
                     float td = Flat(target - pos).magnitude;
-                    if (provoked && !Hopping && speed > 2.5f && td < 1.8f && td > 0.9f && Time.time > diveT) { diveT = Time.time + 15f; Dive(); return; }
+                    // dive only onto open floor: never over or into the wall (that left them draped across it)
+                    if (provoked && !Hopping && speed > 2.5f && td < 1.8f && td > 0.9f && Time.time > diveT
+                        && !Physics.SphereCast(pos + Vector3.up * 0.5f, 0.3f, Flat(target - pos).normalized, out _, td + 0.6f, ~((1 << 2) | (1 << LayerWalk) | (1 << LayerRag)), QueryTriggerInteraction.Ignore))
+                    { diveT = Time.time + 15f; Dive(); return; }
                     if (td < 0.6f)
                     {
                         state = S.Cover; stateT = Random.Range(10f, 20f);
@@ -1145,13 +1148,28 @@ namespace VITS
             Vector3 wp = Level.Route(new Vector3(cp.x, cp.y - 0.25f, cp.z), target);
             Vector3 d = Flat(wp - cp).normalized;
             // drag the whole body along the floor (friction would pin 70 kg otherwise): arms pull in bursts, legs trail
-            float spd = Mathf.Clamp01(strength * 1.4f) * (0.35f + pain * 0.55f);
-            float burst = Mathf.Max(0.25f, Mathf.Sin(crawlT * 3.5f) + 0.3f);
+            // arm-over-arm: one hand reaches forward, plants, and the body is hauled up to it; then the other arm.
+            // The body only moves while a planted arm is pulling (no invisible push).
+            float spd = Mathf.Clamp01(strength * 1.4f) * (0.45f + pain * 0.55f);
+            float cyc = Mathf.Sin(crawlT * 3.5f);
+            string pullArm = cyc > 0f ? "L" : "R";
+            var fa = parts["farm" + pullArm]; var ua = parts["uarm" + pullArm];
+            bool armOk = !fa.severed && !ua.severed;
+            if (!armOk) { pullArm = pullArm == "L" ? "R" : "L"; fa = parts["farm" + pullArm]; ua = parts["uarm" + pullArm]; armOk = !fa.severed && !ua.severed; }
+            float pull = armOk ? Mathf.Abs(cyc) : 0.15f;   // no arms left: barely inches along
             foreach (var q in parts.Values)
             {
                 if (q.severed || q.rb == null) continue;
-                Vector3 v = q.rb.linearVelocity, hv = Flat(v);
-                q.rb.AddForce((d * spd * burst - hv) * 0.12f, ForceMode.VelocityChange);
+                Vector3 hv = Flat(q.rb.linearVelocity);
+                float want = spd * pull * (q == fa ? 0f : 1f);   // the planted hand stays where it is
+                q.rb.AddForce((d * want - hv) * 0.12f, ForceMode.VelocityChange);
+            }
+            if (armOk)
+            {
+                // the planted forearm presses down into the floor; the reaching one lifts and goes forward
+                fa.rb.AddForce(Vector3.down * fa.rb.mass * 6f);
+                string other = pullArm == "L" ? "R" : "L"; var fo = parts["farm" + other];
+                if (!fo.severed) fo.rb.AddForce((d * 3f + Vector3.up * 2f) * fo.rb.mass);
             }
             // a step or stair edge ahead: haul the chest up onto it
             if (Physics.Raycast(cp + Vector3.up * 0.1f, d, out RaycastHit sh, 0.6f, ~((1 << 2) | (1 << LayerWalk) | (1 << LayerRag)), QueryTriggerInteraction.Ignore) && sh.normal.y < 0.5f)
@@ -1165,16 +1183,10 @@ namespace VITS
             // head first toward where you are going
             Vector3 hf = Flat(ch.transform.up); if (hf.sqrMagnitude < 0.01f) hf = Flat(ch.transform.forward);
             ch.rb.AddTorque(Vector3.up * Vector3.SignedAngle(hf, d, Vector3.up) * 0.4f);
-            // adrenaline: the more it hurts, the faster and more frantic the pulls
-            float k = Mathf.Clamp01(strength * 1.3f) * (1f + pain * 0.8f);
+            // adrenaline: the more it hurts, the faster the strokes; chest held up off the floor a little
             crawlT += Time.fixedDeltaTime * (1f + pain * 0.85f);
-            float pull = Mathf.Max(0, Mathf.Sin(crawlT * 3.5f));
-            ch.rb.AddForce(d * 300f * k * pull + Vector3.up * 70f * k);
-            parts["pelvis"].rb.AddForce(d * 90f * k * pull);
-            if (!parts["head"].severed) parts["head"].rb.AddForce(Vector3.up * 30f * k);
-            string arm = ((int)(crawlT * 3.5f / Mathf.PI)) % 2 == 0 ? "L" : "R";
-            var fa = parts["farm" + arm];
-            if (!fa.severed) fa.rb.AddForce((d * 50f + Vector3.up * 22f) * k * (1f - pull));
+            ch.rb.AddForce(Vector3.up * 50f * Mathf.Clamp01(strength * 1.3f));
+            if (!parts["head"].severed) parts["head"].rb.AddForce(Vector3.up * 25f * Mathf.Clamp01(strength * 1.3f));
             if (strength < 0.12f) crawling = false;
         }
 
