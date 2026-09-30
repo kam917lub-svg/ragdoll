@@ -517,6 +517,16 @@ namespace VITS
         {
             Vector3 p = transform.position;
             float g = GroundBelow(p);
+            if (p.y > g + 0.7f)
+            {
+                // real drop (off an edge, spawned or let go in the air): the body goes physical and falls as a body
+                Vector3 v0 = vel; v0.y = -fallV;
+                fallV = 0;
+                GoActive();
+                foreach (var q in parts.Values) if (!q.severed && q.rb != null && !q.rb.isKinematic) q.rb.linearVelocity = v0;
+                shock = 0.6f;
+                return;
+            }
             if (p.y > g + 0.02f)
             {
                 fallV += 9.81f * dt;
@@ -630,7 +640,14 @@ namespace VITS
             {
                 Vector3 d = pos - pl.transform.position; d.y = 0;
                 Vector3 pv = pl.moveVel; pv.y = 0;
-                if (d.magnitude < 0.8f && Vector3.Dot(pv, d.normalized) > 0.8f) { Knock(pv * 1.6f, pv.magnitude > 4.5f ? Random.value < 0.75f : Random.value < 0.2f); return; }
+                if (d.magnitude < 0.8f && Vector3.Dot(pv, d.normalized) > 0.8f)
+                {
+                    // walking into someone: a stagger; running into them: bowled over, harder the faster you are
+                    float spd = pv.magnitude;
+                    bool run = spd > 4.5f;
+                    Knock(pv * (run ? 1.5f : 0.7f), run ? Random.value < 0.85f : Random.value < 0.08f);
+                    return;
+                }
             }
             // other people bumping into them (both moving)
             foreach (var o in All)
@@ -1001,7 +1018,14 @@ namespace VITS
             float vy = pel.rb.linearVelocity.y;
             if (lastVy < -9f && vy > lastVy + 6f && fallH < 1.3f) Landed(-lastVy);
             lastVy = vy;
-            if (fallH > 1.4f) return;
+            if (fallH > 1.4f)
+            {
+                // in the air: arms and legs flail (conscious), nothing holds the body up
+                if (conscious && Random.value < 0.15f)
+                    foreach (var q in parts.Values)
+                        if (!q.severed && (q.isArm || q.isLeg) && q.rb != null) q.rb.AddTorque(Random.insideUnitSphere * q.rb.mass * 1.2f, ForceMode.Impulse);
+                return;
+            }
             if (crawling) { Crawl(); return; }
             float s = support;
             if (s < 0.35f) return;

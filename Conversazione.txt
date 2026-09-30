@@ -423,3 +423,7 @@ Fatto: tolta la decapitazione al 7o colpo in testa. La testa si rompe: ogni colp
 --- PROMPT 47 ---
 Utente: vale per tutto il corpo: tanti colpi al centro devono fare un semi-buco o un buco passante.
 Fatto: ogni parte ricorda dove sono entrati/usciti i colpi (Part.wounds, locale). Un nuovo colpo entro 4,5 cm da colpi precedenti scava un foro piu grande: ingresso x(1+0,45 per colpo vicino, max 6), uscita x(1+0,35...); dal 3o colpo nello stesso punto volano pezzi di carne. Con ingresso e uscita allargati si vede attraverso il corpo (la carne interna e disegnata solo dove c e ancora pelle).
+
+--- PROMPT 48 ---
+Utente: spinte: correndo devono essere piu forti che camminando; cadute da punti alti con dinamica reale.
+Fatto: camminando contro un Kekko = barcollamento (spinta x0,7, 8% cade); correndo (>4,5 m/s) = travolto (spinta x1,5, 85% cade). Caduta: se un Kekko che cammina/sta in piedi ha piu di 0,7 m di vuoto sotto, diventa subito corpo fisico con la sua velocita (niente piu discesa rigida); in aria braccia e gambe si agitano se cosciente; atterraggio con danni come prima (gambe >9 m/s, morte >14 m/s).
