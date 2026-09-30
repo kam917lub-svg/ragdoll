@@ -495,3 +495,7 @@ Fatto: in volo solo se il bacino e sopra 1,3 m (x scala) o velocita >3 m/s; dann
 --- PROMPT 63 ---
 Utente: non strisciano; il rialzarsi sembra tirato su da fili come una marionetta; sembrano addormentati, poco reattivi, come se non sentissero dolore.
 Fatto: chi ha una gamba sotto il 60% (o poche forze) striscia invece di rialzarsi; si rialza solo con entrambe le gambe buone. Rialzarsi: la spinta arriva da mani, ginocchia e poi piede davanti, che vengono premuti a terra con la stessa forza (azione-reazione) e le cosce spingono le anche da sotto; meno forza diretta sul bacino; ritmo a spinte con piccole pause tra le fasi. Dolore visibile: respiro veloce e affannoso, tremore proporzionale al dolore (busto e testa), busto piu curvo, la testa si abbassa verso la ferita; a ogni colpo il busto scatta via dalla direzione dell impatto (0,35 s) prima di barcollare; anche in piedi feriti tremano e si piegano.
+
+--- PROMPT 64 ---
+Utente: il sangue non si mescola: macchie rosse vivaci sopra la pozza scura, non sembra reale.
+Fatto: una goccia che cade dentro una pozza non lascia piu una macchia: si unisce alla pozza (ne aumenta il volume). Pozze un po piu alte sul pavimento (6 mm) cosi coprono sempre le macchie vecchie che finiscono sotto quando si allargano.

@@ -241,6 +241,10 @@ namespace VITS
                 }
                 return;
             }
+            // landing in a puddle: the drop just joins it (a bright splat on top of a dark pool is not how liquid behaves)
+            if (n.y > 0.7f)
+                foreach (var P in pools)
+                    if (P.t != null && Mathf.Abs(P.p.y - h.point.y) < 0.1f && new Vector2(P.p.x - h.point.x, P.p.z - h.point.z).magnitude < P.r * 0.85f) { Grow(P, vol * 0.5f); return; }
             if (vol < 0.35f && Random.value < 0.6f) { if (n.y > 0.7f) Wet(h.point, vol); return; }   // fine mist: no stain dot for every droplet
             int variant = sp > 4.5f ? 1 : (el > 1.6f ? 2 : 0);
             AddDecal(variant, h.point, n, up, size, size * el);
@@ -315,7 +319,7 @@ namespace VITS
                 var go = new GameObject("pool");
                 go.AddComponent<MeshFilter>().sharedMesh = quad;
                 var mr = go.AddComponent<MeshRenderer>(); mr.sharedMaterial = poolMat; mr.shadowCastingMode = ShadowCastingMode.Off;
-                go.transform.SetPositionAndRotation(new Vector3(p.x, p.y + 0.004f + pools.Count * 0.00005f, p.z), Quaternion.LookRotation(Vector3.up, RandomTangent(Vector3.up)));
+                go.transform.SetPositionAndRotation(new Vector3(p.x, p.y + 0.006f + (pools.Count % 50) * 0.00004f, p.z), Quaternion.LookRotation(Vector3.up, RandomTangent(Vector3.up)));
                 var P = new Pool { t = go.transform, p = p };
                 pools.Add(P); Grow(P, w);
             }
