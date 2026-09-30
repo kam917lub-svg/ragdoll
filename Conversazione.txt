@@ -415,3 +415,7 @@ Fatto: uscita testa 110 gocce 0,1-0,7 ml (nebbia + frammenti, ~30-60 ml), entrat
 --- PROMPT 45 ---
 Utente: il pannello in alto a sinistra sempre visibile (se nessun Kekko sotto il mirino: WAITING... senza info), TAB per nasconderlo.
 Fatto: pannello sempre disegnato; senza bersaglio mostra "WAITING..." animato e "NO SPECIMEN IN SIGHT"; TAB lo mostra/nasconde.
+
+--- PROMPT 46 ---
+Utente: colpire la testa deve romperla, non decapitare; solo una linea di colpi sul collo la stacca.
+Fatto: tolta la decapitazione al 7o colpo in testa. La testa si rompe: ogni colpo asporta pelle, al 40% della testa asportata il cranio va in pezzi (era 60%); AWP la fa esplodere subito. Collo (parte bassa della testa o alto del busto): pistola 5, AK 3, AWP 1 colpi -> testa staccata.

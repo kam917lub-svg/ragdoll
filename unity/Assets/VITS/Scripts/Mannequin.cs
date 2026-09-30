@@ -165,7 +165,7 @@ namespace VITS
         public float pain; int woundCount;
         float crawlRestT, deadTime;
         float turnRate, headYaw, headYawT, lookT, peekT, peek, stateT, phase, speed, heart, writheT, hurt, crawlT, detourT, stuckT, bestDist, foldT, groundY, groundT, deathT, shock;
-        int torsoHits, headHits; bool headMashed; float waistDmg;   // tissue shot away around the waist
+        int torsoHits, headHits, neckHits; bool headMashed; float waistDmg;   // tissue shot away around the waist
         readonly int[] carvedBone = new int[BodyMesh.NB];
         Vector3 target, lastPos, vel, detour, anchor, lastDir = Vector3.forward;
         Part clutch; Vector3 clutchLocal;
@@ -1282,11 +1282,24 @@ namespace VITS
                 Die("HEADSHOT");
                 // pistol / AK: a big torn exit wound, not an explosion. Only the .338 bursts the skull.
                 if (Player.AWP && !headMashed) MashHead(p);
-                else if (headHits >= 7 && !headMashed) SeverJoint(p, dir);
+                // the head itself only breaks (skull torn away shot by shot); it comes off only through the neck
+                if (inL.y < 0.05f)
+                {
+                    neckHits++;
+                    int need = Player.AWP ? 1 : Player.AK ? 3 : 5;
+                    injuries.Add("NECK  GUNSHOT");
+                    if (neckHits >= need && !p.severed) SeverJoint(p, dir);
+                }
             }
             else if (p.isTorso)
             {
                 torsoHits++;
+                if (p.key == "chest" && inL.y > 0.37f && !parts["head"].severed)
+                {
+                    // low on the neck: counts toward taking the head off
+                    neckHits++;
+                    if (neckHits >= (Player.AWP ? 1 : Player.AK ? 3 : 5)) SeverJoint(parts["head"], dir);
+                }
                 injuries.Add((p.key == "chest" ? "CHEST" : "ABDOMEN") + "  GUNSHOT" + (exits ? "  THROUGH" : ""));
                 // cutting a Carl in half takes a lot: the belly has to be shot away all around the waist, magazine after
                 // magazine (about 4 pistol mags, 2 AK mags, 7 AWP rounds if they all land near the waist)
@@ -1394,7 +1407,7 @@ namespace VITS
             }
             if (removed == 0) return;
             sk.tris = keep; sk.mesh.SetTriangles(keep, 0);
-            if (p.isHead && !headMashed && carvedBone[BodyMesh.HEA] > BodyMesh.TrisPerBone[BodyMesh.HEA] * 0.6f) MashHead(p);   // only after very many hits
+            if (p.isHead && !headMashed && carvedBone[BodyMesh.HEA] > BodyMesh.TrisPerBone[BodyMesh.HEA] * 0.4f) MashHead(p);   // only after very many hits
         }
 
         // too much of the head is gone: it bursts
