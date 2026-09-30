@@ -7,7 +7,7 @@ namespace VITS
     // pale platforms with orange edges, stairs, low cover walls.
     public static class Level
     {
-        public static readonly Color Sky = new Color(0.66f, 0.73f, 0.82f);
+        public static readonly Color Sky = new Color(0.92f, 0.92f, 0.9f);   // crash test hall: white, yellow, black
         public const float HX = 26f, HZ = 26f;
         public struct CoverWall { public Vector3 pos, normal, along; }
         // a raised platform with its staircase: bottom / top landing points, the platform area and the stairs area (xz)
@@ -40,7 +40,7 @@ namespace VITS
         }
 
         public static readonly System.Collections.Generic.List<CoverWall> Covers = new System.Collections.Generic.List<CoverWall>();
-        static Material plat, orange, wall;
+        static Material plat, orange, wall, hazard;
 
         public static void Build()
         {
@@ -54,9 +54,10 @@ namespace VITS
             sun.shadows = LightShadows.Soft; sun.shadowStrength = 0.75f;
             sun.transform.rotation = Quaternion.Euler(52f, -35f, 0);
 
-            plat = Mats.Lit(new Color(0.86f, 0.89f, 0.93f), 0.1f);
-            orange = Mats.Lit(new Color(1f, 0.45f, 0.18f), 0.2f);
-            wall = Mats.Lit(new Color(0.52f, 0.57f, 0.63f), 0.1f);
+            plat = Mats.Lit(new Color(0.95f, 0.95f, 0.94f), 0.1f);
+            orange = Mats.Lit(new Color(1f, 0.8f, 0.03f), 0.2f);   // safety yellow edges
+            wall = Mats.Lit(new Color(0.96f, 0.96f, 0.95f), 0.1f);
+            hazard = Mats.Lit(Color.white, 0.2f); hazard.mainTexture = HazardTex();
 
             // floor with white grid every 2.5 m
             var floorMat = Mats.Lit(Color.white, 0.2f);
@@ -68,6 +69,17 @@ namespace VITS
             floor.transform.localScale = new Vector3(HX * 2f, 1f, HZ * 2f);
             floor.GetComponent<Renderer>().sharedMaterial = floorMat;
 
+            // black and yellow hazard band along the bottom of every outer wall
+            for (int side = 0; side < 4; side++)
+            {
+                bool zx = side < 2; float sg = side % 2 == 0 ? 1f : -1f;
+                var band = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                Object.DestroyImmediate(band.GetComponent<Collider>());
+                band.transform.position = zx ? new Vector3(0, 0.6f, sg * (HZ - 0.005f)) : new Vector3(sg * (HX - 0.005f), 0.6f, 0);
+                band.transform.localScale = zx ? new Vector3(HX * 2f, 1.2f, 0.02f) : new Vector3(0.02f, 1.2f, HZ * 2f);
+                var hm = new Material(hazard); hm.mainTextureScale = new Vector2(HX * 2f / 1.2f, 1f);
+                band.GetComponent<Renderer>().sharedMaterial = hm;
+            }
             // outer walls
             Box(new Vector3(0, 10f, HZ + 0.5f), new Vector3(HX * 2f, 20f, 1f), wall, false);
             Box(new Vector3(0, 10f, -HZ - 0.5f), new Vector3(HX * 2f, 20f, 1f), wall, false);
@@ -107,7 +119,8 @@ namespace VITS
             g.name = "COVER " + n.ToString("00");
             g.transform.SetPositionAndRotation(p + Vector3.up * 0.65f, rot);
             g.transform.localScale = new Vector3(3f, 1.3f, 0.35f);
-            g.GetComponent<Renderer>().sharedMaterial = wall;
+            var cm = new Material(hazard); cm.mainTextureScale = new Vector2(3f / 0.65f, 1f);
+            g.GetComponent<Renderer>().sharedMaterial = cm;   // cover walls: hazard striped
             var e = GameObject.CreatePrimitive(PrimitiveType.Cube);
             Object.DestroyImmediate(e.GetComponent<Collider>());
             e.transform.SetPositionAndRotation(p + Vector3.up * 1.31f, rot);
@@ -115,7 +128,7 @@ namespace VITS
             e.GetComponent<Renderer>().sharedMaterial = orange;
             string label = "COVER / " + n.ToString("00");
             Text(label, p + Vector3.up * 0.75f + rot * new Vector3(0, 0, -0.18f), rot, 0.28f, new Color(1f, 1f, 1f, 0.95f));
-            Text(label, p + Vector3.up * 0.75f + rot * new Vector3(0, 0, 0.18f), rot * Quaternion.Euler(0, 180, 0), 0.28f, new Color(1f, 1f, 1f, 0.95f));
+            Text(label, p + Vector3.up * 0.75f + rot * new Vector3(0, 0, 0.18f), rot * Quaternion.Euler(0, 180, 0), 0.28f, new Color(1f, 1f, 1f, 0.95f));   // white label on the stripes
             Covers.Add(new CoverWall { pos = p, normal = rot * Vector3.forward, along = rot * Vector3.right });
         }
 
@@ -189,12 +202,22 @@ namespace VITS
             go.GetComponent<MeshRenderer>().sharedMaterial = Mats.Text(font);
         }
 
+        static Texture2D HazardTex()
+        {
+            const int S = 64;
+            var t = new Texture2D(S, S, TextureFormat.RGBA32, true) { wrapMode = TextureWrapMode.Repeat, filterMode = FilterMode.Bilinear };
+            var px = new Color[S * S];
+            for (int y = 0; y < S; y++) for (int x = 0; x < S; x++) px[y * S + x] = ((x + y) % S) < S / 2 ? new Color(0.06f, 0.06f, 0.06f) : new Color(1f, 0.8f, 0.03f);
+            t.SetPixels(px); t.Apply(true);
+            return t;
+        }
+
         static Texture2D GridTex()
         {
             const int S = 256;
             var t = new Texture2D(S, S, TextureFormat.RGBA32, true) { wrapMode = TextureWrapMode.Repeat, filterMode = FilterMode.Trilinear, anisoLevel = 8 };
-            var baseC = new Color(0.62f, 0.68f, 0.76f);
-            var line = new Color(0.95f, 0.97f, 1f);
+            var baseC = new Color(0.9f, 0.9f, 0.88f);
+            var line = new Color(0.08f, 0.08f, 0.08f);
             var px = new Color[S * S];
             var rng = new System.Random(5);
             for (int y = 0; y < S; y++) for (int x = 0; x < S; x++)

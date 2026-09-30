@@ -384,3 +384,7 @@ Fatto: strisce delle gocce solo per gocce grosse e veloci (35%), corte (4-22 cm)
 --- PROMPT 38 ---
 Utente: nel menu Esc un pulsante per scegliere il modello: questo o uno come nello screenshot, piu alto e realistico.
 Fatto: BodyMesh.Model 0/1 (salvato). Modello REALISTIC: stesso scheletro scalato 1,08 (circa 1,85 m), SDF nuova: fianchi piu stretti + glutei, vita stretta, pettorali, trapezi, collo sottile, testa piu piccola con mascella e naso, deltoidi, avambracci muscolosi e mani piatte, quadricipiti, polpacci, piedi piu lunghi; pelle rosata (0,90 0,56 0,50). Pulsante "MODEL: CLASSIC DUMMY / REALISTIC 1.85 M (restarts)" nel menu: cambia e riavvia la scena (mesh ricostruita). Scala gestita in supporto bacino, falcata, IK braccia, pezzi tagliati (lossyScale). Anteprima: model_realistic.png.
+
+--- PROMPT 39 ---
+Utente: tutta la mappa bianca, gialla e nera, stile crash test.
+Fatto: cielo/nebbia bianco caldo, piattaforme/torri/muri bianchi, bordi e tacche gialli di sicurezza, pavimento chiaro con griglia nera, fascia a strisce giallo/nere alla base di tutti i muri esterni, muri COVER a strisce di pericolo giallo/nere (texture diagonale generata).
