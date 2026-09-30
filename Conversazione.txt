@@ -367,3 +367,7 @@ Utente: niente fascia nera sugli occhi e targhetta sul petto (copyright); aggiun
 Fatto:
 - Via visiera e targhetta. Occhi: due ovali neri sul viso. Collo: a caso papillon (due ali + nodo), cravatta (nodo + 6 segmenti che si allargano) o niente. Tutto appoggiato sulla superficie vera del corpo (Front() proietta sulla SDF del segmento).
 - Sangue: rosso saturo (0,62 0 0,02), gocce (0,6 0 0,02) lucide, pozze (0,5 0 0,02). Ogni goccia che arriva a terra con velocita tangenziale >1,2 m/s lascia una lunga striscia sottile (6-70 cm) nella direzione del moto = striature radiali attorno agli schizzi.
+
+--- PROMPT 35 ---
+Utente: la scritta deve essere "elliotalderson1338_30647 on Discord!".
+Fatto: watermark e menu Esc ora mostrano "elliotalderson1338_30647 on Discord!".

@@ -305,7 +305,7 @@ namespace VITS
                 }
                 if (GUI.Button(new Rect(bx, sy + 160 * s, bw, bh), "RESUME  (Esc)", bs)) player.SetMenu(false);
                 if (GUI.Button(new Rect(bx, sy + 210 * s, bw, bh), "RESET  (everything)", bs)) { player.SetMenu(false); ResetAll(); }
-                Label(new Rect(bx, sy + 258 * s, bw, 22 * s), "discord: " + Discord, (int)(15 * s), TextAnchor.UpperCenter, 0.9f);
+                Label(new Rect(bx, sy + 258 * s, bw, 22 * s), Discord + " on Discord!", (int)(15 * s), TextAnchor.UpperCenter, 0.9f);
                 return;
             }
             if (!player.locked) Label(new Rect(0, H * 0.55f, W, 30 * s), "CLICK TO PLAY", (int)(22 * s), TextAnchor.UpperCenter);
@@ -339,7 +339,7 @@ namespace VITS
                 foreach (var inj in d.injuries) { Dark(new Rect(x, y, w, 20 * s), "▸ " + inj, 12, s, FontStyle.Normal, 0.9f); y += 19 * s; }
             }
             // watermark
-            Label(new Rect(W - 430 * s, 72 * s, 400 * s, 20 * s), "discord: " + Discord, (int)(13 * s), TextAnchor.UpperRight, 0.55f);
+            Label(new Rect(W - 430 * s, 72 * s, 400 * s, 20 * s), Discord + " on Discord!", (int)(13 * s), TextAnchor.UpperRight, 0.55f);
         }
     }
 }
