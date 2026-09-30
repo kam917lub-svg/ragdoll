@@ -786,7 +786,10 @@ namespace VITS
 
             float a = Amp() * gAmp;
             float s = Mathf.Sin(phase * Mathf.PI * 2f);
-            float breath = Mathf.Sin(Time.time * 1.6f + gSeed) * 1.5f;   // chest rises and falls
+            // breathing: calm = slow; in pain = fast and shallow gasps. Shaking grows with pain.
+            float breath = Mathf.Sin(Time.time * (1.6f + pain * 4f) + gSeed) * (1.5f + pain * 2.5f);
+            float shake = pain * 3.5f;
+            float jerkK = Mathf.Clamp01(1f - (Time.time - jerkT) / 0.35f);
             float kneeL = Mathf.Max(0, Mathf.Sin(phase * Mathf.PI * 2f - 1.2f)) * a * 2.2f + 4f;   // knee lifts the foot clear in the swing
             float kneeR = Mathf.Max(0, Mathf.Sin(phase * Mathf.PI * 2f + Mathf.PI - 1.2f)) * a * 2.2f + 4f;
             // the leg swings further forward than back (reaching heel first), a bent knee soaks up each footfall
@@ -820,8 +823,12 @@ namespace VITS
             float sway = s * a * 0.12f;
             lean += stumble * 20f;
             Set("pelvis", Quaternion.Euler(0, -s * a * 0.15f, sway * 0.5f), k);
-            Set("chest", Quaternion.Euler(lean, headYaw * 0.25f + s * a * 0.2f, -sway * 0.6f), k);
-            Set("head", Quaternion.Euler(-lean * 0.5f + (state == S.Idle ? 4f : 0f), headYaw * 0.75f, 0), k);
+            lean += pain * 12f + jerkK * jerkDir.x;
+            float trm = (Mathf.PerlinNoise(Time.time * 9f, gSeed) - 0.5f) * shake, tr2 = (Mathf.PerlinNoise(gSeed, Time.time * 9f) - 0.5f) * shake;
+            Set("chest", Quaternion.Euler(lean + trm, headYaw * 0.25f + s * a * 0.2f + jerkK * jerkDir.y, -sway * 0.6f + tr2 + jerkK * jerkDir.z), jerkK > 0f ? 0.6f : k);
+            // in pain the head keeps dropping toward the wound
+            float look = clutch != null && pain > 0.2f && Mathf.Sin(Time.time * 0.8f + gSeed) > 0.3f ? 25f : 0f;
+            Set("head", Quaternion.Euler(-lean * 0.5f + (state == S.Idle ? 4f : 0f) + look + tr2, headYaw * 0.75f * (1f - look / 30f), 0), k);
             // root motion: how far back the stance foot (the straighter leg) moved relative to the hips this frame
             {
                 float L = 0.45f * Scale;
@@ -1008,7 +1015,10 @@ namespace VITS
                 if (Held || Mathf.Min(legFn[0], legFn[1]) < 0.3f || strength < 0.35f || !conscious) getUp = 0f;   // too hurt to stand: stay down
                 else
                 {
-                    getUp = Mathf.Min(1f, getUp + dt / (3.2f + pain * 4f));   // hurt: slower, laboured
+                    // effort comes in pushes: faster while pushing, a short breath between stages
+                    float stage = Mathf.Repeat(getUp * 3f, 1f);
+                    float effort = 0.55f + 0.9f * Mathf.Sin(stage * Mathf.PI);
+                    getUp = Mathf.Min(1f, getUp + dt * effort / (3.2f + pain * 4f));   // hurt: slower, laboured
                     support = getUp;
                     GetUpPose(getUp);
                     if (getUp >= 1f) { getUp = 0f; support = 1f; Recover(); }
@@ -1022,7 +1032,8 @@ namespace VITS
             if (!down)
             {
                 status = kneel > 0.5f ? "HURT / KNEELING" : "HURT / STANDING";
-                T("chest", 10f + cl + kneel * 12f); T("head", -8f + kneel * 10f);
+                float tremble = (Mathf.PerlinNoise(Time.time * 8f, gSeed) - 0.5f) * pain * 8f;   // shaking with pain
+                T("chest", 10f + cl + kneel * 12f + pain * 15f + tremble); T("head", -8f + kneel * 10f + pain * 12f - tremble);
                 // going down on one knee (the weaker leg), the other foot planted in front
                 bool kneeL = legFn[0] <= legFn[1];
                 T(kneeL ? "thighL" : "thighR", Mathf.Lerp(-4f, 5f, kneel)); T(kneeL ? "shinL" : "shinR", Mathf.Lerp(6f, 100f, kneel));
@@ -1058,7 +1069,7 @@ namespace VITS
                 }
                 Tone(crawling ? 0.25f : conscious ? 0.35f : 0.08f);
                 if (conscious && !crawling && pain > 0.25f) Writhe(dt * (1f + pain * 3f));   // only real pain makes them writhe
-                if (conscious && !crawling && Injured && strength > 0.15f && Time.time - lastHitTime > 0.25f && (Time.time > crawlRestT || Time.time - lastHitTime < 1f)) StartCrawl();   // down: straight away, drag yourself off
+                if (conscious && !crawling && getUp <= 0f && (Mathf.Min(legFn[0], legFn[1]) <= 0.6f || strength <= 0.5f) && strength > 0.15f && Time.time - lastHitTime > 0.25f && (Time.time > crawlRestT || Time.time - lastHitTime < 1f)) StartCrawl();   // down: straight away, drag yourself off
             }
             if (clutch != null && !clutch.severed && conscious)
             {
@@ -1076,7 +1087,7 @@ namespace VITS
                 return;
             }
             // legs still work: get up and run (hand on the wound) as soon as the jolt is over - pain drives you away, it doesn't keep you sitting
-            if (!Held && Time.time - heldT > 1.5f && !crawling && Mathf.Max(legFn[0], legFn[1]) > 0.6f && Mathf.Min(legFn[0], legFn[1]) > 0.3f && strength > 0.5f && Time.time - lastHitTime > 0.7f && shock < 0.3f && OnGround())
+            if (!Held && Time.time - heldT > 1.5f && !crawling && Mathf.Min(legFn[0], legFn[1]) > 0.6f && strength > 0.5f && Time.time - lastHitTime > 0.7f && shock < 0.3f && OnGround())
             {
                 // only switch to walking once actually standing; from the floor, get up for real first
                 if (support > 0.85f && (getUp <= 0f || getUp >= 1f)) { getUp = 0f; Recover(); }
@@ -1088,7 +1099,14 @@ namespace VITS
         void Flinch(Part p, Vector3 dir)
         {
             shock = Mathf.Max(shock, 0.25f + pain * 0.5f);
-            if (mode == M.Anim) { stumble = 1f; return; }
+            if (mode == M.Anim)
+            {
+                // the whole upper body snaps away from the hit, then he staggers
+                stumble = 1f; jerkT = Time.time;
+                Vector3 ld = transform.InverseTransformDirection(dir);
+                jerkDir = new Vector3(Mathf.Clamp(ld.z * 25f, -25f, 25f) + 8f, ld.x * 20f, -ld.x * 15f);
+                return;
+            }
             if (!conscious) return;
             float k = 0.6f + pain * 1.4f;
             var ch = parts["chest"];
@@ -1099,7 +1117,7 @@ namespace VITS
             writheT = 0;
         }
 
-        float getUp, airTop = -999f;
+        float getUp, airTop = -999f, jerkT = -9f; Vector3 jerkDir;
         float diveT, lastVy, airT = -9f, gbT, gbY; float gGround, gGroundT; float rootMove, lastFootZ, lastFootZR; int lastStance = -1; Vector3 coverFace;
         // hitting the ground hard: ~9 m/s (4 m) breaks legs, ~14 m/s (10 m) and up is usually fatal
         void Landed(float speed)
@@ -1238,8 +1256,19 @@ namespace VITS
             float targetH = Mathf.Lerp(0.2f, 0.93f, Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.12f, 1f, g))) * Scale;
             float h = pel.transform.position.y - gbY;
             float fy = m * G * 0.85f * Mathf.Clamp01(g * 4f) + (targetH - h) * m * 28f - pel.rb.linearVelocity.y * m * 6f;
-            pel.rb.AddForce(Vector3.up * Mathf.Clamp(fy, 0f, m * G * 1.4f));
-            if (g > 0.1f) ch.rb.AddForce(Vector3.up * m * G * 0.25f * Mathf.Clamp01((g - 0.1f) * 3f));
+            fy = Mathf.Clamp(fy, 0f, m * G * 1.3f);
+            pel.rb.AddForce(Vector3.up * fy * 0.7f);
+            float chestLift = g > 0.1f ? m * G * 0.25f * Mathf.Clamp01((g - 0.1f) * 3f) : 0f;
+            ch.rb.AddForce(Vector3.up * chestLift);
+            // the lift comes from the limbs: hands and knees (then the front foot) are pressed into the floor by the same amount,
+            // and the knees push the hips up from below - no invisible strings
+            string[] push = g < 0.35f ? new[] { "farmL", "farmR", "shinL", "shinR" } : g < 0.7f ? new[] { "shinL", "shinR", "farmL" } : new[] { "shinL", "shinR" };
+            foreach (var k in push)
+            {
+                var q = parts[k]; if (q.severed || q.rb == null) continue;
+                q.rb.AddForce(Vector3.down * (fy * 0.3f + chestLift) / push.Length);
+            }
+            foreach (var k in new[] { "thighL", "thighR" }) { var q = parts[k]; if (!q.severed) q.rb.AddForce(Vector3.up * fy * 0.15f); }
             Vector3 dxz = Flat(anchor - pel.transform.position), vxz = Flat(pel.rb.linearVelocity);
             pel.rb.AddForce(Vector3.ClampMagnitude(dxz * m * 10f - vxz * m * 4f, m * G * 0.4f));
             if (g < 0.25f) Upright(ch.rb, ch.transform.forward, Vector3.down, 70f, 9f);          // onto the belly
