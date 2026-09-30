@@ -718,14 +718,59 @@ namespace VITS
         // kept for callers: hurt -> physical body; dead -> limp
         public void GoRagdoll() { if (dead) GoLimp(); else GoActive(); }
 
+        // how a body goes down is different every time: depends on the person, the wound and where the shot came from
         void GoLimp()
         {
+            bool wasStanding = mode == M.Anim || (mode == M.Active && support > 0.5f);
             if (mode == M.Anim) MakeDynamic();
             mode = M.Limp;
-            // knees buckle and the body folds down, then only a little stiffness is left
-            T("thighL", -70f); T("thighR", -65f); T("shinL", 110f); T("shinR", 105f); T("chest", 25f); T("head", 20f);
-            T("uarmL", -15f, -10f); T("uarmR", -15f, 10f); T("farmL", -40f); T("farmR", -40f);
-            Tone(0.3f); foldT = 0.55f;
+            var pel = parts["pelvis"];
+            Vector3 fwd = pel.transform.forward; fwd.y = 0; fwd.Normalize();
+            float fromFront = -Vector3.Dot(lastDir, fwd);   // > 0: shot from the front, the push goes backward
+            float r = Random.value;
+            int style;
+            if (!wasStanding) style = 0;                                       // already down: just go slack
+            else if (cause == "HEADSHOT") style = r < 0.3f ? 1 : r < 0.5f ? 2 : r < 0.7f ? 3 : r < 0.85f ? 4 : 5;
+            else style = r < 0.35f ? 1 : r < 0.6f ? 4 : r < 0.8f ? 5 : 3;
+            float side = Random.value < 0.5f ? -1f : 1f;
+            Vector3 push = Vector3.zero; float tone = 0.3f; foldT = 0.55f;
+            switch (style)
+            {
+                case 1: // knees buckle, folds down on the spot
+                    T("thighL", -70f); T("thighR", -65f); T("shinL", 110f); T("shinR", 105f); T("chest", 25f); T("head", 20f);
+                    T("uarmL", -15f, -10f); T("uarmR", -15f, 10f); T("farmL", -40f); T("farmR", -40f);
+                    break;
+                case 2: // "fencing" posture: arms flex up, elbows bent, body stiff, topples over
+                    T("thighL", -5f); T("thighR", -5f); T("shinL", 5f); T("shinR", 5f); T("chest", -5f); T("head", -15f);
+                    T("uarmL", -100f, -25f); T("uarmR", -70f, 25f); T("farmL", -120f); T("farmR", -90f);
+                    tone = 0.55f; foldT = 0.9f; push = -fwd * Mathf.Sign(fromFront + 0.01f) * 1.2f;
+                    break;
+                case 3: // goes stiff and falls like a plank, backward or forward depending on the shot
+                    T("thighL", 0f); T("thighR", 0f); T("shinL", 3f); T("shinR", 3f); T("chest", 0f); T("head", 0f);
+                    T("uarmL", -10f, -6f); T("uarmR", -10f, 6f); T("farmL", -15f); T("farmR", -15f);
+                    tone = 0.6f; foldT = 1.0f; push = (fromFront > -0.2f ? -fwd : fwd) * 1.6f;
+                    break;
+                case 4: // drops to the knees, then tips forward
+                    T("thighL", 5f); T("thighR", 5f); T("shinL", 115f); T("shinR", 115f); T("chest", 35f); T("head", 30f);
+                    T("uarmL", -5f, -5f); T("uarmR", -5f, 5f); T("farmL", -20f); T("farmR", -20f);
+                    tone = 0.45f; foldT = 0.8f; push = fwd * 0.5f;
+                    break;
+                default: // twists and collapses sideways, one leg gives
+                    Target(parts["chest"], Quaternion.Euler(15f, 35f * side, 10f * side)); T("head", 20f, 15f * side);
+                    T(side > 0 ? "thighL" : "thighR", -60f); T(side > 0 ? "shinL" : "shinR", 100f);
+                    T(side > 0 ? "thighR" : "thighL", -10f); T(side > 0 ? "shinR" : "shinL", 20f);
+                    T("uarmL", -30f, -20f); T("uarmR", -30f, 20f); T("farmL", -60f); T("farmR", -60f);
+                    push = pel.transform.right * side * 0.8f;
+                    break;
+            }
+            // everybody is a bit different
+            tone *= Random.Range(0.8f, 1.2f); foldT *= Random.Range(0.8f, 1.25f);
+            Tone(tone);
+            if (push != Vector3.zero)
+            {
+                parts["chest"].rb.AddForce(push * parts["chest"].rb.mass, ForceMode.Impulse);
+                if (!parts["head"].severed) parts["head"].rb.AddForce(push * parts["head"].rb.mass, ForceMode.Impulse);
+            }
         }
 
         public void Die(string why)

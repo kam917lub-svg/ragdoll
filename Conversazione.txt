@@ -236,3 +236,7 @@ Fatto:
 --- PROMPT 15 ---
 Utente: posa strana dopo il colpo (braccio alzato verso la faccia), dovrebbero premere la ferita e andarsene; i morti non si colpiscono.
 Fatto: mano sulla ferita (spalla ruotata verso l interno + gomito piegato; petto/pancia/gamba/testa), ferite leggere ripartono dopo 2 s tenendosi la ferita; punto luminoso nel punto esatto di impatto + "LAST SHOT: ..." nell HUD (dice se ha colpito un Carl morto o cosa); spinta x2,5 sui morti.
+
+--- PROMPT 16 ---
+Utente: la caduta alla morte non deve essere sempre uguale.
+Fatto: 5 modi di cadere (ginocchia che cedono, postura "da scherma" braccia su gomiti piegati rigido, rigido come un asse avanti/indietro secondo la direzione dello sparo, in ginocchio poi in avanti, torsione e crollo di lato), scelti a caso con pesi diversi per headshot/altre cause, tono muscolare e durata variabili per persona, spinta dal lato dello sparo.
