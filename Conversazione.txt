@@ -1,0 +1,55 @@
+CONVERSAZIONE / STORICO PROGETTO — Camera di prova 3 (ragdoll)
+=================================================================
+
+--- PROMPT 1 -------------------------------------------------------
+Richiesta utente: rendere camera-di-prova-w3.html "1:1" con due clip video
+(fisica del sangue realistica, spruzzi e strisciate, comportamento umano,
+gravita' normale, headshot istantaneo, amputazioni, pezzi di carne sparati).
+
+Analisi dei video (720x720, 30 fps, 24 s e 62 s):
+- Clip A: poligono chiaro con cornice arancione, fila di manichini beige con
+  barra nera sugli occhi e targhetta arancione sul petto; HUD in alto
+  "SPECIMENS 15 / 30 · 90 HZ"; pistola nera squadrata con placca arancione.
+  Colpo in testa: il manichino si affloscia subito, sangue a getti che forma
+  chiazze scure e spesse sul pavimento; poi presa/lancio ("HOLDING").
+- Clip B: pavimento a griglia bianca, blocchi scuri, numeri "01/02",
+  "COVER / 01"; raggio arancione (fascio di presa); testa staccata che scivola
+  lasciando una scia di sangue; gamba recisa a meta' stinco; grumi di carne.
+
+Modifiche fatte (index.html, derivato dal file originale):
+1. Nuova mappa MAPS.range "Poligono (video)": pavimento 2048px con griglia
+   bianca, piattaforma chiara con cornice arancione, linee di zona, numeri
+   01/02 e COVER / 01, pareti grigio-ardesia, pilastri/blocchi scuri,
+   luci a striscia lunga sul soffitto. Selezionata di default insieme a
+   "Come nel video".
+2. Manichini bersaglio fermi in due file (spawnRow/populate), flag d.target:
+   niente passeggiata/parlato finche' non vengono colpiti; pelle beige (MANQC).
+3. Regole gore istantanee (vidHit/vidKill/spawnChunk):
+   - colpo in testa = morte istantanea, crollo a ragdoll con gravita' normale,
+     getti di sangue in entrata/uscita, 30% (o 2o colpo) decapitazione;
+   - colpo agli arti = amputazione al punto d'impatto (80% al 1o, 100% al 2o);
+   - grumi di carne bicolore (pelle + interno rosso) sparati nella direzione
+     del colpo, con scia di sangue durante il volo.
+4. HUD "SPECIMENS nn / nn · 90 HZ", pistola nera squadrata con placca
+   arancione, lampo bianco + luce puntiforme allo sparo, pannelli anatomici
+   nascosti (body.vid).
+5. Sangue piu' violento in modalita' video (ARC: imp 4, cut 2.6, stain 3.2,
+   pool 0.7, burst 2).
+
+Snippet chiave:
+  if(MANQ)vidHit(dm,r,d,exits,pIn,pOut);   // dentro shootRun()
+  function vidHit(...){ testa->vidKill+burst+chunks ; arto->cutLimbAt ; ... }
+
+6. Sangue in modalita' video: gocce x2.3 di raggio e volume x7 (emitBlood),
+   decal piu' saturi (niente centri neri), pozze grandi come nei clip.
+7. Tasto T = reset; hint "Premi E" e pannelli nascosti in modalita' video.
+
+Verifica (Chromium headless + swiftshader, screenshot dopo ogni colpo):
+- headshot: morte istantanea, crollo a ragdoll, contatore 12/12 -> 11/12;
+- colpo alla coscia: arto reciso (hipL), dummy a terra, chiazze/pozze grandi;
+- nessun errore JS in console.
+Limiti noti: non ho potuto confrontare fotogramma per fotogramma con il
+video (nessun display GPU); mira di tiro nelle file fitte a volte colpisce
+il vicino; presa/lancio ("HOLDING") usa la modalita' Mano gia' esistente (2).
+
+Stato: consegnato in index.html (branch claude/focused-fermat-35jgru).
