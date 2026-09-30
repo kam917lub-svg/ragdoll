@@ -11,9 +11,23 @@ Serve Unity 6 (testato come codice per 6000.x) con **URP**.
 4. Clicca nella finestra Game per catturare il mouse.
 
 ## Comandi
-WASD muoviti · Shift corri · Spazio salta · clic sinistro spara (semiautomatica, 15 colpi) ·
-clic destro mira · R ricarica · `[` `]` velocità del tempo · P pausa · N nuovo manichino ·
-Backspace ricomincia · T raggi X · Esc libera il mouse.
+| Tasto | Azione |
+|---|---|
+| W A S D | muoversi |
+| Shift | correre |
+| Spazio | saltare |
+| Clic sinistro | sparare (pistola semiautomatica, 15 colpi) |
+| Clic destro (tenuto) | mirare |
+| Rotella (tenuta) | afferrare e trascinare un corpo o un pezzo; girare la rotella = avvicina/allontana |
+| R | ricaricare |
+| T | raggi X (ossa, organi, arterie, vene, nervi) |
+| Y (o N) | nuovo Carl |
+| [ ] | rallenta / accelera il tempo |
+| P | pausa |
+| Backspace | ricomincia |
+| Esc | libera il mouse (clic nella finestra per riprenderlo) |
+
+Sotto il mirino c'è scritto cosa stai puntando; una X rossa conferma che il colpo ha preso un corpo.
 
 ## Cosa fa
 - Manichini con ragdoll vero (Rigidbody + CharacterJoint): camminano, scappano quando spari,

@@ -207,3 +207,18 @@ Fix:
 --- PROMPT 12 ---
 Utente: sangue che vola buggato, ancora non riesce a colpire, segni grandi.
 Fatto: scritta di mira sotto il mirino (cosa colpisce il raggio e cosa colpisce la superficie del corpo), segno di colpo rosso, getti arteriosi piu bassi, velocita gocce max 6 m/s, targhetta petto piu piccola. In attesa di screenshot con la scritta di mira per trovare il guasto.
+
+--- PROMPT 13 ---
+Utente: girano di scatto come robot, rotella per afferrarli, Y per nuovo Carl, elenco comandi,
+pose goffe (accovacciati), devono guardarsi intorno e sporgersi, colpiti a piede/gamba saltellano
+o strisciano; sangue tarato su dati reali.
+Fatto:
+- Svolta morbida (velocita' angolare che cresce e cala, rallentano per girare), aggiramento ostacoli dolce.
+- Testa che si guarda intorno; al riparo accovacciati composti e si sporgono ogni pochi secondi verso il tiratore.
+- Una gamba colpita: saltellano sulla gamba buona verso il riparo; entrambe/arteria/35%: cadono e strisciano.
+- Rotella tenuta = afferra e trascina (molla verso il punto davanti alla camera, raggio arancione, "HOLDING"),
+  rotella girata = distanza. Y = nuovo Carl. Tabella comandi nel README e riga comandi nell'HUD.
+- Sangue tarato (femorale: incoscienza 30-60 s, morte 2-5 min; aorta 1-2 min):
+  carotide 30, aorta 45 (+interna), femorale/iliaca 25, succlavia 20, brachiale 10, radiale/tibiale 5 ml/s;
+  ferite 9 mm nei tessuti 0,6-6 ml/s; svenimento al 35% perso, morte al 50%; il sangue visibile e' doppio
+  rispetto a quello perso per leggibilita'. Spinta del 9 mm 3,5 N·s (quantita' di moto reale ~2,8).

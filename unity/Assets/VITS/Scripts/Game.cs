@@ -8,7 +8,7 @@ namespace VITS
     public class Game : MonoBehaviour
     {
         public static Game I;
-        public const float BulletImpulse = 8f; // N·s pushed into a ragdoll part by a 9 mm round (gamey, not realistic)
+        public const float BulletImpulse = 3.5f; // N·s pushed into a ragdoll part by a 9 mm round (gamey, not realistic)
         public Player player;
         static readonly float[] TS = { 0.25f, 0.5f, 1f, 2f };
         int tsi = 2; bool paused;
@@ -146,7 +146,7 @@ namespace VITS
 
         void Update()
         {
-            if (GI.Down(K.N)) Spawn();
+            if (GI.Down(K.N) || GI.Down(K.Y)) Spawn();
             if (GI.Down(K.T)) XRay.Toggle();
             if (GI.Down(K.Back)) { XRay.On = false; Skin.All.Clear(); SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex); return; }
             if (GI.Down(K.LBracket)) { tsi = Mathf.Max(0, tsi - 1); ApplyTime(); }
@@ -177,7 +177,7 @@ namespace VITS
             string am = player.reloadT > 0 ? "..." : player.ammo.ToString("00");
             Label(new Rect(W - 330 * s, H - 128 * s, 300 * s, 70 * s), $"{am}<size={(int)(24 * s)}> / {Player.MaxAmmo}</size>", (int)(56 * s), TextAnchor.UpperRight);
             Label(new Rect(W - 330 * s, H - 58 * s, 300 * s, 22 * s), "∞  RESERVE", (int)(14 * s), TextAnchor.UpperRight, 0.6f);
-            Label(new Rect(20 * s, H - 36 * s, W, 24 * s), "WASD move · SHIFT run · SPACE jump · LMB fire · RMB aim · R reload · T x-ray · [ ] time · P pause · N spawn · BACKSPACE reset · ESC mouse", (int)(13 * s), TextAnchor.UpperLeft, 0.55f);
+            Label(new Rect(20 * s, H - 36 * s, W, 24 * s), "WASD move · SHIFT run · SPACE jump · LMB fire · RMB aim · MMB hold: grab & drag · R reload · T x-ray · Y spawn Carl · [ ] time · P pause · BACKSPACE reset · ESC mouse", (int)(13 * s), TextAnchor.UpperLeft, 0.55f);
 
             // crosshair
             var cc = player.looked != null ? new Color(1f, 0.35f, 0.3f, 0.95f) : new Color(1, 1, 1, 0.9f);
@@ -193,7 +193,7 @@ namespace VITS
                 GUI.matrix = Matrix4x4.identity;
             }
             GUI.color = Color.white;
-            Label(new Rect(0, cy + 22 * s, W, 20 * s), player.aimInfo, (int)(12 * s), TextAnchor.UpperCenter, 0.75f);
+            Label(new Rect(0, cy + 22 * s, W, 20 * s), player.held != null ? "HOLDING" : player.aimInfo, (int)(12 * s), TextAnchor.UpperCenter, 0.75f);
 
             if (LastError.Length > 0) { st.normal.textColor = new Color(1f, 0.3f, 0.3f); st.fontSize = (int)(13 * s); st.alignment = TextAnchor.UpperLeft; GUI.Label(new Rect(20 * s, H - 62 * s, W - 40 * s, 24 * s), "ERROR: " + LastError, st); }
             if (!player.locked) Label(new Rect(0, H * 0.55f, W, 30 * s), "CLICK TO PLAY", (int)(22 * s), TextAnchor.UpperCenter);

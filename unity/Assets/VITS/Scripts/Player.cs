@@ -11,6 +11,7 @@ namespace VITS
         public float reloadT;
         public bool locked;
         public string aimInfo = ""; public float hitMarkT;
+        public Rigidbody held; Vector3 heldLocal; float heldDist; LineRenderer beam;
 
         CharacterController cc;
         float yaw, pitch, vy, cool, recoil, flashT, tracerT, bob;
@@ -60,6 +61,10 @@ namespace VITS
             tracer.positionCount = 2; tracer.startWidth = 0.012f; tracer.endWidth = 0.004f;
             tracer.sharedMaterial = Mats.Decal(Texture2D.whiteTexture, new Color(1f, 0.95f, 0.8f, 0.8f));
             tracer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; tracer.enabled = false;
+            beam = new GameObject("GrabBeam").AddComponent<LineRenderer>();
+            beam.positionCount = 2; beam.startWidth = 0.008f; beam.endWidth = 0.008f;
+            beam.sharedMaterial = Mats.Decal(Texture2D.whiteTexture, new Color(1f, 0.45f, 0.15f, 0.9f));
+            beam.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; beam.enabled = false;
         }
 
         void Update()
@@ -117,6 +122,38 @@ namespace VITS
                 aimInfo = lp.owner.displayName + " · " + lp.key.ToUpper() + " · " + ld.ToString("0.0") + " M";
             }
             hitMarkT -= dt;
+
+            // middle mouse: grab a body (or a piece) and drag it around; wheel = nearer / farther
+            if (locked && GI.GrabDown())
+            {
+                held = null;
+                if (Mannequin.Pick(cam.transform.position, cam.transform.forward, 6f, out Part gp, out float gd))
+                {
+                    gp.owner.Grabbed();
+                    held = gp.rb; heldDist = gd; heldLocal = gp.transform.InverseTransformPoint(cam.transform.position + cam.transform.forward * gd);
+                }
+                else if (Physics.Raycast(cam.transform.position, cam.transform.forward, out RaycastHit gh, 6f, ~0, QueryTriggerInteraction.Ignore) && gh.rigidbody != null && !gh.rigidbody.isKinematic)
+                { held = gh.rigidbody; heldDist = gh.distance; heldLocal = held.transform.InverseTransformPoint(gh.point); }
+            }
+            if (!GI.GrabHeld()) held = null;
+            if (held != null) heldDist = Mathf.Clamp(heldDist + GI.Scroll() * 0.25f, 0.8f, 5f);
+            beam.enabled = held != null;
+            if (held != null)
+            {
+                beam.SetPosition(0, gun.TransformPoint(new Vector3(0, 0.03f, 0.14f)));
+                beam.SetPosition(1, held.transform.TransformPoint(heldLocal));
+            }
+        }
+
+        // spring that pulls the grabbed point toward a spot in front of the camera
+        void FixedUpdate()
+        {
+            if (held == null || cam == null) return;
+            Vector3 target = cam.transform.position + cam.transform.forward * heldDist;
+            Vector3 p = held.transform.TransformPoint(heldLocal);
+            Vector3 v = held.GetPointVelocity(p);
+            Vector3 f = (target - p) * 900f - v * 60f;
+            held.AddForceAtPosition(Vector3.ClampMagnitude(f, 1500f), p);
         }
 
         void Shoot()

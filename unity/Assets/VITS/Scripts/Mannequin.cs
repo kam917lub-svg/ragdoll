@@ -125,7 +125,7 @@ namespace VITS
 
         enum S { Idle, Walk, Flee, Cover }
         S state = S.Idle;
-        float stateT, phase, speed, heart, writheT, hurt, crawlT, detourT, stuckT, bestDist, foldT, groundY, groundT, deathT, shock;
+        float turnRate, headYaw, headYawT, lookT, peekT, peek, stateT, phase, speed, heart, writheT, hurt, crawlT, detourT, stuckT, bestDist, foldT, groundY, groundT, deathT, shock;
         int torsoHits, headHits;
         Vector3 target, lastPos, vel, detour, anchor, lastDir = Vector3.forward;
         Part clutch;
@@ -158,17 +158,17 @@ namespace VITS
         struct Art { public int bone; public Vector3 a, b; public float r, rate; public string name; public bool inside; }
         static readonly Art[] ARTS =
         {
-            new Art { bone = 2, a = new Vector3(-0.03f, -0.07f, 0.02f), b = new Vector3(-0.03f, 0.08f, 0.02f), r = 0.014f, rate = 70f, name = "CAROTID" },
-            new Art { bone = 2, a = new Vector3(0.03f, -0.07f, 0.02f),  b = new Vector3(0.03f, 0.08f, 0.02f),  r = 0.014f, rate = 70f, name = "CAROTID" },
-            new Art { bone = 1, a = new Vector3(0.015f, 0.1f, 0.02f),   b = new Vector3(0f, 0.34f, 0f),        r = 0.045f, rate = 110f, name = "HEART / AORTA", inside = true },
-            new Art { bone = 1, a = new Vector3(-0.1f, 0.33f, 0.03f),   b = new Vector3(-0.2f, 0.33f, 0.02f),  r = 0.013f, rate = 40f, name = "SUBCLAVIAN" },
-            new Art { bone = 1, a = new Vector3(0.1f, 0.33f, 0.03f),    b = new Vector3(0.2f, 0.33f, 0.02f),   r = 0.013f, rate = 40f, name = "SUBCLAVIAN" },
-            new Art { bone = 0, a = new Vector3(-0.07f, 0.05f, 0.03f),  b = new Vector3(-0.09f, -0.08f, 0.05f), r = 0.015f, rate = 55f, name = "ILIAC" },
-            new Art { bone = 0, a = new Vector3(0.07f, 0.05f, 0.03f),   b = new Vector3(0.09f, -0.08f, 0.05f), r = 0.015f, rate = 55f, name = "ILIAC" },
-            new Art { bone = 7, a = new Vector3(0.028f, -0.02f, 0.035f), b = new Vector3(0.015f, -0.38f, 0f),  r = 0.015f, rate = 55f, name = "FEMORAL" },
-            new Art { bone = 3, a = new Vector3(0.03f, -0.03f, 0.01f),  b = new Vector3(0.025f, -0.28f, 0.015f), r = 0.012f, rate = 28f, name = "BRACHIAL" },
-            new Art { bone = 4, a = new Vector3(0f, -0.02f, 0.03f),     b = new Vector3(0f, -0.27f, 0.03f),    r = 0.009f, rate = 12f, name = "RADIAL" },
-            new Art { bone = 8, a = new Vector3(0f, -0.05f, -0.035f),   b = new Vector3(0f, -0.38f, -0.02f),   r = 0.009f, rate = 12f, name = "TIBIAL" },
+            new Art { bone = 2, a = new Vector3(-0.03f, -0.07f, 0.02f), b = new Vector3(-0.03f, 0.08f, 0.02f), r = 0.014f, rate = 30f, name = "CAROTID" },
+            new Art { bone = 2, a = new Vector3(0.03f, -0.07f, 0.02f),  b = new Vector3(0.03f, 0.08f, 0.02f),  r = 0.014f, rate = 30f, name = "CAROTID" },
+            new Art { bone = 1, a = new Vector3(0.015f, 0.1f, 0.02f),   b = new Vector3(0f, 0.34f, 0f),        r = 0.045f, rate = 45f, name = "HEART / AORTA", inside = true },
+            new Art { bone = 1, a = new Vector3(-0.1f, 0.33f, 0.03f),   b = new Vector3(-0.2f, 0.33f, 0.02f),  r = 0.013f, rate = 20f, name = "SUBCLAVIAN" },
+            new Art { bone = 1, a = new Vector3(0.1f, 0.33f, 0.03f),    b = new Vector3(0.2f, 0.33f, 0.02f),   r = 0.013f, rate = 20f, name = "SUBCLAVIAN" },
+            new Art { bone = 0, a = new Vector3(-0.07f, 0.05f, 0.03f),  b = new Vector3(-0.09f, -0.08f, 0.05f), r = 0.015f, rate = 25f, name = "ILIAC" },
+            new Art { bone = 0, a = new Vector3(0.07f, 0.05f, 0.03f),   b = new Vector3(0.09f, -0.08f, 0.05f), r = 0.015f, rate = 25f, name = "ILIAC" },
+            new Art { bone = 7, a = new Vector3(0.028f, -0.02f, 0.035f), b = new Vector3(0.015f, -0.38f, 0f),  r = 0.015f, rate = 25f, name = "FEMORAL" },
+            new Art { bone = 3, a = new Vector3(0.03f, -0.03f, 0.01f),  b = new Vector3(0.025f, -0.28f, 0.015f), r = 0.012f, rate = 10f, name = "BRACHIAL" },
+            new Art { bone = 4, a = new Vector3(0f, -0.02f, 0.03f),     b = new Vector3(0f, -0.27f, 0.03f),    r = 0.009f, rate = 5f, name = "RADIAL" },
+            new Art { bone = 8, a = new Vector3(0f, -0.05f, -0.035f),   b = new Vector3(0f, -0.38f, -0.02f),   r = 0.009f, rate = 5f, name = "TIBIAL" },
         };
 
         void Awake()
@@ -333,7 +333,7 @@ namespace VITS
         {
             float dt = Time.deltaTime;
             if (dt <= 0) return;
-            strength = dead ? 0 : Mathf.Clamp01((blood / BloodMax - 0.45f) / 0.35f) * (conscious ? 1f : 0f);
+            strength = dead ? 0 : Mathf.Clamp01((blood / BloodMax - 0.62f) / 0.25f) * (conscious ? 1f : 0f);
             if (mode == M.Anim) { Locomotion(dt); Pose(dt); }
             else if (mode == M.Active) ActiveBrain(dt);
             Bleed(dt);
@@ -343,8 +343,8 @@ namespace VITS
             shock = Mathf.Max(0, shock - dt * 0.6f);
             if (!dead)
             {
-                if (blood < BloodMax * 0.5f && conscious) { conscious = false; crawling = false; injuries.Add("LOST CONSCIOUSNESS"); GoActive(); }
-                if (blood < BloodMax * 0.33f) Die("BLOOD LOSS");
+                if (blood < BloodMax * 0.65f && conscious) { conscious = false; crawling = false; injuries.Add("LOST CONSCIOUSNESS"); GoActive(); }
+                if (blood < BloodMax * 0.5f) Die("BLOOD LOSS");
                 if (deathT > 0 && Time.time > deathT) Die("CARDIAC ARREST");
             }
         }
@@ -412,7 +412,7 @@ namespace VITS
                     if (stateT <= 0) NewGoal(S.Walk, Game.RandomPoint(), 10f);
                     break;
             }
-            speed = Mathf.MoveTowards(speed, want, dt * 3f);
+            speed = Mathf.MoveTowards(speed, want * (Hopping ? 0.35f : 1f), dt * (want > speed ? 1.6f : 2.5f));
 
             float dist = Flat(target - pos).magnitude;
             if (dist < bestDist - 0.3f) { bestDist = dist; stuckT = 0; } else if (want > 0) stuckT += dt;
@@ -431,8 +431,12 @@ namespace VITS
             }
             else if (speed > 0.01f && dir.sqrMagnitude > 0.01f)
             {
-                transform.rotation = Quaternion.RotateTowards(transform.rotation, Quaternion.LookRotation(dir.normalized), 150f * dt);
-                Vector3 fwd = transform.forward, step = fwd * speed * dt;
+                float turn = Vector3.Angle(transform.forward, dir);
+                turnRate = Mathf.MoveTowards(turnRate, Mathf.Clamp(turn * 2.5f, 0f, 110f), dt * 220f);
+                transform.rotation = Quaternion.RotateTowards(transform.rotation, Quaternion.LookRotation(dir.normalized), turnRate * dt);
+                // people slow down to turn
+                float turnSlow = Mathf.Clamp01(1f - turn / 100f);
+                Vector3 fwd = transform.forward, step = fwd * speed * Mathf.Max(0.25f, turnSlow) * dt;
                 if (!Free(pos + fwd * 0.35f))
                 {
                     Vector3 to = dir.normalized; float bestA = 999; Vector3 bestD = Vector3.zero;
@@ -443,7 +447,7 @@ namespace VITS
                         float ang = Vector3.Angle(dd, to);
                         if (ang < bestA) { bestA = ang; bestD = dd; }
                     }
-                    if (bestA < 999) { detour = pos + bestD * 1.2f; detourT = 1.0f; transform.rotation = Quaternion.LookRotation(bestD); }
+                    if (bestA < 999) { detour = pos + bestD * 1.5f; detourT = 1.4f; }
                     step = Vector3.zero;
                 }
                 Vector3 np = Game.Clamp(pos + step);
@@ -462,32 +466,73 @@ namespace VITS
 
         static Vector3 Flat(Vector3 v) { v.y = 0; return v; }
 
+        bool Hopping => mode == M.Anim && (legFn[0] < 0.6f || legFn[1] < 0.6f);
+
         void Pose(float dt)
         {
-            float a = Mathf.Clamp01(speed / 1.2f) * (state == S.Flee ? 36f : 24f);
-            float s = Mathf.Sin(phase * Mathf.PI * 2f), k = 1f - Mathf.Exp(-dt * 12f);
-            float kneeL = Mathf.Max(0, Mathf.Sin(phase * Mathf.PI * 2f - 1.2f)) * a * 1.6f;
-            float kneeR = Mathf.Max(0, Mathf.Sin(phase * Mathf.PI * 2f + Mathf.PI - 1.2f)) * a * 1.6f;
-            float crouch = state == S.Cover ? 1f : 0f;
-            Set("thighL", Quaternion.Euler(-s * a - crouch * 60f, 0, 0), k); Set("thighR", Quaternion.Euler(s * a - crouch * 60f, 0, 0), k);
-            Set("shinL", Quaternion.Euler(kneeL + crouch * 100f, 0, 0), k); Set("shinR", Quaternion.Euler(kneeR + crouch * 100f, 0, 0), k);
-            Set("uarmL", Quaternion.Euler(s * a * 0.8f, 0, -4), k); Set("uarmR", Quaternion.Euler(-s * a * 0.8f, 0, 4), k);
-            Set("farmL", Quaternion.Euler(-12 - a * 0.3f, 0, 0), k); Set("farmR", Quaternion.Euler(-12 - a * 0.3f, 0, 0), k);
-            float lean = hurt * 18f + (state == S.Flee ? 10f : 0f) + crouch * 30f;
-            Set("chest", Quaternion.Euler(lean, 0, 0), k);
-            Set("head", Quaternion.Euler(-lean * 0.4f, 0, 0), k);
+            float k = 1f - Mathf.Exp(-dt * 10f);
+            // look around: glance every few seconds; in cover, peek out toward the shooter
+            lookT -= dt;
+            if (lookT <= 0) { lookT = Random.Range(1.5f, 4f); headYawT = state == S.Walk ? Random.Range(-35f, 35f) : Random.Range(-70f, 70f); }
+            float cover = state == S.Cover ? 1f : 0f;
+            if (state == S.Cover)
+            {
+                peekT -= dt;
+                if (peekT <= 0) { peekT = peek > 0.5f ? Random.Range(3f, 7f) : Random.Range(1.2f, 2.2f); peek = peek > 0.5f ? 0f : 1f; }
+            }
+            else peek = 0f;
+            float crouch = cover * (1f - peek * 0.7f);
+            if (peek > 0.5f && Game.I != null && Game.I.player != null)
+            {
+                Vector3 to = Game.I.player.transform.position - transform.position; to.y = 0;
+                headYawT = Mathf.Clamp(Vector3.SignedAngle(transform.forward, to, Vector3.up), -80f, 80f);
+            }
+            headYaw = Mathf.MoveTowards(headYaw, headYawT, dt * 120f);
+
+            float a = Mathf.Clamp01(speed / 1.2f) * (state == S.Flee ? 34f : 22f);
+            float s = Mathf.Sin(phase * Mathf.PI * 2f);
+            float kneeL = Mathf.Max(0, Mathf.Sin(phase * Mathf.PI * 2f - 1.2f)) * a * 1.5f;
+            float kneeR = Mathf.Max(0, Mathf.Sin(phase * Mathf.PI * 2f + Mathf.PI - 1.2f)) * a * 1.5f;
+            float thL = -s * a, thR = s * a, pelvisY = 0.95f;
+            if (Hopping)
+            {
+                // one bad leg: keep it off the ground and hop on the good one
+                bool badL = legFn[0] < legFn[1];
+                float hop = Mathf.Abs(Mathf.Sin(phase * Mathf.PI * 2f));
+                if (badL) { thL = -25f; kneeL = 75f; thR = -8f * hop; kneeR = 12f + 25f * (1f - hop); }
+                else { thR = -25f; kneeR = 75f; thL = -8f * hop; kneeL = 12f + 25f * (1f - hop); }
+                pelvisY = 0.9f + 0.05f * hop * Mathf.Clamp01(speed * 3f);
+            }
+            // crouch in cover: knees bent, back fairly straight, hands resting forward
+            pelvisY -= crouch * 0.3f;
+            Set("thighL", Quaternion.Euler(thL - crouch * 55f, 0, -crouch * 6f), k); Set("thighR", Quaternion.Euler(thR - crouch * 55f, 0, crouch * 6f), k);
+            Set("shinL", Quaternion.Euler(kneeL + crouch * 85f, 0, 0), k); Set("shinR", Quaternion.Euler(kneeR + crouch * 85f, 0, 0), k);
+            Set("uarmL", Quaternion.Euler(s * a * 0.7f - crouch * 25f, 0, -4 - crouch * 4f), k); Set("uarmR", Quaternion.Euler(-s * a * 0.7f - crouch * 25f, 0, 4 + crouch * 4f), k);
+            Set("farmL", Quaternion.Euler(-10 - a * 0.3f - crouch * 35f, 0, 0), k); Set("farmR", Quaternion.Euler(-10 - a * 0.3f - crouch * 35f, 0, 0), k);
+            float lean = hurt * 14f + (state == S.Flee ? 8f : 0f) + crouch * 18f;
+            Set("chest", Quaternion.Euler(lean, headYaw * 0.25f, 0), k);
+            Set("head", Quaternion.Euler(-lean * 0.5f + (state == S.Idle ? 4f : 0f), headYaw * 0.75f, 0), k);
             var pv = parts["pelvis"].transform;
-            pv.localPosition = Vector3.Lerp(pv.localPosition, new Vector3(0, 0.95f - crouch * 0.38f, 0), k);
+            pv.localPosition = Vector3.Lerp(pv.localPosition, new Vector3(0, pelvisY, 0), k);
             if (clutch != null && !clutch.severed)
             {
                 string arm = clutch.key.EndsWith("R") ? "L" : "R";
                 if (!parts["farm" + arm].severed && !parts["uarm" + arm].severed)
                 {
                     float side = arm == "R" ? -1 : 1;
-                    Set("uarm" + arm, Quaternion.Euler(-55, 0, side * 28), k);
-                    Set("farm" + arm, Quaternion.Euler(-105, 0, 0), k);
+                    float up = clutch.isHead ? -140f : clutch.key == "chest" ? -60f : clutch.isLeg ? -15f : -45f;
+                    Set("uarm" + arm, Quaternion.Euler(up, 0, side * 25), k);
+                    Set("farm" + arm, Quaternion.Euler(-95, 0, 0), k);
                 }
             }
+        }
+
+        // picked up with the middle mouse button
+        public void Grabbed()
+        {
+            if (dead) return;
+            shock = 1f; hurt = Mathf.Min(1f, hurt + 0.2f);
+            if (mode == M.Anim) GoActive();
         }
 
         void Set(string key, Quaternion q, float k)
@@ -586,8 +631,8 @@ namespace VITS
                     T("uarm" + arm, up, side * 30f); T("farm" + arm, clutch.isHead ? -120f : -100f);
                 }
             }
-            // light wounds only, standing and steady for a while: walk away
-            if (!down && support > 0.88f && legFn[0] > 0.7f && legFn[1] > 0.7f && strength > 0.8f && Time.time - lastHitTime > 4f)
+            // light wounds only, standing and steady for a while: walk (or hop) away
+            if (!down && support > 0.85f && Mathf.Max(legFn[0], legFn[1]) > 0.7f && Mathf.Min(legFn[0], legFn[1]) > 0.3f && strength > 0.8f && Time.time - lastHitTime > 4f)
                 Recover();
         }
 
@@ -769,8 +814,8 @@ namespace VITS
             if (exits) B.Spray(outW + outN * 0.01f, dir, p.isHead ? 90 : 45, p.isHead ? 5.5f : 3.8f, 0.4f, 0.15f, 1.1f);
             if (exits && (p.isHead || Random.value < 0.35f)) Gib.Spawn(outW, dir * Random.Range(1.5f, 3.5f) + Random.insideUnitSphere + Vector3.up * 0.8f, Random.Range(0.01f, 0.02f));
 
-            AddWound(p, inL, p.Normal(inL), p.isHead ? 10f : p.isTorso ? 9f : 7f, false, 0, "");
-            if (exits) AddWound(p, outL, p.Normal(outL), p.isHead ? 30f : p.isTorso ? 16f : 12f, false, 0, "");
+            AddWound(p, inL, p.Normal(inL), p.isHead ? 2.5f : p.isTorso ? 1f : 0.6f, false, 0, "");
+            if (exits) AddWound(p, outL, p.Normal(outL), p.isHead ? 6f : p.isTorso ? 3f : 1.5f, false, 0, "");
 
             // arteries: big pulsing jets out of the wound
             int art = ArteryHit(p, inL, exits ? outL : inL + dirL * 0.1f);
@@ -810,7 +855,12 @@ namespace VITS
                 if (p.isLeg && !p.severed) legFn[p.key.EndsWith("R") ? 1 : 0] -= 0.45f;
                 bool cut = p.hits >= 3 || (p.hits >= 2 && Random.value < 0.5f);
                 if (cut) SeverAt(p, -inL.y, dir);
-                else if (p.isLeg && !dead && !p.severed) { shock = 0.3f; GoActive(); }
+                else if (p.isLeg && !dead && !p.severed)
+                {
+                    bool bothBad = legFn[0] < 0.6f && legFn[1] < 0.6f, gone = Mathf.Min(legFn[0], legFn[1]) < 0.15f;
+                    if (bothBad || gone || art >= 0 || Random.value < 0.35f) { shock = 0.3f; GoActive(); }
+                    else { shock = 0.2f; if (mode == M.Anim) Flee(); } // hops away on the good leg
+                }
                 else if (!dead) shock = Mathf.Max(shock, 0.15f);
             }
             for (int i = 0; i < 2; i++) legFn[i] = Mathf.Max(0, legFn[i]);
@@ -881,7 +931,7 @@ namespace VITS
                     w.runT = Random.Range(0.2f, 0.5f);
                     if (runners.Count < 50) runners.Add(new Runner { part = w.part, lp = w.lp, left = Mathf.Clamp(rate * (spurt ? 0.02f : 0.06f), 0.05f, 1.8f) });
                 }
-                w.acc += rate * dt;
+                w.acc += rate * dt * 2f;
                 if (w.acc < dv) continue;
                 Vector3 p = t.TransformPoint(w.lp);
                 Vector3 bv = !w.part.rb.isKinematic ? w.part.rb.linearVelocity : vel;
@@ -892,12 +942,12 @@ namespace VITS
                     w.acc -= dv;
                     Vector3 v = spurt ? (n * (0.6f + 1.6f * pulse * pressure) + Vector3.down * 0.3f) + Random.insideUnitSphere * 0.15f
                                       : n * 0.05f + Random.insideUnitSphere * 0.04f;
-                    if (spurt || Random.value < 0.35f) Blood.I.Emit(p + n * 0.012f, v + bv, dv);
-                    if (!dead && mine) blood -= dv;
+                    if (spurt || Random.value < 0.5f) Blood.I.Emit(p + n * 0.012f, v + bv, dv);
+                    if (!dead && mine) blood -= dv * 0.5f;
                 }
             }
             // heart / aorta: most of the blood goes inside
-            if (!dead && deathT > 0) blood -= 60f * dt;
+            if (!dead && deathT > 0) blood -= 25f * dt;
         }
 
         void RunBlood(float dt)
@@ -1065,9 +1115,9 @@ namespace VITS
             Stump(upper.transform, cw, nUp, r);
             Stump(piece.transform, cw, -nUp, r * 0.95f);
             // a severed limb opens its big artery
-            float rate = piece.isHead ? 120f : piece.isLeg ? 80f : 45f;
+            float rate = piece.isHead ? 45f : piece.isLeg ? 30f : 15f;
             AddWound(upper, upper.transform.InverseTransformPoint(cw + nUp * 0.01f), upper.transform.InverseTransformDirection(nUp), rate, true, piece.isHead ? 14f : 25f, "SEVERED");
-            AddWound(piece, piece.transform.InverseTransformPoint(cw - nUp * 0.01f), piece.transform.InverseTransformDirection(-nUp), 16f, false, 7f, "");
+            AddWound(piece, piece.transform.InverseTransformPoint(cw - nUp * 0.01f), piece.transform.InverseTransformDirection(-nUp), 6f, false, 7f, "");
             for (int i = 0; i < 3; i++) Gib.Spawn(cw, dir * Random.Range(1f, 2.5f) + Random.insideUnitSphere * 1f + Vector3.up * 0.8f, Random.Range(0.012f, 0.025f));
             Blood.I.Spray(cw, (dir + nUp) * 0.5f, 60, 4f, 0.6f, 0.2f, 1.0f);
             injuries.Add(piece.key.ToUpper() + "  SEVERED");

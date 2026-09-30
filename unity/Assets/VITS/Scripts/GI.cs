@@ -5,7 +5,7 @@ using UnityEngine.InputSystem;
 
 namespace VITS
 {
-    public enum K { W, A, S, D, Shift, Space, R, T, N, Esc, LBracket, RBracket, P, M, Back }
+    public enum K { W, A, S, D, Shift, Space, R, T, N, Esc, LBracket, RBracket, P, M, Back, Y }
 
     // Input wrapper: works with the new Input System (Unity 6 default) or the old Input Manager.
     public static class GI
@@ -19,7 +19,7 @@ namespace VITS
                 case K.Shift: return Key.LeftShift; case K.Space: return Key.Space; case K.R: return Key.R;
                 case K.T: return Key.T; case K.N: return Key.N; case K.Esc: return Key.Escape;
                 case K.LBracket: return Key.LeftBracket; case K.RBracket: return Key.RightBracket;
-                case K.P: return Key.P; case K.Back: return Key.Backspace; default: return Key.M;
+                case K.P: return Key.P; case K.Back: return Key.Backspace; case K.Y: return Key.Y; default: return Key.M;
             }
         }
         public static bool Held(K k) { var kb = Keyboard.current; return kb != null && kb[Map(k)].isPressed; }
@@ -27,6 +27,9 @@ namespace VITS
         public static Vector2 MouseDelta() { var m = Mouse.current; return m == null ? Vector2.zero : m.delta.ReadValue() * 0.1f; }
         public static bool FireDown() { var m = Mouse.current; return m != null && m.leftButton.wasPressedThisFrame; }
         public static bool AimHeld() { var m = Mouse.current; return m != null && m.rightButton.isPressed; }
+        public static bool GrabDown() { var m = Mouse.current; return m != null && m.middleButton.wasPressedThisFrame; }
+        public static bool GrabHeld() { var m = Mouse.current; return m != null && m.middleButton.isPressed; }
+        public static float Scroll() { var m = Mouse.current; return m == null ? 0f : m.scroll.ReadValue().y / 120f; }
 #else
         static KeyCode Map(K k)
         {
@@ -36,7 +39,7 @@ namespace VITS
                 case K.Shift: return KeyCode.LeftShift; case K.Space: return KeyCode.Space; case K.R: return KeyCode.R;
                 case K.T: return KeyCode.T; case K.N: return KeyCode.N; case K.Esc: return KeyCode.Escape;
                 case K.LBracket: return KeyCode.LeftBracket; case K.RBracket: return KeyCode.RightBracket;
-                case K.P: return KeyCode.P; case K.Back: return KeyCode.Backspace; default: return KeyCode.M;
+                case K.P: return KeyCode.P; case K.Back: return KeyCode.Backspace; case K.Y: return KeyCode.Y; default: return KeyCode.M;
             }
         }
         public static bool Held(K k) => Input.GetKey(Map(k));
@@ -44,6 +47,9 @@ namespace VITS
         public static Vector2 MouseDelta() => new Vector2(Input.GetAxisRaw("Mouse X"), Input.GetAxisRaw("Mouse Y"));
         public static bool FireDown() => Input.GetMouseButtonDown(0);
         public static bool AimHeld() => Input.GetMouseButton(1);
+        public static bool GrabDown() => Input.GetMouseButtonDown(2);
+        public static bool GrabHeld() => Input.GetMouseButton(2);
+        public static float Scroll() => Input.mouseScrollDelta.y;
 #endif
     }
 
