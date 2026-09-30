@@ -511,3 +511,8 @@ Fatto: dopo ogni asportazione di carne, per ogni segmento si calcola la frazione
 --- PROMPT 67 ---
 Utente (screenshot testa distrutta): il sangue resta sulla superficie di carne che non esiste piu; fps fluidissimi.
 Fatto: ogni parte ricorda i punti asportati (Part.gone) e la zona sopra il collo per il cranio esploso (goneAboveY); Part.Exists(lp) e controllato in AddSkin (ogni macchia, colatura, ferita) e quando una goccia colpisce un corpo: niente sangue su carne che non c e. Carve pulisce le macchie di qualsiasi corpo entro il raggio con un solo passaggio (CullSkinWorld; prima un passaggio per ogni parte). FPS: raggio "chi sto guardando" 12 volte al secondo invece di ogni frame (era una traccia SDF su tutti i Kekko), SkinnedMeshRenderer con bounds fissi invece di ricalcolati ogni frame, controllo pozze saltato se non ce ne sono.
+
+--- PROMPT 68 ---
+Utente: tagliato un arto e trascinato col tasto centrale: si bugga, vola via e poi si stacca; i corpi sono vuoti, farli di carne piena.
+Causa: la presa usava la massa di tutto il corpo (~70 kg) anche per un arto staccato di 2 kg -> forza enorme -> volava; e faceva "seguire" il resto del corpo all arto.
+Fatto: la presa calcola la massa del gruppo realmente attaccato (tutte le parti sotto la stessa radice: corpo intero oppure solo il pezzo staccato) e fa seguire solo quelle; il Kekko risulta "tenuto" solo se si prende una parte ancora attaccata. Carne piena: ogni asportazione mette nel foro un grumo di muscolo strappato (mesh irregolare, rosso scuro bagnato, un po sotto la pelle) cosi non si vede piu dentro un guscio vuoto; i grumi vanno via col cranio esploso e con la parte d arto tagliata.

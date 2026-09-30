@@ -103,6 +103,7 @@ namespace VITS
 
         // lumpy chunk meshes: a sphere pushed in and out by noise, then flattened - made once, reused
         static Mesh[] chunks;
+        public static Mesh Chunk(int i) => ChunkMesh(i);
         static Mesh ChunkMesh(int i)
         {
             if (chunks == null)
@@ -1730,6 +1731,8 @@ namespace VITS
             if (removed == 0) return;
             sk.tris = keep; sk.mesh.SetTriangles(keep, 0);
             // stains and runs that sat on the skin that is now gone must go too (no blood floating over a hole)
+            // solid body: the hole is not a window into an empty shell, it is a crater of torn meat
+            MeatPlug(p, world, r);
             // stains and runs on the skin that is now gone go too, and nothing new may stick there later
             Blood.I.CullSkinWorld(world, r * 1.1f);
             p.gone.Add(new Vector4(p.transform.InverseTransformPoint(world).x, p.transform.InverseTransformPoint(world).y, p.transform.InverseTransformPoint(world).z, r));
@@ -2023,6 +2026,7 @@ namespace VITS
             AddLimbColliders(np, 0f, np.length);
             p.length = c; p.yMin = -c;
             Blood.I.CullSkin(p.transform, lp => lp.y < -c + 0.01f);   // marks on the part that fell off stay on it, not in the air
+            foreach (Transform ch in p.transform) if (ch.name == "plug" && ch.localPosition.y < -c) Destroy(ch.gameObject);
 
             var kids = new List<Part>();
             foreach (Transform ch in p.transform) { var cp = ch.GetComponent<Part>(); if (cp != null) kids.Add(cp); }
@@ -2045,6 +2049,23 @@ namespace VITS
             rb.AddTorque(Random.insideUnitSphere * rb.mass * 0.25f, ForceMode.Impulse);
             allParts.Add(np);
             FinishCut(p, np, new Vector3(0, -c, 0), dir);
+        }
+
+        static Material plugMat;
+        // a lump of wet torn muscle filling the wound, sunk a little under the skin line
+        void MeatPlug(Part p, Vector3 world, float r)
+        {
+            if (p == null || p.transform.childCount > 90) return;
+            if (plugMat == null) plugMat = Mats.Lit(new Color(0.42f, 0.03f, 0.05f), 0.75f);
+            Vector3 lp = p.Project(p.transform.InverseTransformPoint(world));
+            Vector3 ln = p.Normal(lp);
+            var g = new GameObject("plug");
+            g.transform.SetParent(p.transform, false);
+            g.transform.localPosition = lp - ln * r * 0.35f;
+            g.transform.localRotation = Quaternion.FromToRotation(Vector3.up, ln) * Quaternion.Euler(0, Random.Range(0f, 360f), 0);
+            g.transform.localScale = new Vector3(r * 2.1f, r * 1.1f, r * 2.1f) / Mathf.Max(0.01f, p.transform.lossyScale.x);
+            g.AddComponent<MeshFilter>().sharedMesh = Gib.Chunk(Random.Range(0, 8));
+            var mr = g.AddComponent<MeshRenderer>(); mr.sharedMaterial = plugMat; mr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
         }
 
         readonly Dictionary<Part, float> baseMass = new Dictionary<Part, float>();

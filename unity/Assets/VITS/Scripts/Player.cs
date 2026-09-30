@@ -327,15 +327,22 @@ namespace VITS
             Vector3 v = held.GetPointVelocity(p);
             // strong enough to lift and carry a whole Carl (alive or dead, brains on or off) wherever you point
             var part = held.GetComponent<Part>();
+            // what is actually attached to what I hold: the whole body, or just a cut-off limb (its own little ragdoll)
             float M = held.mass;
-            if (part != null && part.owner != null) { M = part.owner.TotalMass; part.owner.heldT = Time.time; }
+            Part[] group = null;
+            if (part != null)
+            {
+                group = part.transform.root.GetComponentsInChildren<Part>();
+                M = 0f; foreach (var q in group) if (q.rb != null) M += q.rb.mass;
+                if (!part.severed && part.owner != null) part.owner.heldT = Time.time;
+            }
             Vector3 f = ((target - p) * 160f - v * 22f) * M + (part != null ? -Physics.gravity * M * 0.85f : Vector3.zero);
             held.AddForceAtPosition(Vector3.ClampMagnitude(f, M * 120f), p);
             if (part != null)
             {
                 // the rest of the body follows instead of stretching the joints
                 Vector3 hv = held.linearVelocity;
-                foreach (var q in part.owner.Parts)
+                foreach (var q in group)
                     if (q != null && q.rb != null && q.rb != held && !q.rb.isKinematic)
                         q.rb.AddForce((hv - q.rb.linearVelocity) * 4f, ForceMode.Acceleration);
             }
