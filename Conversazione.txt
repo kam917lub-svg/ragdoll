@@ -164,3 +164,26 @@ Fix:
 - Ripari: punto dietro il lato lungo, evita ripari affollati. Testo con shader VITS/Text (nascosto dai muri).
 - Proiettili ignorano i pezzi di carne (layer Ignore Raycast); spinta 8 N·s sui corpi.
 - Compilazione verificata con dotnet contro gli assembly UnityEngine 2021.3 (API 6 mappate).
+
+--- PROMPT 10 ---
+Utente: ancora lanci in aria, corpo non rigido, non si possono colpire a terra, effetto proiettile nero
+enorme, comportamento irrealistico; il sangue invece andava bene; arterie principali = tanto sangue.
+Cause trovate:
+- Limiti delle articolazioni INVERTITI: in PhysX l'angolo X del giunto e' l'opposto della rotazione del
+  transform (confermato dai valori del Ragdoll Builder di Unity: ginocchio -80..0, anca -20..70).
+  Ginocchia/gomiti si piegavano al contrario -> collassi assurdi, corpo "molle".
+- Carl che camminano = cinematici (massa infinita): passando su cadaveri/pezzi li sparavano in aria.
+- Cerchi neri: SSAO del template URP attorno ai buchi scavati nella pelle.
+Fix:
+- ConfigurableJoint con limiti corretti, lineari bloccati, proiezione, 20 iterazioni solver.
+- Ragdoll ATTIVO con muscoli (slerp drive verso pose bersaglio) + forze di sostegno/equilibrio:
+  ferito resta in piedi curvo tenendosi la ferita, si inginocchia quando le forze calano, cade e si
+  rannicchia, striscia verso i ripari se ha le gambe colpite; ferite leggere -> si rialza e zoppica via.
+  Morto: le ginocchia cedono e si piega (0,55 s), poi resta un po' di rigidita'.
+- Livelli fisici: Carl che camminano (8) ignorano corpi/pezzi (9) e pezzi di carne (2).
+- Niente buchi scavati: foro d'entrata ~1 cm, uscita ~2 cm (texture ferita senza alone).
+- Arterie: carotidi, cuore/aorta, succlavie, iliache, femorali, brachiali, radiali, tibiali
+  -> getti pulsanti (fino a 70-120 ml/s), pressione che cala col sangue; cuore/aorta = arresto in 5-12 s.
+- SSAO e Global Volume del template disattivati durante il gioco (ripristinati all'uscita).
+- Errori mostrati in rosso nell'HUD; monitor con LEG SUPPORT ed EFFORT.
+Compilazione verificata (dotnet + assembly UnityEngine 2021.3).

@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.SceneManagement;
+using System.Reflection;
 
 namespace VITS
 {
@@ -27,7 +28,12 @@ namespace VITS
             foreach (var c in FindObjectsByType<Camera>(FindObjectsSortMode.None)) c.gameObject.SetActive(false);
             foreach (var l in FindObjectsByType<Light>(FindObjectsSortMode.None)) l.gameObject.SetActive(false);
 
-            Physics.defaultSolverIterations = 12; Physics.defaultSolverVelocityIterations = 4;
+            Physics.defaultSolverIterations = 20; Physics.defaultSolverVelocityIterations = 8;
+            // walking (animated) people must not bulldoze bodies and pieces lying around
+            Physics.IgnoreLayerCollision(Mannequin.LayerWalk, Mannequin.LayerRag, true);
+            Physics.IgnoreLayerCollision(Mannequin.LayerWalk, 2, true);
+            Application.logMessageReceived += OnLog;
+            FlatLook(true);
             Physics.gravity = new Vector3(0, -9.81f, 0);
             ApplyTime();
 
@@ -38,6 +44,48 @@ namespace VITS
             player = pgo.AddComponent<Player>();
             for (int i = 0; i < 10; i++) Spawn();
         }
+
+        public static string LastError = "";
+        void OnLog(string msg, string stack, LogType t)
+        {
+            if (t == LogType.Error || t == LogType.Exception || t == LogType.Assert) LastError = msg.Length > 160 ? msg.Substring(0, 160) : msg;
+        }
+
+        // the reference game has a flat look: no ambient occlusion (it also darkens holes in the skin) and no post effects
+        readonly System.Collections.Generic.List<object> disabledFeatures = new System.Collections.Generic.List<object>();
+        void FlatLook(bool on)
+        {
+            try
+            {
+                if (on)
+                {
+                    foreach (var root in SceneManager.GetActiveScene().GetRootGameObjects())
+                        if (root.GetComponent("Volume") != null && root != gameObject) root.SetActive(false);
+                }
+                var rp = UnityEngine.Rendering.GraphicsSettings.currentRenderPipeline;
+                if (rp == null) return;
+                if (!on) { foreach (var f in disabledFeatures) f.GetType().GetMethod("SetActive")?.Invoke(f, new object[] { true }); disabledFeatures.Clear(); return; }
+                var field = rp.GetType().GetField("m_RendererDataList", BindingFlags.NonPublic | BindingFlags.Instance);
+                if (!(field?.GetValue(rp) is System.Array list)) return;
+                foreach (var rd in list)
+                {
+                    if (rd == null) continue;
+                    var feats = rd.GetType().GetProperty("rendererFeatures", BindingFlags.Public | BindingFlags.Instance)?.GetValue(rd) as System.Collections.IList;
+                    if (feats == null) continue;
+                    foreach (var f in feats)
+                    {
+                        if (f == null || !f.GetType().Name.Contains("AmbientOcclusion")) continue;
+                        var active = f.GetType().GetProperty("isActive")?.GetValue(f);
+                        if (active is bool b && !b) continue;
+                        f.GetType().GetMethod("SetActive")?.Invoke(f, new object[] { false });
+                        disabledFeatures.Add(f);
+                    }
+                }
+            }
+            catch (System.Exception e) { Debug.LogWarning("FlatLook: " + e.Message); }
+        }
+
+        void OnDestroy() { FlatLook(false); Application.logMessageReceived -= OnLog; }
 
         public void Spawn()
         {
@@ -137,13 +185,14 @@ namespace VITS
             GUI.DrawTexture(new Rect(cx - t / 2, cy - g - l, t, l), Texture2D.whiteTexture); GUI.DrawTexture(new Rect(cx - t / 2, cy + g, t, l), Texture2D.whiteTexture);
             GUI.color = Color.white;
 
+            if (LastError.Length > 0) { st.normal.textColor = new Color(1f, 0.3f, 0.3f); st.fontSize = (int)(13 * s); st.alignment = TextAnchor.UpperLeft; GUI.Label(new Rect(20 * s, H - 62 * s, W - 40 * s, 24 * s), "ERROR: " + LastError, st); }
             if (!player.locked) Label(new Rect(0, H * 0.55f, W, 30 * s), "CLICK TO PLAY", (int)(22 * s), TextAnchor.UpperCenter);
 
             // medical monitor
             var d = player.looked;
             if (d != null)
             {
-                var r = new Rect(16 * s, 16 * s, 380 * s, (190 + d.injuries.Count * 20) * s);
+                var r = new Rect(16 * s, 16 * s, 380 * s, (212 + d.injuries.Count * 20) * s);
                 GUI.DrawTexture(r, panelTex);
                 GUI.DrawTexture(new Rect(r.x, r.y, 4 * s, r.height), Texture2D.whiteTexture, ScaleMode.StretchToFill, false, 0, new Color(1f, 0.45f, 0.18f), 0, 0);
                 float y = r.y + 10 * s; float x = r.x + 16 * s;
@@ -152,6 +201,7 @@ namespace VITS
                 string life = d.dead ? "<color=#ff5a50>DEAD</color>" : d.conscious ? "<color=#5cd08f>ALIVE · CONSCIOUS</color>" : "<color=#f0b040>ALIVE · FAINTED</color>";
                 Label(new Rect(x, y, 360 * s, 24 * s), life, (int)(14 * s), TextAnchor.UpperLeft); y += 24 * s;
                 Label(new Rect(x, y, 360 * s, 24 * s), "STATUS  " + d.status, (int)(13 * s), TextAnchor.UpperLeft, 0.8f); y += 22 * s;
+                Label(new Rect(x, y, 360 * s, 24 * s), $"LEG SUPPORT  L {d.legFn[0] * 100f:0}%  R {d.legFn[1] * 100f:0}%   EFFORT {d.support * 100f:0}%", (int)(12 * s), TextAnchor.UpperLeft, 0.7f); y += 20 * s;
                 float bl = Mathf.Max(0, d.blood) / 1000f;
                 Label(new Rect(x, y, 360 * s, 24 * s), $"BLOOD  {bl:0.00} OF 5.0 L  ({d.blood / Mannequin.BloodMax * 100f:0}%)", (int)(13 * s), TextAnchor.UpperLeft, 0.8f); y += 20 * s;
                 GUI.DrawTexture(new Rect(x, y, 340 * s, 5 * s), Texture2D.whiteTexture, ScaleMode.StretchToFill, false, 0, new Color(1, 1, 1, 0.15f), 0, 0);

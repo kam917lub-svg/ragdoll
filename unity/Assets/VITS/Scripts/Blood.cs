@@ -54,7 +54,7 @@ namespace VITS
                 Mats.Decal(Tex(2), Fresh),                           // elongated drop / drip
                 Mats.Decal(Tex(3), new Color(0.08f, 0.08f, 0.09f, 0.9f)), // bullet hole
                 Mats.Decal(Tex(2), new Color(0.45f, 0.01f, 0.03f, 0.95f)), // wall drip (darker)
-                Mats.Decal(Tex(3), new Color(0.3f, 0.0f, 0.02f, 1f)),       // bullet wound on skin
+                Mats.Decal(Tex(5), new Color(0.32f, 0.01f, 0.03f, 1f)),      // bullet wound on skin
             };
             for (int v = 0; v < 6; v++) skin[v] = new SkinDec[SKIN_MAX];
             skinBatches = new Matrix4x4[12][]; for (int q = 0; q < 12; q++) skinBatches[q] = new Matrix4x4[B];
@@ -113,6 +113,12 @@ namespace VITS
                 disc(c, c, S * 0.14f, 1);
                 disc(c, c, S * 0.24f, 0.18f);
             }
+            else if (kind == 5)
+            {
+                // small gunshot wound: dark round core, ragged edge
+                disc(c, c, S * 0.3f, 1);
+                for (int i = 0; i < 9; i++) { float an = R() * 6.283f; disc(c + Mathf.Cos(an) * S * 0.26f, c + Mathf.Sin(an) * S * 0.26f, S * (0.06f + R() * 0.06f), 1); }
+            }
             else
             {
                 // pool blob: many overlapping discs, organic edge
@@ -124,7 +130,7 @@ namespace VITS
             {
                 float al = a[i];
                 // slightly darker rim (dried edge), lighter center: reads as liquid
-                byte g = (byte)(al > 0.9f ? 255 : 215);
+                byte g = (byte)(kind == 5 ? (al > 0.9f ? 170 : 255) : (al > 0.9f ? 255 : 215));
                 px[i] = new Color32(g, g, g, (byte)(al * 255));
             }
             var tex = new Texture2D(S, S, TextureFormat.RGBA32, true) { wrapMode = TextureWrapMode.Clamp, filterMode = FilterMode.Trilinear };
