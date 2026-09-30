@@ -257,3 +257,11 @@ Fatto: taglio arto pistola 5-6 colpi, AK 3-4. I cerchi grigi = segno di colpo su
 --- PROMPT 20 ---
 Utente: sembra fatto di dischi; vuole staccare pezzi di carne sparando, tagliare un arto facendo una linea di colpi, ridurre la testa in poltiglia.
 Fatto: ogni colpo toglie la pelle attorno a entrata (1,5/2 cm) e uscita (2,5/3,4 cm; testa x1,3) e lancia il pezzo; si vede la carne interna. Arto tagliato solo quando i fori sono alla stessa altezza (+-5 cm) e attorno all arto: pistola 5 fori (o 7), AK 3 (o 5). Testa: persa il 30% della pelle -> esplode in 14 pezzi, collo aperto che spruzza, morte; decapitazione al 7o colpo. Monconi: niente piu dischi, carne irregolare + osso sporgente.
+
+--- PROMPT 21 ---
+Utente: i colpi si buggano ancora (cerchi grigi su corpo a terra, LAST SHOT: FLOOR); Y deve spawnare un Carl sul mirino; pezzi di carne rotolano ovunque; le braccia attraversano il torso quando coprono la ferita. Priorita: proiettili.
+Fatto:
+- Proiettili: nuovo Mannequin.PickSkin = test raggio-triangolo sulla pelle ESATTAMENTE come viene disegnata (BakeMesh), a due facce: attraverso un buco scavato si colpisce la carne dietro. Il raycast fisico ora ignora i collider dei Carl (layer 8/9) e i pezzi; il colpo va al Carl se la pelle e' piu vicina del muro/pavimento. Niente piu segni di proiettile (i cerchi grigi) entro 45 cm da un corpo.
+- Y: raycast dal mirino, Carl messo a terra in quel punto, spostato fuori dai muri, girato verso il giocatore. N resta casuale.
+- Pezzi di carne: attrito alto, niente rimbalzo, smorzamento; appena fermi a terra diventano statici.
+- Braccia: l IK del gomito prova 7 direzioni e sceglie quella che tiene braccio e avambraccio fuori da petto, bacino e testa (SDF, 4 cm di spessore).

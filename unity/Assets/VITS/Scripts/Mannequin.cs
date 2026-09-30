@@ -64,7 +64,7 @@ namespace VITS
     {
         static readonly Queue<GameObject> all = new Queue<GameObject>();
         static Material skin, meat;
-        float bleed; Rigidbody rb;
+        float bleed, born; Rigidbody rb;
 
         public static void Clear() { all.Clear(); }
 
@@ -83,14 +83,21 @@ namespace VITS
             rb.mass = Mathf.Max(0.03f, s * s * s * 1000f);
             rb.linearVelocity = v; rb.angularVelocity = Random.insideUnitSphere * 12f;
             rb.maxDepenetrationVelocity = 1f;
+            rb.linearDamping = 0.6f; rb.angularDamping = 6f;   // wet meat: it slaps down and stays, it doesn't roll
+            var pm = new PhysicsMaterial("meat") { dynamicFriction = 1.2f, staticFriction = 1.5f, bounciness = 0f,
+                frictionCombine = PhysicsMaterialCombine.Maximum, bounceCombine = PhysicsMaterialCombine.Minimum };
+            g.GetComponent<Collider>().sharedMaterial = pm;
             rb.collisionDetectionMode = CollisionDetectionMode.ContinuousSpeculative;
-            var gb = g.AddComponent<Gib>(); gb.rb = rb; gb.bleed = Random.Range(1f, 2.5f);
+            var gb = g.AddComponent<Gib>(); gb.rb = rb; gb.bleed = Random.Range(1f, 2.5f); gb.born = Time.time;
             all.Enqueue(g);
             while (all.Count > 140) { var o = all.Dequeue(); if (o != null) Destroy(o); }
         }
 
         void Update()
         {
+            // once it has landed and slowed down, it sticks
+            if (rb != null && !rb.isKinematic && Time.time - born > 0.6f && rb.linearVelocity.sqrMagnitude < 0.09f && Physics.Raycast(transform.position, Vector3.down, 0.08f, ~((1 << 2) | (1 << Mannequin.LayerWalk) | (1 << Mannequin.LayerRag))))
+            { rb.linearVelocity = Vector3.zero; rb.angularVelocity = Vector3.zero; rb.isKinematic = true; }
             if (bleed <= 0) return;
             bleed -= Time.deltaTime;
             if (Random.value < Time.deltaTime * 14f && Blood.I != null)
@@ -596,6 +603,21 @@ namespace VITS
         }
 
         // two-bone IK: shoulder -> elbow -> palm onto the wound (real arm lengths; if out of reach, stretch toward it)
+        static readonly Vector3[] POLES = {
+            new Vector3(0.6f, -1f, -0.4f), new Vector3(1f, -0.6f, -0.3f), new Vector3(1f, -0.2f, -0.5f),
+            new Vector3(1f, 0.2f, -0.2f), new Vector3(0.7f, -0.7f, -1f), new Vector3(1f, 0.5f, 0.2f), new Vector3(0.3f, -0.5f, -1f) };
+
+        // distance from the torso surface (chest, pelvis, head) minus the arm's own thickness
+        float Clear(Vector3 w)
+        {
+            float c = 9f;
+            foreach (var k in TORSO)
+                if (parts.TryGetValue(k, out Part p) && p != null && !p.severed)
+                    c = Mathf.Min(c, p.Sdf(p.transform.InverseTransformPoint(w)));
+            return c - 0.04f;
+        }
+        static readonly string[] TORSO = { "chest", "pelvis", "head" };
+
         bool HandIK(string arm, out Quaternion qu, out Quaternion qf)
         {
             qu = qf = Quaternion.identity;
@@ -609,15 +631,24 @@ namespace VITS
             if (d < 1e-4f) return false;
             Vector3 dir = to / d; d = Mathf.Clamp(d, 0.1f, L1 + L2 - 0.005f);
             float side = arm == "R" ? 1f : -1f;
-            // elbow points down, a bit out and back, like a real arm
-            Vector3 pole = ch.transform.TransformDirection(new Vector3(0.6f * side, -1f, -0.4f)).normalized;
-            Vector3 perp = pole - dir * Vector3.Dot(pole, dir);
-            if (perp.sqrMagnitude < 1e-6f) perp = ch.transform.TransformDirection(Vector3.down);
-            perp.Normalize();
             float a = Mathf.Acos(Mathf.Clamp((L1 * L1 + d * d - L2 * L2) / (2f * L1 * d), -1f, 1f));
-            Vector3 u = dir * Mathf.Cos(a) + perp * Mathf.Sin(a);
-            Vector3 e = s + u * L1;
-            Vector3 f = (s + dir * d - e).normalized;
+            // elbow points down, a bit out and back, like a real arm; if that drives the arm through the torso, swing the elbow wider
+            Vector3 u = Vector3.down, e = s, f = Vector3.down; float bestC = -9f;
+            for (int i = 0; i < POLES.Length; i++)
+            {
+                var pl = POLES[i];
+                Vector3 pole = ch.transform.TransformDirection(new Vector3(pl.x * side, pl.y, pl.z)).normalized;
+                Vector3 perp = pole - dir * Vector3.Dot(pole, dir);
+                if (perp.sqrMagnitude < 1e-6f) continue;
+                perp.Normalize();
+                Vector3 uu = dir * Mathf.Cos(a) + perp * Mathf.Sin(a);
+                Vector3 ee = s + uu * L1, hand = s + dir * d;
+                float c = 9f;
+                for (int k = 1; k <= 4; k++) c = Mathf.Min(c, Clear(Vector3.Lerp(s, ee, k / 4f)));
+                for (int k = 1; k <= 3; k++) c = Mathf.Min(c, Clear(Vector3.Lerp(ee, hand, k * 0.22f)));
+                if (c > bestC + 0.005f) { bestC = c; u = uu; e = ee; f = (hand - ee).normalized; }
+                if (c > 0.045f) break;   // clear of the body: keep the most natural pose
+            }
             // to local rotations (rest pose: segments point down -Y)
             Quaternion chestRot = ch.transform.rotation;
             qu = Quaternion.FromToRotation(Vector3.down, Quaternion.Inverse(chestRot) * u);
@@ -1136,6 +1167,52 @@ namespace VITS
                 }
             }
             return best;
+        }
+
+        // exact hit test against the skin triangles as they are drawn right now (two-sided: through a carved hole you hit the flesh behind it)
+        static Mesh bake;
+        static readonly List<Vector3> bv = new List<Vector3>();
+        public static bool PickSkin(Vector3 o, Vector3 d, float maxT, out Part best, out float bestT, out Vector3 nrm)
+        {
+            best = null; bestT = maxT; nrm = -d;
+            if (bake == null) bake = new Mesh();
+            var ray = new Ray(o, d);
+            foreach (var sk in Skin.All)
+            {
+                if (sk == null || sk.r == null || !sk.r.enabled || !sk.r.gameObject.activeInHierarchy || sk.tris.Count == 0) continue;
+                if (!sk.r.bounds.IntersectRay(ray, out float bt) || bt > bestT) continue;
+                sk.r.BakeMesh(bake, true);
+                bake.GetVertices(bv);
+                var M = sk.r.transform.localToWorldMatrix;
+                Vector3 lo = sk.r.transform.InverseTransformPoint(o), ld = sk.r.transform.InverseTransformDirection(d);
+                float scale = ld.magnitude; ld /= scale;
+                int hitTri = -1; float hitT = bestT * scale;
+                var T = sk.tris;
+                for (int t = 0; t < T.Count; t += 3)
+                {
+                    Vector3 a = bv[T[t]], e1 = bv[T[t + 1]] - a, e2 = bv[T[t + 2]] - a;
+                    Vector3 pv = Vector3.Cross(ld, e2); float det = Vector3.Dot(e1, pv);
+                    if (det > -1e-9f && det < 1e-9f) continue;
+                    float inv = 1f / det; Vector3 tv = lo - a;
+                    float u = Vector3.Dot(tv, pv) * inv; if (u < 0 || u > 1) continue;
+                    Vector3 qv = Vector3.Cross(tv, e1);
+                    float v = Vector3.Dot(ld, qv) * inv; if (v < 0 || u + v > 1) continue;
+                    float tt = Vector3.Dot(e2, qv) * inv;
+                    if (tt > 0 && tt < hitT) { hitT = tt; hitTri = t; }
+                }
+                if (hitTri < 0) continue;
+                float wt = hitT / scale; Vector3 wp = o + d * wt;
+                Part part = null;
+                var w = sk.bw[T[hitTri]];
+                if (w.boneIndex0 < sk.bones.Length && sk.bones[w.boneIndex0] != null) part = sk.bones[w.boneIndex0].GetComponentInParent<Part>();
+                if (part == null) part = Nearest(wp, 0.3f);
+                if (part == null) continue;
+                Vector3 a2 = bv[T[hitTri]];
+                Vector3 n = M.MultiplyVector(Vector3.Cross(bv[T[hitTri + 1]] - a2, bv[T[hitTri + 2]] - a2)).normalized;
+                if (Vector3.Dot(n, d) > 0) n = -n;
+                bestT = wt; best = part; nrm = n;
+            }
+            return best != null;
         }
 
         public static bool Pick(Vector3 o, Vector3 d, float maxT, out Part best, out float bestT)

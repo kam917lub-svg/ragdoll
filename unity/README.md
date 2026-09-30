@@ -21,7 +21,8 @@ Serve Unity 6 (testato come codice per 6000.x) con **URP**.
 | Rotella (tenuta) | afferrare e trascinare un corpo o un pezzo; girare la rotella = avvicina/allontana |
 | R | ricaricare |
 | T | raggi X (ossa, organi, arterie, vene, nervi) |
-| Y (o N) | nuovo Carl |
+| Y | nuovo Carl nel punto indicato dal mirino (a terra, rivolto verso di te) |
+| N | nuovo Carl in un punto casuale |
 | [ ] | rallenta / accelera il tempo |
 | P | pausa |
 | Backspace | ricomincia |

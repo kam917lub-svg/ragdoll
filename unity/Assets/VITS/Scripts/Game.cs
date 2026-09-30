@@ -96,6 +96,25 @@ namespace VITS
             go.AddComponent<Mannequin>();
         }
 
+        // Y: a new Carl where the crosshair points (on the floor under that spot, pushed out of walls), facing you
+        public void SpawnAtCrosshair()
+        {
+            var cam = Camera.main; if (cam == null) { Spawn(); return; }
+            int mask = ~((1 << 2) | (1 << Mannequin.LayerWalk) | (1 << Mannequin.LayerRag));
+            var ray = new Ray(cam.transform.position, cam.transform.forward);
+            Vector3 p = Physics.Raycast(ray, out RaycastHit h, 60f, mask, QueryTriggerInteraction.Ignore) ? h.point + h.normal * 0.35f : ray.origin + ray.direction * 8f;
+            if (Physics.Raycast(p + Vector3.up * 0.5f, Vector3.down, out RaycastHit g, 50f, mask, QueryTriggerInteraction.Ignore)) p = g.point;
+            p.y = Mathf.Max(0f, p.y);
+            for (int i = 0; i < 12 && Physics.CheckCapsule(p + Vector3.up * 0.4f, p + Vector3.up * 1.5f, 0.28f, mask, QueryTriggerInteraction.Ignore); i++)
+            {
+                Vector3 back = cam.transform.position - p; back.y = 0; p += back.normalized * 0.15f;
+            }
+            Vector3 face = cam.transform.position - p; face.y = 0;
+            var go = new GameObject("Mannequin");
+            go.transform.SetPositionAndRotation(p, face.sqrMagnitude > 1e-4f ? Quaternion.LookRotation(face) : Quaternion.identity);
+            go.AddComponent<Mannequin>();
+        }
+
         public static Vector3 RandomPoint()
         {
             for (int i = 0; i < 40; i++)
@@ -158,7 +177,8 @@ namespace VITS
 
         void Update()
         {
-            if (GI.Down(K.N) || GI.Down(K.Y)) Spawn();
+            if (GI.Down(K.N)) Spawn();
+            if (GI.Down(K.Y)) SpawnAtCrosshair();
             if (GI.Down(K.T)) XRay.Toggle();
             if (GI.Down(K.Back)) { XRay.On = false; Skin.All.Clear(); SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex); return; }
             if (GI.Down(K.LBracket)) { tsi = Mathf.Max(0, tsi - 1); ApplyTime(); }

@@ -215,27 +215,21 @@ namespace VITS
             var dir = (cam.transform.forward + Random.insideUnitSphere * 0.004f).normalized;
             var ray = new Ray(cam.transform.position, dir);
             Vector3 end = ray.origin + dir * 200f;
-            if (Physics.Raycast(ray, out RaycastHit h, 200f, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore))
+            // 1) the drawn skin of every Carl (alive, down, dead, carved, cut pieces) - exactly what you see
+            bool body = Mannequin.PickSkin(ray.origin, dir, 200f, out Part bp, out float bt, out Vector3 bn);
+            bool world = Physics.Raycast(ray, out RaycastHit h, 200f, ~((1 << 2) | (1 << Mannequin.LayerWalk) | (1 << Mannequin.LayerRag)), QueryTriggerInteraction.Ignore);
+            if (body && (!world || bt <= h.distance + 0.02f))
+            {
+                end = ray.origin + dir * bt; bp.owner.Hit(bp, null, end, dir, bn); hitMarkT = 0.2f;
+            }
+            else if (world)
             {
                 end = h.point;
-                // a body in front of what the physics hit? (bullets hit the visible skin, not the rough colliders)
-                if (Mannequin.Pick(ray.origin, dir, h.distance + 0.02f, out Part sp, out float st)) { end = ray.origin + dir * st; sp.owner.Hit(sp, null, end, dir, -dir); hitMarkT = 0.2f; }
-                else
-                {
-                    var part = h.collider.GetComponent<Part>();
-                    if (part != null) { part.owner.Hit(part, h.collider, h.point, dir, h.normal); hitMarkT = 0.2f; }
-                    else if (h.rigidbody != null && Mannequin.Nearest(h.point, 0.15f) is Part rp) { rp.owner.Hit(rp, null, h.point, dir, h.normal); hitMarkT = 0.2f; }
-                    else if (h.rigidbody != null) h.rigidbody.AddForceAtPosition(dir * Game.BulletImpulse, h.point, ForceMode.Impulse);
-                    else
-                    {
-                        // anything that lands on (or right next to) a body counts as hitting that body
-                        var np = Mannequin.Nearest(h.point, 0.15f);
-                        if (np != null) { np.owner.Hit(np, null, h.point, dir, h.normal); hitMarkT = 0.2f; }
-                        else { Blood.I.Hole(h.point, h.normal); Game.LastShot = h.collider.name.ToUpper(); }
-                    }
-                }
+                if (h.rigidbody != null) h.rigidbody.AddForceAtPosition(dir * Game.BulletImpulse, h.point, ForceMode.Impulse);
+                // no bullet marks on/under bodies (they showed through carved holes as grey discs)
+                else if (Mannequin.Nearest(h.point, 0.45f) == null) Blood.I.Hole(h.point, h.normal);
+                Game.LastShot = h.collider.name.ToUpper();
             }
-            else if (Mannequin.Pick(ray.origin, dir, 200f, out Part sp2, out float st2)) { end = ray.origin + dir * st2; sp2.owner.Hit(sp2, null, end, dir, -dir); hitMarkT = 0.2f; }
             tracer.SetPosition(0, flash.transform.position);
             tracer.SetPosition(1, end);
             tracerT = (end - cam.transform.position).magnitude > 3f ? 0.025f : 0f;
