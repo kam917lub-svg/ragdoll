@@ -142,6 +142,7 @@ namespace VITS
         public void Emit(Vector3 p, Vector3 v, float volMl)
         {
             if (dn >= MAXD) return;
+            v = Vector3.ClampMagnitude(v, 6f);
             dp[dn] = p; dv[dn] = v; dvol[dn] = volMl; dage[dn] = 0; dn++;
         }
 

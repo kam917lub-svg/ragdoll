@@ -184,7 +184,16 @@ namespace VITS
             GUI.color = cc; float cx = W / 2f, cy = H / 2f, g = 5 * s, l = 8 * s, t = Mathf.Max(1, 2 * s);
             GUI.DrawTexture(new Rect(cx - g - l, cy - t / 2, l, t), Texture2D.whiteTexture); GUI.DrawTexture(new Rect(cx + g, cy - t / 2, l, t), Texture2D.whiteTexture);
             GUI.DrawTexture(new Rect(cx - t / 2, cy - g - l, t, l), Texture2D.whiteTexture); GUI.DrawTexture(new Rect(cx - t / 2, cy + g, t, l), Texture2D.whiteTexture);
+            if (player.hitMarkT > 0)
+            {
+                GUI.color = new Color(1f, 0.25f, 0.2f, 1f); float q = 7 * s;
+                GUIUtility.RotateAroundPivot(45, new Vector2(cx, cy));
+                GUI.DrawTexture(new Rect(cx - g - l - q, cy - t / 2, l, t), Texture2D.whiteTexture); GUI.DrawTexture(new Rect(cx + g + q, cy - t / 2, l, t), Texture2D.whiteTexture);
+                GUI.DrawTexture(new Rect(cx - t / 2, cy - g - l - q, t, l), Texture2D.whiteTexture); GUI.DrawTexture(new Rect(cx - t / 2, cy + g + q, t, l), Texture2D.whiteTexture);
+                GUI.matrix = Matrix4x4.identity;
+            }
             GUI.color = Color.white;
+            Label(new Rect(0, cy + 22 * s, W, 20 * s), player.aimInfo, (int)(12 * s), TextAnchor.UpperCenter, 0.75f);
 
             if (LastError.Length > 0) { st.normal.textColor = new Color(1f, 0.3f, 0.3f); st.fontSize = (int)(13 * s); st.alignment = TextAnchor.UpperLeft; GUI.Label(new Rect(20 * s, H - 62 * s, W - 40 * s, 24 * s), "ERROR: " + LastError, st); }
             if (!player.locked) Label(new Rect(0, H * 0.55f, W, 30 * s), "CLICK TO PLAY", (int)(22 * s), TextAnchor.UpperCenter);

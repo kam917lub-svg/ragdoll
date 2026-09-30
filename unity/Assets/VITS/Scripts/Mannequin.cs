@@ -229,7 +229,7 @@ namespace VITS
                     {
                         var c = go.AddComponent<CapsuleCollider>(); c.direction = 1; c.center = new Vector3(0, 0.19f, 0); c.height = 0.5f; c.radius = 0.13f;
                         var s = go.AddComponent<CapsuleCollider>(); s.direction = 0; s.center = new Vector3(0, 0.315f, 0); s.height = 0.46f; s.radius = 0.085f;
-                        Mats.Vis(PrimitiveType.Cube, t, new Vector3(-0.07f, 0.27f, 0.104f), new Vector3(0.08f, 0.028f, 0.01f), tagMat, false);
+                        Mats.Vis(PrimitiveType.Cube, t, new Vector3(-0.06f, 0.27f, 0.098f), new Vector3(0.05f, 0.016f, 0.004f), tagMat, false);
                         break;
                     }
                     case "head":
@@ -890,7 +890,7 @@ namespace VITS
                 while (w.acc >= dv && guard++ < 40)
                 {
                     w.acc -= dv;
-                    Vector3 v = spurt ? n * (1.0f + 3.2f * pulse * pressure) + Random.insideUnitSphere * 0.2f
+                    Vector3 v = spurt ? (n * (0.6f + 1.6f * pulse * pressure) + Vector3.down * 0.3f) + Random.insideUnitSphere * 0.15f
                                       : n * 0.05f + Random.insideUnitSphere * 0.04f;
                     if (spurt || Random.value < 0.35f) Blood.I.Emit(p + n * 0.012f, v + bv, dv);
                     if (!dead && mine) blood -= dv;

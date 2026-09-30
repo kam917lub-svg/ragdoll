@@ -10,6 +10,7 @@ namespace VITS
         public int ammo = 15; public const int MaxAmmo = 15;
         public float reloadT;
         public bool locked;
+        public string aimInfo = ""; public float hitMarkT;
 
         CharacterController cc;
         float yaw, pitch, vy, cool, recoil, flashT, tracerT, bob;
@@ -107,7 +108,15 @@ namespace VITS
                 var p = lh.collider.GetComponent<Part>();
                 if (p != null) looked = p.owner;
             }
-            if (Mannequin.Pick(cam.transform.position, cam.transform.forward, 40f, out Part lp, out float _)) looked = lp.owner;
+            aimInfo = "";
+            if (Physics.Raycast(cam.transform.position, cam.transform.forward, out RaycastHit ah, 200f, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore))
+                aimInfo = ah.collider.name.ToUpper() + " · " + ah.distance.ToString("0.0") + " M";
+            if (Mannequin.Pick(cam.transform.position, cam.transform.forward, 200f, out Part lp, out float ld))
+            {
+                if (ld < 40f) looked = lp.owner;
+                aimInfo = lp.owner.displayName + " · " + lp.key.ToUpper() + " · " + ld.ToString("0.0") + " M";
+            }
+            hitMarkT -= dt;
         }
 
         void Shoot()
@@ -123,16 +132,16 @@ namespace VITS
             {
                 end = h.point;
                 // a body in front of what the physics hit? (bullets hit the visible skin, not the rough colliders)
-                if (Mannequin.Pick(ray.origin, dir, h.distance + 0.02f, out Part sp, out float st)) { end = ray.origin + dir * st; sp.owner.Hit(sp, null, end, dir, -dir); }
+                if (Mannequin.Pick(ray.origin, dir, h.distance + 0.02f, out Part sp, out float st)) { end = ray.origin + dir * st; sp.owner.Hit(sp, null, end, dir, -dir); hitMarkT = 0.2f; }
                 else
                 {
                     var part = h.collider.GetComponent<Part>();
-                    if (part != null) part.owner.Hit(part, h.collider, h.point, dir, h.normal);
+                    if (part != null) { part.owner.Hit(part, h.collider, h.point, dir, h.normal); hitMarkT = 0.2f; }
                     else if (h.rigidbody != null) h.rigidbody.AddForceAtPosition(dir * Game.BulletImpulse, h.point, ForceMode.Impulse);
                     else Blood.I.Hole(h.point, h.normal);
                 }
             }
-            else if (Mannequin.Pick(ray.origin, dir, 200f, out Part sp2, out float st2)) { end = ray.origin + dir * st2; sp2.owner.Hit(sp2, null, end, dir, -dir); }
+            else if (Mannequin.Pick(ray.origin, dir, 200f, out Part sp2, out float st2)) { end = ray.origin + dir * st2; sp2.owner.Hit(sp2, null, end, dir, -dir); hitMarkT = 0.2f; }
             tracer.SetPosition(0, gun.TransformPoint(new Vector3(0, 0.03f, 0.14f)));
             tracer.SetPosition(1, end);
             tracerT = 0.03f;

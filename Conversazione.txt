@@ -203,3 +203,7 @@ Fix:
   corpi a terra/morti/pezzi sempre colpibili.
 - Shader decal senza Offset; niente alone nero; ferita rosso scuro.
 - XRay.cs + shader VITS/XRay: T mostra ossa, organi, arterie, vene, nervi. Reset = Backspace.
+
+--- PROMPT 12 ---
+Utente: sangue che vola buggato, ancora non riesce a colpire, segni grandi.
+Fatto: scritta di mira sotto il mirino (cosa colpisce il raggio e cosa colpisce la superficie del corpo), segno di colpo rosso, getti arteriosi piu bassi, velocita gocce max 6 m/s, targhetta petto piu piccola. In attesa di screenshot con la scritta di mira per trovare il guasto.
