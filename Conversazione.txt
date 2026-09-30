@@ -296,3 +296,10 @@ Fatto:
 - Testa: foro d uscita x1,8 (pistola, ~4,5 cm) / x1,9 (AK, ~6,5 cm); esplosione del cranio solo con AWP; soglia poltiglia per accumulo di fori alzata dal 30% al 60%.
 - AWP: nel cannocchiale dispersione zero, dall anca 0,02 (era 0,04). (Il bug dei colpi da vicino era gia corretto nel prompt 24: test pelle senza bounds.)
 - Menu Esc: slider SENSITIVITY (0,1-4) e ADS SENSITIVITY (0,1-2x, default 0,7), salvati in PlayerPrefs; nello scope la sensibilita scala anche con lo zoom.
+
+--- PROMPT 26 ---
+Utente: pulsante reset nel menu Esc; i Carl devono usare le scale (camminando e strisciando, su e giu); non ha mai visto un Carl ferito alle gambe trascinarsi dietro un muro.
+Fatto:
+- Menu Esc: RESET (everything) = ricarica tutto (Carl, sangue, pezzi, tempo); Backspace fa lo stesso (Game.ResetAll).
+- Scale: Level.Stairs (2 piattaforme: basso/alto, area piattaforma, area gradini) + Level.Route(pos, target) che manda al fondo/cima scala quando la meta e su un altro livello. Camminata usa Route; non scendono piu dal bordo (dislivello >0,6 m bloccato). RandomPoint sceglie a volte un punto sulle piattaforme, quindi ci salgono e scendono.
+- Strisciare (causa: forza troppo bassa contro l attrito di 70 kg, quindi restavano fermi): ora tutte le parti vengono trascinate verso il punto (velocita 0,35-0,9 m/s secondo forza e dolore, a strattoni), testa avanti, sollevano il petto sui gradini; segue Route per le scale; arrivato al riparo si ferma 6-12 s (riparte se colpito).

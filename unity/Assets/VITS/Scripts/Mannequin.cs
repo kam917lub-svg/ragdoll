@@ -134,6 +134,7 @@ namespace VITS
         enum S { Idle, Walk, Flee, Cover }
         S state = S.Idle;
         public float pain; int woundCount;
+        float crawlRestT;
         float turnRate, headYaw, headYawT, lookT, peekT, peek, stateT, phase, speed, heart, writheT, hurt, crawlT, detourT, stuckT, bestDist, foldT, groundY, groundT, deathT, shock;
         int torsoHits, headHits; bool headMashed;
         readonly int[] carvedBone = new int[BodyMesh.NB];
@@ -436,7 +437,7 @@ namespace VITS
                 else NewGoal(S.Walk, Game.RandomPoint(), 10f);
             }
 
-            Vector3 goal = detourT > 0 ? detour : target;
+            Vector3 goal = detourT > 0 ? detour : Level.Route(pos, target);
             detourT -= dt;
             Vector3 dir = Flat(goal - pos);
             if (!Free(pos, false))
@@ -467,7 +468,8 @@ namespace VITS
                 }
                 Vector3 np = Game.Clamp(pos + step);
                 float gy = Ground(np, pos.y);
-                if (gy - pos.y < 0.5f) np.y = Mathf.MoveTowards(pos.y, gy, dt * 3f); else np = pos;
+                // up a step (< 0.5 m) or down a step; never walk off a platform edge - use the stairs
+                if (gy - pos.y < 0.5f && pos.y - gy < 0.6f) np.y = Mathf.MoveTowards(pos.y, gy, dt * 3f); else np = pos;
                 transform.position = np;
                 float moved = new Vector3(np.x - pos.x, 0, np.z - pos.z).magnitude;
                 phase += Hopping ? dt * 1.6f : moved / Stride();
@@ -775,7 +777,7 @@ namespace VITS
                 T("uarmL", -40f * c, 20f * c); T("uarmR", -40f * c, -20f * c); T("farmL", -100f * c); T("farmR", -100f * c);
                 Tone(crawling ? 0.25f : conscious ? 0.35f : 0.08f);
                 if (conscious && !crawling) Writhe(dt * (1f + pain * 3f));
-                if (conscious && !crawling && strength > 0.15f && Time.time - lastHitTime > 0.25f) StartCrawl();   // down: straight away, drag yourself off
+                if (conscious && !crawling && strength > 0.15f && Time.time - lastHitTime > 0.25f && (Time.time > crawlRestT || Time.time - lastHitTime < 1f)) StartCrawl();   // down: straight away, drag yourself off
             }
             if (clutch != null && !clutch.severed && conscious)
             {
@@ -854,10 +856,29 @@ namespace VITS
         // shot in the legs but awake: drag yourself with the arms toward cover
         void Crawl()
         {
-            var ch = parts["chest"];
-            Vector3 to = Flat(target - ch.transform.position);
-            if (to.magnitude < 0.7f) { crawling = false; injuries.Add("REACHED COVER"); return; }
-            Vector3 d = to.normalized;
+            var ch = parts["chest"]; var pel = parts["pelvis"];
+            Vector3 cp = ch.transform.position;
+            if (Flat(target - cp).magnitude < 0.8f && Mathf.Abs(target.y - cp.y) < 1.2f) { crawling = false; crawlRestT = Time.time + Random.Range(6f, 12f); injuries.Add("REACHED COVER"); return; }
+            Vector3 wp = Level.Route(new Vector3(cp.x, cp.y - 0.25f, cp.z), target);
+            Vector3 d = Flat(wp - cp).normalized;
+            // drag the whole body along the floor (friction would pin 70 kg otherwise): arms pull in bursts, legs trail
+            float spd = Mathf.Clamp01(strength * 1.4f) * (0.35f + pain * 0.55f);
+            float burst = Mathf.Max(0.25f, Mathf.Sin(crawlT * 3.5f) + 0.3f);
+            foreach (var q in parts.Values)
+            {
+                if (q.severed || q.rb == null) continue;
+                Vector3 v = q.rb.linearVelocity, hv = Flat(v);
+                q.rb.AddForce((d * spd * burst - hv) * 0.12f, ForceMode.VelocityChange);
+            }
+            // a step or stair edge ahead: haul the chest up onto it
+            if (Physics.Raycast(cp + Vector3.up * 0.1f, d, out RaycastHit sh, 0.6f, ~((1 << 2) | (1 << LayerWalk) | (1 << LayerRag)), QueryTriggerInteraction.Ignore) && sh.normal.y < 0.5f)
+            {
+                ch.rb.AddForce(Vector3.up * totalMass * 6f + d * totalMass * 2f);
+                pel.rb.AddForce(Vector3.up * totalMass * 3f);
+            }
+            // head first toward where you are going
+            Vector3 hf = Flat(ch.transform.up); if (hf.sqrMagnitude < 0.01f) hf = Flat(ch.transform.forward);
+            ch.rb.AddTorque(Vector3.up * Vector3.SignedAngle(hf, d, Vector3.up) * 0.4f);
             // adrenaline: the more it hurts, the faster and more frantic the pulls
             float k = Mathf.Clamp01(strength * 1.3f) * (1f + pain * 0.8f);
             crawlT += Time.fixedDeltaTime * (1f + pain * 0.85f);

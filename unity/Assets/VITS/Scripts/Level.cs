@@ -10,6 +10,35 @@ namespace VITS
         public static readonly Color Sky = new Color(0.66f, 0.73f, 0.82f);
         public const float HX = 26f, HZ = 26f;
         public struct CoverWall { public Vector3 pos, normal, along; }
+        // a raised platform with its staircase: bottom / top landing points, the platform area and the stairs area (xz)
+        public class Stair { public Vector3 bottom, top; public Rect plat, steps; public float h; }
+        public static readonly System.Collections.Generic.List<Stair> Stairs = new System.Collections.Generic.List<Stair>();
+
+        static bool In(Rect r, Vector3 p) => r.Contains(new Vector2(p.x, p.z));
+
+        // index of the platform a point is on (-1 = ground level)
+        public static int PlatOf(Vector3 p)
+        {
+            for (int i = 0; i < Stairs.Count; i++) if (In(Stairs[i].plat, p) && p.y > Stairs[i].h - 0.6f) return i;
+            return -1;
+        }
+
+        // next point to walk (or crawl) to on the way to 'target': through the stairs if it is on another level
+        public static Vector3 Route(Vector3 pos, Vector3 target)
+        {
+            int a = PlatOf(pos), b = PlatOf(target);
+            if (a == b) return target;
+            if (a >= 0)
+            {
+                var s = Stairs[a];                                            // going down
+                if (In(s.steps, pos) || (pos - s.top).magnitude < 0.8f) return s.bottom;
+                return s.top;
+            }
+            var t = Stairs[b];                                                // going up
+            if (In(t.steps, pos) || (pos - t.bottom).magnitude < 0.8f) return t.top;
+            return t.bottom;
+        }
+
         public static readonly System.Collections.Generic.List<CoverWall> Covers = new System.Collections.Generic.List<CoverWall>();
         static Material plat, orange, wall;
 
@@ -45,6 +74,9 @@ namespace VITS
             Box(new Vector3(HX + 0.5f, 4f, 0), new Vector3(1f, 8f, HZ * 2f), wall, false);
             Box(new Vector3(-HX - 0.5f, 4f, 0), new Vector3(1f, 8f, HZ * 2f), wall, false);
 
+            Stairs.Clear();
+            Stairs.Add(new Stair { bottom = new Vector3(-15f, 0f, 2.9f), top = new Vector3(-15f, 3f, 11f), plat = new Rect(-20f, 10f, 10f, 8f), steps = new Rect(-17f, 3.6f, 4f, 6.6f), h = 3f });
+            Stairs.Add(new Stair { bottom = new Vector3(14f, 0f, 1.1f), top = new Vector3(14f, 4f, 11f), plat = new Rect(8f, 10f, 12f, 10f), steps = new Rect(11.5f, 1.8f, 5f, 8.4f), h = 4f });
             // left platform + stairs
             Box(new Vector3(-15f, 1.5f, 14f), new Vector3(10f, 3f, 8f), plat, true);
             for (int i = 0; i < 7; i++) { float h = 3f * (7 - i) / 8f; Box(new Vector3(-15f, h / 2f, 10f - 0.45f - i * 0.9f), new Vector3(4f, h, 0.9f), plat, true); }

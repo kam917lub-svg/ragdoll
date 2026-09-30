@@ -26,7 +26,7 @@ Serve Unity 6 (testato come codice per 6000.x) con **URP**.
 | N | nuovo Carl in un punto casuale |
 | [ ] | rallenta / accelera il tempo |
 | P | pausa |
-| Backspace | ricomincia |
+| Backspace | ricomincia (anche pulsante RESET nel menu Esc) |
 | Esc | menu: scegli PISTOLA, AK-47 o AWP, SENSIBILITA mouse e SENSIBILITA ADS (default 0,7x, salvate), CARL BRAINS on/off (off = stanno fermi finché non vengono presi di mira), riprendi |
 
 Sotto il mirino c'è scritto cosa stai puntando; una X rossa conferma che il colpo ha preso un corpo.

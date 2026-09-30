@@ -115,8 +115,23 @@ namespace VITS
             go.AddComponent<Mannequin>();
         }
 
+        // start over: every Carl, all blood, pieces, time scale, back to a fresh test site
+        public void ResetAll()
+        {
+            XRay.On = false; Skin.All.Clear(); Gib.Clear(); LastShot = "";
+            Time.timeScale = 1f; paused = false;
+            SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
+        }
+
         public static Vector3 RandomPoint()
         {
+            // now and then somewhere up on a platform (they take the stairs to get there)
+            if (Level.Stairs.Count > 0 && Random.value < 0.2f)
+            {
+                var s = Level.Stairs[Random.Range(0, Level.Stairs.Count)];
+                var q = new Vector3(Random.Range(s.plat.xMin + 1f, s.plat.xMax - 1f), s.h, Random.Range(s.plat.yMin + 1.5f, s.plat.yMax - 1f));
+                if (!Physics.CheckSphere(q + Vector3.up * 1f, 0.6f, ~0, QueryTriggerInteraction.Ignore)) return q;
+            }
             for (int i = 0; i < 40; i++)
             {
                 var p = new Vector3(Random.Range(-11f, 11f), 0, Random.Range(-8f, 8f));
@@ -180,7 +195,7 @@ namespace VITS
             if (GI.Down(K.N)) Spawn();
             if (GI.Down(K.Y)) SpawnAtCrosshair();
             if (GI.Down(K.T)) XRay.Toggle();
-            if (GI.Down(K.Back)) { XRay.On = false; Skin.All.Clear(); SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex); return; }
+            if (GI.Down(K.Back)) { ResetAll(); return; }
             if (GI.Down(K.LBracket)) { tsi = Mathf.Max(0, tsi - 1); ApplyTime(); }
             if (GI.Down(K.RBracket)) { tsi = Mathf.Min(TS.Length - 1, tsi + 1); ApplyTime(); }
             if (GI.Down(K.P)) { paused = !paused; ApplyTime(); }
@@ -235,7 +250,7 @@ namespace VITS
             if (player.menu)
             {
                 GUI.color = Color.white;
-                var box = new Rect(W / 2f - 190 * s, H / 2f - 250 * s, 380 * s, 500 * s);
+                var box = new Rect(W / 2f - 190 * s, H / 2f - 270 * s, 380 * s, 550 * s);
                 GUI.DrawTexture(box, panelTex);
                 Label(new Rect(box.x, box.y + 14 * s, box.width, 30 * s), "VERTICAL IMPACT TESTSITE", (int)(20 * s), TextAnchor.UpperCenter);
                 var bs = new GUIStyle(GUI.skin.button) { fontSize = (int)(18 * s), fontStyle = FontStyle.Bold };
@@ -252,6 +267,7 @@ namespace VITS
                 float na = GUI.HorizontalSlider(new Rect(bx, sy + 74 * s, bw, 20 * s), Player.AdsSens, 0.1f, 2f);
                 if (ns != Player.Sens || na != Player.AdsSens) { Player.Sens = Mathf.Round(ns * 20f) / 20f; Player.AdsSens = Mathf.Round(na * 20f) / 20f; Player.SaveSens(); }
                 if (GUI.Button(new Rect(bx, sy + 110 * s, bw, bh), "RESUME  (Esc)", bs)) player.SetMenu(false);
+                if (GUI.Button(new Rect(bx, sy + 160 * s, bw, bh), "RESET  (everything)", bs)) { player.SetMenu(false); ResetAll(); }
                 return;
             }
             if (!player.locked) Label(new Rect(0, H * 0.55f, W, 30 * s), "CLICK TO PLAY", (int)(22 * s), TextAnchor.UpperCenter);
