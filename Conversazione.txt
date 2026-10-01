@@ -520,3 +520,30 @@ Fatto: la presa calcola la massa del gruppo realmente attaccato (tutte le parti 
 --- PROMPT 69 ---
 Utente: devono avere paura di armi, spari, coltelli, sangue e di vedere altri colpiti, solo se lo sentono o lo vedono; animazione di corsa per scappare; dolore e paura reali.
 Fatto: sistema paura (fear 0-1, cala lentamente). Udito: spari sentiti fino a 60/90/140 m (pistola/AK/AWP) con paura che cala con la distanza; proiettile che passa a <2 m = terrore; coltello agitato entro 6 m. Vista (campo 140 gradi, linea di vista libera, fino a 30 m, 2-3 controlli al secondo): corpi a terra, qualcuno ferito/dolorante, il giocatore che punta l arma su di loro, qualcuno colpito accanto (Witness). Oltre 0,3 di paura scappano DAL punto della minaccia (riparo lontano da essa o semplicemente via), con sussulto. Corsa: busto piu inclinato, gomiti a 90 gradi e braccia che pompano. Elenco danni mostra perche hanno paura (HEARD A SHOT, SAW A BODY...). Con KEKKO BRAINS OFF reagiscono solo ai proiettili vicini e ai colpi.
+
+--- PROMPT (AMV edit) ----------------------------------------------
+Richiesta utente: video edit sulla propria canzone (cartella
+C:\Users\Amethyst\Downloads\edit), clip AMV da Pinterest unite a tempo e
+omogenee, formato 1:1 per TikTok, testo della canzone sincronizzato.
+
+Nota: la sessione gira nel cloud, quindi non puo' leggere i file sul PC ne'
+navigare Pinterest: e' stato creato uno strumento da lanciare in locale.
+
+File nuovi in amv-edit/:
+- make_edit.py: pipeline Python + FFmpeg
+  * beat tracking (librosa) -> tagli ogni 1/2/4 beat in base all'energia,
+    slow-motion 0.8x nelle parti calme, zoom "punch" sui colpi forti,
+    flash bianco sui drop/attacchi;
+  * rilevamento scene nelle clip (filtro scene di FFmpeg) per non prendere
+    pezzi a cavallo di un taglio; rotazione delle clip senza ripetizioni;
+  * crop centrale 1080x1080, 30 fps, grading uniforme (normalize + eq,
+    LUT .cube opzionale), vignettatura;
+  * testo: lyrics.srt / lyrics.lrc / lyrics.txt (+Whisper per i tempi) o
+    trascrizione Whisper; sottotitoli ASS karaoke (\kf) con animazione pop;
+    esporta output/lyrics_timed.srt da correggere e riusare;
+  * links.txt opzionale: scarica le clip (Pinterest ecc.) con yt-dlp.
+- crea_edit.bat (avvio), installa_requisiti.bat (FFmpeg + librerie), README.md.
+Test: canzone e clip sintetiche (128 BPM, 4 clip anche verticali) ->
+edit_1x1.mp4 1080x1080 h264/aac 20.0 s, testo karaoke a tempo verificato.
+Uso: copiare i file nella cartella edit, installa_requisiti.bat, mettere
+canzone + clips\ + lyrics.txt, doppio clic su crea_edit.bat.
