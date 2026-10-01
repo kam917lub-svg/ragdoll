@@ -547,3 +547,9 @@ Test: canzone e clip sintetiche (128 BPM, 4 clip anche verticali) ->
 edit_1x1.mp4 1080x1080 h264/aac 20.0 s, testo karaoke a tempo verificato.
 Uso: copiare i file nella cartella edit, installa_requisiti.bat, mettere
 canzone + clips\ + lyrics.txt, doppio clic su crea_edit.bat.
+
+--- PROMPT (dove sono i file) --------------------------------------
+L'utente chiede di mettere i file in C:\Users\Amethyst\Downloads\edit.
+La sessione cloud non puo' scrivere sul PC: creato amv-edit/edit_tool.zip
+(make_edit.py, crea_edit.bat, installa_requisiti.bat, README.md) inviato
+in chat da scaricare ed estrarre in quella cartella.
