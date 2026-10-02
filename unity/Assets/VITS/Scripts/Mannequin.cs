@@ -320,7 +320,7 @@ namespace VITS
                         var c = go.AddComponent<CapsuleCollider>(); c.direction = 1; c.center = new Vector3(0, 0.19f, 0); c.height = 0.5f; c.radius = 0.13f;
                         var s = go.AddComponent<CapsuleCollider>(); s.direction = 0; s.center = new Vector3(0, 0.315f, 0); s.height = 0.46f; s.radius = 0.085f;
                         // neckwear: bow tie, necktie or nothing (black), sitting on the real chest surface
-                        int nw = Random.Range(0, 2);   // always wears one
+                        int nw = Level.Map == 2 ? -1 : Random.Range(0, 2);   // always wears one (on Halloween: a costume instead)
                         if (nw == 0)
                         {
                             Mats.Vis(PrimitiveType.Cube, t, Front(part, -0.024f, 0.42f, 0.004f), new Vector3(0.04f, 0.03f, 0.012f), visorMat, false).transform.localRotation = Quaternion.Euler(0, 0, 12);
@@ -365,6 +365,7 @@ namespace VITS
             var skin = MakeSkin(gameObject, new List<int>(BodyMesh.BodyTris), (BoneWeight[])BodyMesh.Weights.Clone(), bones, BodyMesh.Bind);
             foreach (var p in parts.Values) p.skin = skin;
             SnapWear(skin);
+            if (Level.Map == 2) Costume(skin);
             foreach (var p in parts.Values) XRay.AddInternals(p);
         }
 
@@ -375,11 +376,98 @@ namespace VITS
             var r = host.AddComponent<SkinnedMeshRenderer>();
             r.sharedMesh = mesh; r.bones = bones; r.rootBone = bones[0] != null ? bones[0] : host.transform;
             r.updateWhenOffscreen = false; r.localBounds = new Bounds(Vector3.zero, Vector3.one * 5f);   // fixed generous bounds: no per-frame bounds skinning
-            var mats = new[] { skinMat, innerMat };
+            var mats = bodyMats ?? new[] { skinMat, innerMat };   // costume skin colour carries over to cut-off pieces
             r.sharedMaterials = XRay.On ? new[] { XRay.Ghost } : mats;
             var sk = new Skin { r = r, mesh = mesh, tris = tris, bw = bw, bones = bones, bind = bind, mats = mats, owner = this };
             Skin.All.Add(sk);
             return sk;
+        }
+
+        // Halloween night: everyone comes dressed up - witch, pumpkin head, zombie, vampire or devil
+        public string costume = ""; Material[] bodyMats;
+        void Costume(Skin sk)
+        {
+            var head = parts["head"].transform; var chest = parts["chest"].transform;
+            int c = Random.Range(0, 5);
+            Material M(Color col, float sm = 0.2f) => Mats.Lit(col, sm);
+            Material G(Color col) => Mats.Decal(Texture2D.whiteTexture, col, 2450);
+            switch (c)
+            {
+                case 0:   // witch: tall bent pointed hat with a wide brim and a buckle band
+                {
+                    costume = "WITCH";
+                    var black = M(new Color(0.06f, 0.05f, 0.08f), 0.3f);
+                    Mats.Vis(PrimitiveType.Cylinder, head, new Vector3(0, 0.27f, 0), new Vector3(0.42f, 0.008f, 0.42f), black, false);
+                    for (int i = 0; i < 6; i++)
+                    {
+                        float k = i / 6f, w = Mathf.Lerp(0.22f, 0.03f, k);
+                        var seg = Mats.Vis(PrimitiveType.Cylinder, head, new Vector3(-k * k * 0.08f, 0.3f + i * 0.055f, -k * k * 0.04f), new Vector3(w, 0.03f, w), black, false);
+                        seg.transform.localRotation = Quaternion.Euler(-k * 25f, 0, k * 30f);
+                    }
+                    Mats.Vis(PrimitiveType.Cylinder, head, new Vector3(0, 0.3f, 0), new Vector3(0.225f, 0.02f, 0.225f), M(new Color(0.45f, 0.1f, 0.6f)), false);
+                    sk.r.sharedMaterials = new[] { M(new Color(0.55f, 0.75f, 0.45f), 0.3f), sk.mats[1] };   // green witch skin
+                    sk.mats = sk.r.sharedMaterials;
+                    break;
+                }
+                case 1:   // pumpkin head with a carved, glowing face
+                {
+                    costume = "PUMPKIN HEAD";
+                    var pump = Mats.Vis(PrimitiveType.Sphere, head, new Vector3(0, 0.18f, 0.005f), new Vector3(0.3f, 0.26f, 0.3f), M(new Color(0.95f, 0.42f, 0.05f), 0.3f), false);
+                    Mats.Vis(PrimitiveType.Cylinder, head, new Vector3(0, 0.32f, 0), new Vector3(0.035f, 0.03f, 0.035f), M(new Color(0.2f, 0.3f, 0.1f)), false);
+                    var glow = G(new Color(1f, 0.75f, 0.2f, 1f));
+                    Mats.Vis(PrimitiveType.Cube, head, new Vector3(-0.05f, 0.21f, 0.15f), new Vector3(0.05f, 0.045f, 0.01f), glow, false).transform.localRotation = Quaternion.Euler(0, 0, 45);
+                    Mats.Vis(PrimitiveType.Cube, head, new Vector3(0.05f, 0.21f, 0.15f), new Vector3(0.05f, 0.045f, 0.01f), glow, false).transform.localRotation = Quaternion.Euler(0, 0, 45);
+                    Mats.Vis(PrimitiveType.Cube, head, new Vector3(0, 0.13f, 0.15f), new Vector3(0.14f, 0.025f, 0.01f), glow, false);
+                    _ = pump;
+                    break;
+                }
+                case 2:   // zombie: grey-green rotting skin, torn dark rags, sunken red eyes
+                {
+                    costume = "ZOMBIE";
+                    sk.r.sharedMaterials = new[] { M(new Color(0.45f, 0.55f, 0.4f), 0.15f), sk.mats[1] };
+                    sk.mats = sk.r.sharedMaterials;
+                    var rag = M(new Color(0.22f, 0.2f, 0.18f), 0.05f);
+                    for (int i = 0; i < 5; i++)
+                        Mats.Vis(PrimitiveType.Cube, chest, Front(parts["chest"], Random.Range(-0.08f, 0.08f), 0.1f + i * 0.06f, 0.006f), new Vector3(Random.Range(0.08f, 0.18f), 0.05f, 0.01f), rag, false).transform.localRotation = Quaternion.Euler(0, 0, Random.Range(-25f, 25f));
+                    var red = G(new Color(0.8f, 0.05f, 0.05f, 1f));
+                    Mats.Vis(PrimitiveType.Sphere, head, Front(parts["head"], -0.035f, 0.19f, 0.004f), new Vector3(0.016f, 0.016f, 0.01f), red, false);
+                    Mats.Vis(PrimitiveType.Sphere, head, Front(parts["head"], 0.035f, 0.19f, 0.004f), new Vector3(0.016f, 0.016f, 0.01f), red, false);
+                    Mats.Vis(PrimitiveType.Cube, head, Front(parts["head"], 0f, 0.1f, 0.003f), new Vector3(0.06f, 0.012f, 0.01f), M(new Color(0.15f, 0.02f, 0.02f)), false);
+                    break;
+                }
+                case 3:   // vampire: black cape with a stiff red-lined collar, slicked hair, fangs
+                {
+                    costume = "VAMPIRE";
+                    var cape = M(new Color(0.04f, 0.03f, 0.05f), 0.4f); var lining = M(new Color(0.55f, 0.02f, 0.05f), 0.5f);
+                    var cp = Mats.Vis(PrimitiveType.Cube, chest, new Vector3(0, 0.12f, -0.16f), new Vector3(0.5f, 0.62f, 0.02f), cape, false); cp.transform.localRotation = Quaternion.Euler(-6f, 0, 0);
+                    Mats.Vis(PrimitiveType.Cube, chest, new Vector3(-0.13f, 0.47f, -0.07f), new Vector3(0.16f, 0.2f, 0.015f), lining, false).transform.localRotation = Quaternion.Euler(-20f, 35f, 0);
+                    Mats.Vis(PrimitiveType.Cube, chest, new Vector3(0.13f, 0.47f, -0.07f), new Vector3(0.16f, 0.2f, 0.015f), lining, false).transform.localRotation = Quaternion.Euler(-20f, -35f, 0);
+                    Mats.Vis(PrimitiveType.Sphere, head, new Vector3(0, 0.22f, -0.01f), new Vector3(0.22f, 0.16f, 0.24f), M(new Color(0.03f, 0.03f, 0.03f), 0.8f), false);
+                    var fang = M(Color.white, 0.6f);
+                    Mats.Vis(PrimitiveType.Cube, head, Front(parts["head"], -0.015f, 0.09f, 0.004f), new Vector3(0.008f, 0.02f, 0.006f), fang, false);
+                    Mats.Vis(PrimitiveType.Cube, head, Front(parts["head"], 0.015f, 0.09f, 0.004f), new Vector3(0.008f, 0.02f, 0.006f), fang, false);
+                    sk.r.sharedMaterials = new[] { M(new Color(0.88f, 0.86f, 0.84f), 0.3f), sk.mats[1] };   // deathly pale
+                    sk.mats = sk.r.sharedMaterials;
+                    break;
+                }
+                default:  // devil: red skin, curved horns, pointed tail
+                {
+                    costume = "DEVIL";
+                    sk.r.sharedMaterials = new[] { M(new Color(0.75f, 0.12f, 0.1f), 0.35f), sk.mats[1] };
+                    sk.mats = sk.r.sharedMaterials;
+                    var horn = M(new Color(0.12f, 0.08f, 0.06f), 0.5f);
+                    for (int side = -1; side <= 1; side += 2)
+                        for (int i = 0; i < 3; i++)
+                            Mats.Vis(PrimitiveType.Cylinder, head, new Vector3(side * (0.06f + i * 0.015f), 0.27f + i * 0.035f, 0.03f - i * 0.01f), new Vector3(0.035f - i * 0.009f, 0.025f, 0.035f - i * 0.009f), horn, false).transform.localRotation = Quaternion.Euler(0, 0, -side * (20f + i * 15f));
+                    var pel = parts["pelvis"].transform; var red = M(new Color(0.6f, 0.08f, 0.06f), 0.4f);
+                    for (int i = 0; i < 5; i++)
+                        Mats.Vis(PrimitiveType.Cylinder, pel, new Vector3(0, -0.08f - i * 0.02f, -0.14f - i * 0.07f), new Vector3(0.02f, 0.04f, 0.02f), red, false).transform.localRotation = Quaternion.Euler(60f - i * 10f, 0, 0);
+                    Mats.Vis(PrimitiveType.Cube, pel, new Vector3(0, -0.2f, -0.5f), new Vector3(0.05f, 0.05f, 0.01f), red, false).transform.localRotation = Quaternion.Euler(0, 0, 45);
+                    break;
+                }
+            }
+            bodyMats = sk.mats;
+            injuries.Add("COSTUME: " + costume);
         }
 
         // eyes, bow tie, necktie: pushed onto the drawn skin (ray from in front of the body onto the real mesh)
