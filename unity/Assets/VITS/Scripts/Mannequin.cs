@@ -2356,7 +2356,8 @@ namespace VITS
                 p.hits++;
                 var B = Blood.I;
                 // the cut: a row of small openings along the stroke (~14 cm), a red line of blood on the skin
-                for (int i = -3; i <= 3; i++) Carve(p, pt + sweep * (i * 0.022f), 0.011f);
+                // a deep cut: wide at the skin, still open a couple of cm into the flesh
+                for (int i = -4; i <= 4; i++) { Carve(p, pt + sweep * (i * 0.02f), 0.015f); if (Mathf.Abs(i) < 3) Carve(p, pt + sweep * (i * 0.02f) + view * 0.018f, 0.011f); }
                 Vector3 lp = p.transform.InverseTransformPoint(pt), ln = p.Normal(p.Project(lp));
                 B.SkinStreak(p.transform, lp, ln, p.transform.InverseTransformDirection(sweep), 0.012f, 0.15f);
                 B.Spray(pt, sweep + ln * 0.3f, 24, 2.2f, 0.35f, 0.05f, 0.3f);
@@ -2381,6 +2382,51 @@ namespace VITS
                 Game.LastShot = displayName + " · " + p.key.ToUpper() + " · KNIFE";
             }
             catch (System.Exception e) { Debug.LogException(e); Game.LastShot = "SLASH ERROR: " + e.Message; }
+        }
+
+        // knife thrust: a narrow, deep wound channel along the blade; organs behind it are hit
+        public void Stab(Part p, Vector3 pt, Vector3 dir)
+        {
+            try
+            {
+                provoked = true; lastHitTime = Time.time; lastDir = dir; lastHit = p.key.ToUpper() + " (STAB)"; fear = 1f;
+                Witness(this, pt, 0.7f);
+                woundCount++; pain = Mathf.Min(1f, pain + 0.2f); hurt = Mathf.Min(1f, hurt + 0.3f);
+                if (!dead) Flinch(p, dir);
+                p.hits++;
+                var B = Blood.I;
+                for (int i = 0; i < 6; i++) Carve(p, pt + dir * (i * 0.025f), Mathf.Lerp(0.016f, 0.009f, i / 5f));
+                Vector3 lp = p.transform.InverseTransformPoint(pt), ln = p.Normal(p.Project(lp));
+                B.SkinStreak(p.transform, lp, ln, p.transform.InverseTransformDirection(Vector3.down), 0.014f, 0.12f);
+                B.Spray(pt, -dir * 0.5f + ln * 0.5f, 30, 1.6f, 0.4f, 0.05f, 0.4f);
+                Vector3 deep = p.transform.InverseTransformPoint(pt + dir * 0.12f);
+                bool throat = (p.isHead && lp.y < 0.06f) || (p.key == "chest" && lp.y > 0.37f);
+                if (p.isHead && !throat) { injuries.Add("KNIFE IN THE SKULL"); if (!dead) Die("STABBED IN THE HEAD"); }
+                else if (throat && !dead)
+                {
+                    injuries.Add("THROAT  STABBED");
+                    AddWound(p, p.Project(lp), ln, 45f, true, 0, "CAROTID");
+                    B.Spray(pt, ln + Vector3.down * 0.2f, 140, 3f, 0.3f, 0.2f, 0.9f);
+                    deathT = deathT > 0 ? Mathf.Min(deathT, Time.time + Random.Range(4f, 9f)) : Time.time + Random.Range(4f, 9f);
+                    clutch = p; clutchLocal = lp; shock = 1f; GoActive();
+                }
+                else if (p.key == "chest" && !dead && Mathf.Abs(deep.x + 0.03f) < 0.07f && deep.y > 0.15f && deep.y < 0.32f)
+                {
+                    injuries.Add("STABBED IN THE HEART");
+                    AddWound(p, p.Project(lp), ln, 30f, true, 0, "HEART");
+                    deathT = deathT > 0 ? Mathf.Min(deathT, Time.time + Random.Range(2f, 5f)) : Time.time + Random.Range(2f, 5f);
+                    clutch = p; clutchLocal = lp; shock = 1f; GoActive();
+                }
+                else
+                {
+                    injuries.Add(p.key.ToUpper() + "  STAB WOUND");
+                    AddWound(p, p.Project(lp), ln, p.isTorso ? 9f : 5f, p.isTorso, 0, p.isTorso ? "DEEP STAB" : "");
+                    if (!dead) { clutch = p; clutchLocal = lp; if (p.isTorso) GoActive(); else if (mode == M.Anim) Flee(); }
+                }
+                if (!p.rb.isKinematic) p.rb.AddForceAtPosition(dir * 3f, pt, ForceMode.Impulse);
+                Game.LastShot = displayName + " · " + p.key.ToUpper() + " · STAB";
+            }
+            catch (System.Exception e) { Debug.LogException(e); Game.LastShot = "STAB ERROR: " + e.Message; }
         }
 
         public void SeverJoint(Part p, Vector3 dir)

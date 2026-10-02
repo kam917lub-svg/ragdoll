@@ -545,3 +545,10 @@ Modifiche:
 - Maps.cs: Outside() = prato, marciapiede, parcheggio con strisce, strada con strisce e attraversamento, lampioni, pensilina carrelli, 8 auto (Car()). Nebbia Halloween = quad morbidi che derivano (Drift).
 - Level.cs: CarPeople/Drivers/DriverRot azzerati a ogni Build.
 - Mannequin.cs: modalità seduto (cosce -88, ginocchia 88, mani al volante, niente gravità finché non provocato); home per gironzolare vicino alle auto; costumi migliorati (strega: capelli, naso, porro, fibbia, veste; zucca: spicchi, foglia, luce interna; zombie: ferite e costole; vampiro: medaglione, gilet, sangue; diavolo: pizzetto, occhi gialli).
+
+==================== PROMPT 75 ====================
+Richiesta: "make solid objects hittbale by gons and knife and add effects like bullet hole impact and knife thing, and make better knife slash animation and deeper cut, and if scoped in with right bouse you stab instead of slash. realistic"
+Modifiche:
+- Nuovo Scripts/Fx.cs: effetti d'impatto in pool (400 segni, 160 particelle): foro di proiettile (centro scuro, anello, crepe), graffio del coltello, scintille (molte sul metallo), schegge del colore della superficie, polvere che si allarga, suono (clink metallico / tonfo). I segni restano attaccati agli oggetti fisici che si muovono.
+- Player.cs: i colpi sul mondo usano Fx.Bullet (calibro: pistola 12 mm, AK 16, AWP 22) e spingono anche gli oggetti fisici; coltello: raggio contro il mondo (graffio/foro + spinta + contraccolpo); nuova animazione fendente (caricamento sopra la spalla, taglio diagonale veloce, follow-through, ritorno); tasto destro con il coltello = Stab() (affondo dritto 1,4 m, niente mira/zoom).
+- Mannequin.cs: fendente più profondo (9 aperture più larghe + seconda fila più interna); nuovo Stab(): canale profondo lungo la lama, testa = morte, gola = carotide (4-9 s), cuore = 2-5 s, busto = ferita profonda che sanguina molto.

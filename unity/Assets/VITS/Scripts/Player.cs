@@ -40,7 +40,7 @@ namespace VITS
         public bool menu;
         Transform pistolModel, akModel, awpModel, bolt;
         readonly int[] mags = { 15, 30, 10, 1 };
-        Transform knifeModel; float slashT; int slashSide = 1; AudioClip swishClip;
+        Transform knifeModel; float slashT, stabT; int slashSide = 1; bool stabHeld; AudioClip swishClip;
         public float reloadT;
         public bool locked;
         public string aimInfo = ""; public float hitMarkT;
@@ -243,15 +243,46 @@ namespace VITS
             cool -= dt; recoil = Mathf.MoveTowards(recoil, 0, dt * 8f);
             if (reloadT > 0) { reloadT -= dt; if (reloadT <= 0) ammo = MaxAmmo; }
             boltT -= dt;
-            if (Knife) { if (locked && GI.FireDown() && cool <= 0) Slash(); }
+            if (Knife)
+            {
+                // left = slash across; right button = thrust straight in (one per press)
+                bool rb = GI.AimHeld();
+                if (locked && rb && !stabHeld && cool <= 0) Stab();
+                else if (locked && GI.FireDown() && cool <= 0) Slash();
+                stabHeld = rb;
+            }
             else if (locked && (AK ? GI.FireHeld() : GI.FireDown())) Shoot();
             // knife swing: sweeps across the view, alternating sides
-            slashT = Mathf.Max(0f, slashT - dt * 3.2f);
+            slashT = Mathf.Max(0f, slashT - dt * 2.2f); stabT = Mathf.Max(0f, stabT - dt * 2.0f);
             if (knifeModel != null && Knife)
             {
-                float u = 1f - slashT, sw = Mathf.Sin(u * Mathf.PI);
-                knifeModel.localRotation = Quaternion.Euler(10f + sw * 25f, -slashSide * (60f - 120f * u) * (slashT > 0 ? 1f : 0f), slashSide * sw * 50f);
-                knifeModel.localPosition = new Vector3(-slashSide * (0.12f - 0.24f * u) * (slashT > 0 ? 1f : 0f), sw * 0.04f, sw * 0.08f);
+                Vector3 pos = Vector3.zero, eul = new Vector3(4f, 0, 0);
+                if (slashT > 0)
+                {
+                    // wind-up (blade cocked back over the shoulder), a fast diagonal cut across the view, follow-through, recover
+                    float u = 1f - slashT;
+                    float wind = Mathf.SmoothStep(0, 1, Mathf.Clamp01(u / 0.18f));
+                    float cut = Mathf.Clamp01((u - 0.18f) / 0.17f); cut = 1f - (1f - cut) * (1f - cut) * (1f - cut);   // whips through
+                    float back = Mathf.SmoothStep(0, 1, Mathf.Clamp01((u - 0.55f) / 0.45f));
+                    float sd = slashSide;
+                    Vector3 cock = new Vector3(sd * 0.16f, 0.1f, -0.04f), cockE = new Vector3(-35f, sd * 55f, sd * 70f);
+                    Vector3 hit = new Vector3(-sd * 0.2f, -0.08f, 0.14f), hitE = new Vector3(25f, -sd * 70f, sd * 95f);
+                    Vector3 p1 = Vector3.Lerp(Vector3.Lerp(Vector3.zero, cock, wind), hit, cut), e1 = Vector3.Lerp(Vector3.Lerp(eul, cockE, wind), hitE, cut);
+                    pos = Vector3.Lerp(p1, Vector3.zero, back); eul = Vector3.Lerp(e1, eul, back);
+                }
+                else if (stabT > 0)
+                {
+                    // pull back, drive it straight forward, hold a moment in, then wrench it out
+                    float u = 1f - stabT;
+                    float pull = Mathf.SmoothStep(0, 1, Mathf.Clamp01(u / 0.15f));
+                    float thrust = Mathf.Clamp01((u - 0.15f) / 0.12f); thrust = 1f - (1f - thrust) * (1f - thrust);
+                    float outk = Mathf.SmoothStep(0, 1, Mathf.Clamp01((u - 0.5f) / 0.5f));
+                    float z = Mathf.Lerp(Mathf.Lerp(0f, -0.08f, pull), 0.3f, thrust);
+                    pos = Vector3.Lerp(new Vector3(-0.1f * thrust, -0.02f + 0.04f * thrust, z), Vector3.zero, outk);
+                    eul = Vector3.Lerp(new Vector3(-10f * thrust + 15f * pull * (1 - thrust), -12f * thrust, 90f * thrust), eul, outk) + new Vector3(0, 0, (u > 0.3f && u < 0.5f ? Mathf.Sin(u * 90f) * 6f : 0f));
+                }
+                knifeModel.localRotation = Quaternion.Euler(eul);
+                knifeModel.localPosition = pos;
             }
             if (AWP && bolt != null)
             {
@@ -262,10 +293,10 @@ namespace VITS
                 if (Scoped) zoom = Mathf.Clamp(zoom + GI.Scroll() * 4f, 4f, 12f);
             }
             if (!Knife && GI.Down(K.R) && ammo < MaxAmmo && reloadT <= 0) reloadT = 1.4f;
-            float wantFov = Scoped ? 2f * Mathf.Atan(Mathf.Tan(35f * Mathf.Deg2Rad) / zoom) * Mathf.Rad2Deg : GI.AimHeld() ? (AWP ? 55f : 45f) : 70f;
+            float wantFov = Scoped ? 2f * Mathf.Atan(Mathf.Tan(35f * Mathf.Deg2Rad) / zoom) * Mathf.Rad2Deg : GI.AimHeld() && !Knife ? (AWP ? 55f : 45f) : 70f;
             cam.fieldOfView = Scoped ? wantFov : Mathf.Lerp(cam.fieldOfView, wantFov, 1 - Mathf.Exp(-dt * 12f));
             gun.gameObject.SetActive(!Scoped);
-            aimT = Mathf.MoveTowards(aimT, GI.AimHeld() && reloadT <= 0 && locked ? 1f : 0f, dt * 7f);
+            aimT = Mathf.MoveTowards(aimT, GI.AimHeld() && !Knife && reloadT <= 0 && locked ? 1f : 0f, dt * 7f);
             float aim = aimT * aimT * (3f - 2f * aimT), still = 1f - aim;   // no weapon bob with the sights up
             float rl = reloadT > 0 ? Mathf.Sin(Mathf.Clamp01(1 - reloadT / 1.4f) * Mathf.PI) : 0;
             gun.localPosition = Vector3.Lerp(new Vector3(0.17f, -0.16f, 0.36f), ADS[Weapon], aim)
@@ -455,7 +486,7 @@ namespace VITS
                 end = h.point;
                 if (h.rigidbody != null) h.rigidbody.AddForceAtPosition(dir * Game.BulletImpulse, h.point, ForceMode.Impulse);
                 // no bullet marks on/under bodies (they showed through carved holes as grey discs)
-                else if (Mannequin.Nearest(h.point, 0.45f) == null) Blood.I.Hole(h.point, h.normal);
+                if (Mannequin.Nearest(h.point, 0.45f) == null) Fx.Bullet(h, dir, AWP ? 0.022f : AK ? 0.016f : 0.012f);
                 Game.LastShot = "MISS  ·  " + h.collider.name.ToUpper() + "  ·  " + h.distance.ToString("0.0") + " M";
             }
             else Game.LastShot = "MISS";
@@ -475,7 +506,9 @@ namespace VITS
             // a blade swung close by is frightening to anyone who hears or sees it
             foreach (var m in Mannequin.All) if (m != null && !m.dead && (m.transform.position - transform.position).sqrMagnitude < 36f) m.Scare(transform.position, 0.35f, "KNIFE NEARBY");
             Vector3 o = cam.transform.position, f = cam.transform.forward, r = cam.transform.right * slashSide;
-            Part best = null; float bt = 1.8f; Vector3 bn = -f, bd = f;
+            const int WORLD = ~((1 << 2) | (1 << Mannequin.LayerWalk) | (1 << Mannequin.LayerRag));
+            bool wall = Physics.Raycast(o, f, out RaycastHit wh, 1.8f, WORLD, QueryTriggerInteraction.Ignore);
+            Part best = null; float bt = wall ? wh.distance : 1.8f; Vector3 bn = -f, bd = f;
             // the blade lands where the crosshair is; only if that misses, the rest of the arc can catch him
             if (Mannequin.PickSkin(o, f, 1.8f, out Part cp, out float ct, out Vector3 cn) || Mannequin.Pick(o, f, 1.8f, out cp, out ct)) { best = cp; bt = ct; bn = cn; bd = f; }
             else for (int i = -3; i <= 3; i++)
@@ -484,11 +517,42 @@ namespace VITS
                 if (Mannequin.PickSkin(o, d, bt, out Part p, out float t, out Vector3 n) || Mannequin.Pick(o, d, bt, out p, out t))
                     if (t < bt) { best = p; bt = t; bn = n; bd = d; }
             }
-            if (best == null) { Game.LastShot = "SLASH  ·  MISS"; return; }
+            if (best == null)
+            {
+                if (wall) { KnifeWorld(wh, -r + f * 0.2f, false); Game.LastShot = "SLASH  ·  " + wh.collider.name.ToUpper(); }
+                else Game.LastShot = "SLASH  ·  MISS";
+                return;
+            }
             Vector3 pt = o + bd * bt;
             Vector3 sweep = Vector3.ProjectOnPlane(-r, bn).normalized;   // the blade travels across the surface
             best.owner.Slash(best, pt, sweep, bd);
             hitMarkT = 0.2f;
+        }
+
+        void KnifeWorld(RaycastHit h, Vector3 sweep, bool stab)
+        {
+            Fx.Knife(h, sweep, stab);
+            if (h.rigidbody != null && !h.rigidbody.isKinematic) h.rigidbody.AddForceAtPosition(sweep.normalized * 2f, h.point, ForceMode.Impulse);
+            recoil = 0.5f;   // the blade jars against it
+        }
+
+        // a thrust: straight along the crosshair (up to 1.4 m), deep into whatever is there
+        void Stab()
+        {
+            cool = 0.6f; stabT = 1f; slashT = 0f;
+            if (swishClip == null) swishClip = MakeSwish();
+            au.PlayOneShot(swishClip, 0.5f);
+            foreach (var m in Mannequin.All) if (m != null && !m.dead && (m.transform.position - transform.position).sqrMagnitude < 36f) m.Scare(transform.position, 0.35f, "KNIFE NEARBY");
+            Vector3 o = cam.transform.position, f = cam.transform.forward;
+            const int WORLD = ~((1 << 2) | (1 << Mannequin.LayerWalk) | (1 << Mannequin.LayerRag));
+            bool wall = Physics.Raycast(o, f, out RaycastHit wh, 1.4f, WORLD, QueryTriggerInteraction.Ignore);
+            float reach = wall ? wh.distance : 1.4f;
+            if (Mannequin.PickSkin(o, f, reach, out Part p, out float t, out Vector3 n) || Mannequin.Pick(o, f, reach, out p, out t))
+            {
+                p.owner.Stab(p, o + f * t, f); hitMarkT = 0.2f; return;
+            }
+            if (wall) { KnifeWorld(wh, f, true); Game.LastShot = "STAB  ·  " + wh.collider.name.ToUpper(); }
+            else Game.LastShot = "STAB  ·  MISS";
         }
 
         static AudioClip MakeSwish()
