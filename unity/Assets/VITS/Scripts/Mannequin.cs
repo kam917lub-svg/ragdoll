@@ -760,9 +760,10 @@ namespace VITS
 
             float dist = Flat(target - pos).magnitude;
             if (dist < bestDist - 0.3f) { bestDist = dist; stuckT = 0; } else if (want > 0) stuckT += dt;
-            if (stuckT > 3f)
+            if (stuckT > 1.6f)
             {
-                if (state == S.Flee) NewGoal(S.Flee, Game.CoverPoint(pos, target), stateT);
+                // not getting closer: pick another way out instead of running on the spot
+                if (state == S.Flee) { var alt = Game.CoverPoint(pos, threat); if (Flat(alt - target).sqrMagnitude < 1f) alt = Game.RandomPoint(); NewGoal(S.Flee, alt, Mathf.Max(stateT, 6f)); }
                 else NewGoal(S.Walk, Game.RandomPoint(), 10f);
             }
 
@@ -783,11 +784,17 @@ namespace VITS
             }
             detourT -= dt;
             Vector3 dir = Flat(goal - pos);
-            if (!Free(pos, false))
+            bool inside = !Free(pos, false);
+            if (inside)
             {
-                for (int a = 0; a < 8; a++) { var o = Quaternion.Euler(0, a * 45f, 0) * Vector3.forward * 0.3f; if (Free(pos + o, false)) { transform.position = pos + o; break; } }
+                // overlapping something (a car, a shelf, a prop pushed into them): step out to the nearest free spot
+                bool done = false;
+                for (float rr = 0.3f; rr <= 1.2f && !done; rr += 0.3f)
+                    for (int a = 0; a < 16; a++) { var o = Quaternion.Euler(0, a * 22.5f, 0) * Vector3.forward * rr; if (Free(pos + o, false)) { transform.position = Game.Clamp(pos + o); done = true; break; } }
+                if (done) pos = transform.position;
             }
-            else if (speed > 0.01f && dir.sqrMagnitude > 0.01f)
+            // never freeze mid-run: even if still overlapping, keep moving and animating
+            if (speed > 0.01f && dir.sqrMagnitude > 0.01f)
             {
                 float turn = Vector3.Angle(transform.forward, dir);
                 turnRate = Mathf.MoveTowards(turnRate, Mathf.Clamp(turn * 2.5f, 0f, 110f), dt * 220f);
@@ -810,15 +817,21 @@ namespace VITS
                         float ang = Vector3.Angle(dd, to);
                         if (ang < bestA) { bestA = ang; bestD = dd; }
                     }
-                    if (bestA < 999) { detour = pos + bestD * 1.5f; detourT = 1.4f; }
-                    step = Vector3.zero;
+                    if (bestA < 999)
+                    {
+                        detour = pos + bestD * 1.5f; detourT = 1.4f;
+                        // slide sideways along the obstacle right away instead of standing still
+                        step = bestD * step.magnitude * 0.7f;
+                        transform.rotation = Quaternion.RotateTowards(transform.rotation, Quaternion.LookRotation(bestD), dt * 200f);
+                    }
+                    else { step = Vector3.zero; stuckT += dt * 2f; }
                 }
                 Vector3 np = Game.Clamp(pos + step);
                 float gy = Ground(np, pos.y);
                 // up a step (< 0.5 m) or down a step; never walk off a platform edge - use the stairs
                 if (gy - pos.y < 0.5f && pos.y - gy < 0.45f) np.y = Mathf.MoveTowards(pos.y, gy, dt * 3f);   // a step up or down
                 else if (gy < pos.y && pos.y - gy < 1.3f) np.y = pos.y;                                  // hop down off a box: gravity does it
-                else np = pos;
+                else { np = pos; stuckT += dt * 2f; }
                 transform.position = np;
                 float moved = new Vector3(np.x - pos.x, 0, np.z - pos.z).magnitude;
                 phase += Hopping ? dt * 2.2f : cadence * dt / Stride();   // the animation runs at the wanted speed; the feet then carry the body

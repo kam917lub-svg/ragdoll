@@ -561,3 +561,10 @@ Modifiche:
 - Fx.cs: Blast() (palla di fuoco, scintille, terra, colonna di fumo che sale e resta 5-10 s, bruciatura a terra), Frag() (foro scheggia).
 - Mannequin.cs: Blast(c,d): <1,2 m fatto a pezzi (tutti gli arti + testa), <2,2 m 1-3 arti strappati, <3,5 m possibile arto; morte/ferite; tutti scaraventati con impulso.
 - Game.cs: menu Esc: KNIFE e GRENADE affiancati.
+
+==================== PROMPT 77 ====================
+Richiesta: "add no clip/fly when double space bar and off when the same. also fix npc behaviour sometime they freeze while running. check reference source also on how they walk ... C:\Users\Amethyst\Pictures\UntitledRagdollSimulator-SOURCE\Decompiled\GhidraOutput"
+Nota: il sorgente decompilato di un altro gioco non viene usato/copiato (e comunque è sul PC dell'utente, non accessibile da qui).
+Modifiche:
+- Player.cs: doppio Spazio (entro 0,3 s) = NOCLIP/FLY on/off (CharacterController disattivato; WASD dove guardi, Spazio su, Ctrl giù, Shift veloce 22 m/s, movimento morbido); le armi continuano a funzionare (goto moved).
+- Mannequin.cs (blocchi in corsa): se sono dentro un ostacolo cercano un punto libero fino a 1,2 m in 16 direzioni e comunque continuano a muoversi/animarsi (prima restavano congelati); ostacolo davanti = scivolano di lato subito invece di fermarsi; bordo/ostacolo senza uscita fa salire lo "stuck" più in fretta; bloccati da 1,6 s (prima 3) = nuova copertura lontana dalla minaccia o punto casuale.

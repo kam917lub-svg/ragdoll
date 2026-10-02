@@ -42,6 +42,7 @@ namespace VITS
         Transform pistolModel, akModel, awpModel, bolt;
         readonly int[] mags = { 15, 30, 10, 1, 4 };
         Transform nadeModel, nadeRing; float cookT = -1f, throwT; bool under; Vector3 pushV;
+        public static bool Fly; float lastSpace = -1f; Vector3 flyV;
         public void Push(Vector3 v) { pushV += v; }
         Transform knifeModel; float slashT, stabT; int slashSide = 1; bool stabHeld; AudioClip swishClip;
         public float reloadT;
@@ -226,6 +227,26 @@ namespace VITS
             if (GI.Held(K.D)) mv += transform.right; if (GI.Held(K.A)) mv -= transform.right;
             if (mv.sqrMagnitude > 1) mv.Normalize();
             // crouch (left Ctrl): lower eyes and body, slower; stands up only where there is room
+            // double-tap Space: noclip fly on / off
+            if (GI.Down(K.Space) && locked)
+            {
+                if (Time.unscaledTime - lastSpace < 0.3f) { Fly = !Fly; lastSpace = -1f; vy = 0f; cc.enabled = !Fly; Game.LastShot = Fly ? "NOCLIP / FLY  ON" : "NOCLIP / FLY  OFF"; }
+                else lastSpace = Time.unscaledTime;
+            }
+            if (Fly)
+            {
+                // move where you look, Space up, Ctrl down, Shift fast; through walls and floors
+                Vector3 fm = Vector3.zero;
+                if (GI.Held(K.W)) fm += cam.transform.forward; if (GI.Held(K.S)) fm -= cam.transform.forward;
+                if (GI.Held(K.D)) fm += cam.transform.right; if (GI.Held(K.A)) fm -= cam.transform.right;
+                if (GI.Held(K.Space)) fm += Vector3.up; if (GI.Held(K.Ctrl)) fm -= Vector3.up;
+                if (fm.sqrMagnitude > 1) fm.Normalize();
+                flyV = Vector3.Lerp(flyV, fm * (GI.Held(K.Shift) ? 22f : 8f), 1f - Mathf.Exp(-dt * 8f));
+                transform.position += flyV * dt;
+                moveVel = Vector3.zero; crouch = 0f;
+                cam.transform.localPosition = new Vector3(0, 1.65f, 0);
+                goto moved;
+            }
             bool wantCrouch = GI.Held(K.Ctrl);
             if (!wantCrouch && crouch > 0.5f && Physics.SphereCast(transform.position + Vector3.up * 0.6f, 0.28f, Vector3.up, out _, 1.0f, ~((1 << 2) | (1 << Mannequin.LayerWalk) | (1 << Mannequin.LayerRag)), QueryTriggerInteraction.Ignore)) wantCrouch = true;
             crouch = Mathf.MoveTowards(crouch, wantCrouch ? 1f : 0f, dt * 6f);
@@ -239,6 +260,7 @@ namespace VITS
             moveVel = mv * sp;
             if (transform.position.y < -8f) { cc.enabled = false; transform.position = Level.PlayerStart + Vector3.up * 0.5f; cc.enabled = true; vy = 0f; }   // fell through: back to the start
             if (Blood.I != null) Blood.I.Step(feetTr, transform.position, cc.isGrounded, crouch > 0.5f ? 0.45f : GI.Held(K.Shift) ? 0.9f : 0.68f);
+            moved:
             // shoving a body that is down / hurt: push its parts out of the way
             if (moveVel.sqrMagnitude > 1f)
                 foreach (var m in Mannequin.All)
