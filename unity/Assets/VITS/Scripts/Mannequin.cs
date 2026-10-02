@@ -838,6 +838,25 @@ namespace VITS
                 _ = moved;
             }
             if (!(seated && !provoked)) Gravity(dt);
+            // watchdog: wants to move but has not really gone anywhere for a while -> unstick and pick a new way
+            if (want > 0.3f && mode == M.Anim)
+            {
+                if (Flat(transform.position - watchPos).magnitude > 0.5f) { watchPos = transform.position; watchT = 0f; }
+                else if ((watchT += dt) > 1.3f)
+                {
+                    watchT = 0f; watchPos = transform.position;
+                    Vector3 p0 = transform.position;
+                    for (float rr = 0.4f; rr <= 1.6f; rr += 0.4f)
+                    {
+                        bool ok = false;
+                        for (int a = 0; a < 12; a++) { var o = Quaternion.Euler(0, a * 30f + Random.Range(0f, 30f), 0) * Vector3.forward * rr; if (Free(p0 + o)) { transform.position = Game.Clamp(p0 + o); ok = true; break; } }
+                        if (ok) break;
+                    }
+                    detourT = 0f;
+                    if (state == S.Flee) NewGoal(S.Flee, Game.RandomPoint(), 8f); else NewGoal(S.Walk, Game.RandomPoint(), 10f);
+                }
+            }
+            else { watchPos = transform.position; watchT = 0f; }
             vel = Vector3.ClampMagnitude((transform.position - lastPos) / dt, 2.5f); lastPos = transform.position;
             Bumps(dt);
         }
@@ -1246,6 +1265,9 @@ namespace VITS
                     if (HandIK(arm, out Quaternion qu, out Quaternion qf)) { Target(parts["uarm" + arm], qu); Target(parts["farm" + arm], qf); }
                 }
             }
+            // standing in the physical mode for too long with nothing holding him: back to walking (never frozen upright)
+            if (!down && conscious && !Held && getUp <= 0f && Mathf.Min(legFn[0], legFn[1]) > 0.3f && Time.time - lastHitTime > 2f) standStuckT += dt; else standStuckT = 0f;
+            if (standStuckT > 3f) { standStuckT = 0f; support = 1f; shock = 0f; Recover(); return; }
             // light wounds only, standing and steady for a while: walk (or hop) away
             if (!Injured && !Held && Time.time - heldT > 1.2f && !crawling && Time.time - lastHitTime > 1.2f && Time.time - airT > 1.2f && OnGround())
             {
@@ -1284,6 +1306,7 @@ namespace VITS
             writheT = 0;
         }
 
+        Vector3 watchPos; float watchT, standStuckT;
         float getUp, airTop = -999f, jerkT = -9f; Vector3 jerkDir;
         float diveT, lastVy, airT = -9f, gbT, gbY; float gGround, gGroundT; float rootMove, lastFootZ, lastFootZR; int lastStance = -1; Vector3 coverFace;
         // hitting the ground hard: ~9 m/s (4 m) breaks legs, ~14 m/s (10 m) and up is usually fatal
