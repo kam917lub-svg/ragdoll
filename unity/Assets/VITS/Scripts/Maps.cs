@@ -212,27 +212,83 @@ namespace VITS
                 bool zx = s < 2; float sg = s % 2 == 0 ? 1f : -1f;
                 B(zx ? new Vector3(0, 1.5f, sg * (HZ + 0.25f)) : new Vector3(sg * (HX + 0.25f), 1.5f, 0), zx ? new Vector3(HX * 2f, 3f, 0.5f) : new Vector3(0.5f, 3f, HZ * 2f), wood);
             }
-            // haunted house
-            var house = new GameObject("HAUNTED HOUSE").transform; house.position = new Vector3(4f, 0, 20f);
-            var planks = Mats.Lit(new Color(0.18f, 0.15f, 0.14f), 0.1f);
-            var roof = Mats.Lit(new Color(0.09f, 0.08f, 0.1f), 0.1f);
+            // ---- the haunted mansion: three storeys, two wings, a central tower, crooked roofs, lit and broken windows
+            var house = new GameObject("HAUNTED MANSION").transform; house.position = new Vector3(2f, 0, 22f);
+            var planks = Mats.Lit(new Color(0.17f, 0.14f, 0.14f), 0.1f);
+            var trim = Mats.Lit(new Color(0.32f, 0.3f, 0.3f), 0.15f);
+            var roof = Mats.Lit(new Color(0.07f, 0.06f, 0.09f), 0.15f);
             var win = Glow(new Color(1f, 0.6f, 0.15f, 1f));
-            B(new Vector3(0, 3.5f, 0), new Vector3(12f, 7f, 8f), planks, true, "TOWER HOUSE", house);
-            B(new Vector3(0, 7.8f, -2f), new Vector3(12.6f, 0.3f, 5.4f), roof, false, "roof", house).transform.localRotation = Quaternion.Euler(35f, 0, 0);
-            B(new Vector3(0, 7.8f, 2f), new Vector3(12.6f, 0.3f, 5.4f), roof, false, "roof", house).transform.localRotation = Quaternion.Euler(-35f, 0, 0);
-            B(new Vector3(-4f, 9f, 1f), new Vector3(1f, 3f, 1f), planks, false, "chimney", house);
-            B(new Vector3(4.5f, 5f, 0f), new Vector3(3f, 10f, 3f), planks, true, "TOWER TURRET", house);
-            B(new Vector3(4.5f, 10.6f, 0f), new Vector3(3.6f, 1.2f, 3.6f), roof, false, "turret roof", house).transform.localRotation = Quaternion.Euler(0, 45, 0);
-            for (int i = 0; i < 4; i++) B(new Vector3(-4.5f + i * 2.5f, 4.8f, -4.02f), new Vector3(1f, 1.4f, 0.05f), win, false, "window", house);
-            for (int i = 0; i < 3; i++) B(new Vector3(-4.5f + i * 2.5f, 1.8f, -4.02f), new Vector3(1f, 1.4f, 0.05f), i == 1 ? planks : win, false, "window", house);
-            B(new Vector3(4.5f, 7.5f, -1.52f), new Vector3(0.9f, 1.2f, 0.05f), win, false, "window", house);
-            B(new Vector3(0.5f, 1.3f, -4.03f), new Vector3(1.4f, 2.6f, 0.06f), Mats.Lit(new Color(0.1f, 0.05f, 0.03f), 0.2f), false, "door", house);
-            B(new Vector3(0.5f, 0.15f, -4.8f), new Vector3(5f, 0.3f, 1.6f), planks, true, "porch", house);
-            for (int i = 0; i < 2; i++) B(new Vector3(-1.4f + i * 3.8f, 1.6f, -5.4f), new Vector3(0.2f, 3f, 0.2f), planks, true, "pillar", house);
-            var hl = new GameObject("house glow").AddComponent<Light>(); hl.type = LightType.Point; hl.range = 12f; hl.intensity = 1.6f; hl.color = new Color(1f, 0.55f, 0.15f);
-            hl.transform.position = house.position + new Vector3(0, 3f, -6f); hl.gameObject.AddComponent<Flicker>();
-            AddCover(new Vector3(4f, 0, 20f), Vector3.forward, Vector3.right);
-            Text("ENTER IF YOU DARE", house.position + new Vector3(0.5f, 3.1f, -5.6f), Quaternion.identity, 0.25f, new Color(0.9f, 0.2f, 0.1f));
+            var winDim = Glow(new Color(0.45f, 0.25f, 0.6f, 1f));
+            var dark = Mats.Lit(new Color(0.02f, 0.02f, 0.03f), 0.6f);
+            // main block + wings
+            B(new Vector3(0, 5.5f, 0), new Vector3(14f, 11f, 9f), planks, true, "TOWER MANSION", house);
+            B(new Vector3(-11f, 4f, 1f), new Vector3(8f, 8f, 8f), planks, true, "TOWER WING L", house);
+            B(new Vector3(11f, 4f, 1f), new Vector3(8f, 8f, 8f), planks, true, "TOWER WING R", house);
+            // pitched roofs (two slabs each) and ridge
+            void Roof(Vector3 c, float w, float d, float h)
+            {
+                float slope = Mathf.Atan2(h, d / 2f) * Mathf.Rad2Deg, l = Mathf.Sqrt(h * h + d * d / 4f) + 0.4f;
+                B(c + new Vector3(0, h / 2f, -d / 4f), new Vector3(w + 0.6f, 0.25f, l), roof, false, "roof", house).transform.localRotation = Quaternion.Euler(slope, 0, 0);
+                B(c + new Vector3(0, h / 2f, d / 4f), new Vector3(w + 0.6f, 0.25f, l), roof, false, "roof", house).transform.localRotation = Quaternion.Euler(-slope, 0, 0);
+            }
+            Roof(new Vector3(0, 11f, 0), 14f, 9f, 4.5f);
+            Roof(new Vector3(-11f, 8f, 1f), 8f, 8f, 3.5f);
+            Roof(new Vector3(11f, 8f, 1f), 8f, 8f, 3.5f);
+            // central tower with a spire
+            B(new Vector3(0, 9f, -4.8f), new Vector3(4f, 18f, 4f), planks, true, "TOWER CENTRAL", house);
+            B(new Vector3(0, 18.4f, -4.8f), new Vector3(4.6f, 0.4f, 4.6f), trim, false, "tower ledge", house);
+            for (int i = 0; i < 4; i++) B(new Vector3(0, 19.6f + i * 1.1f, -4.8f), new Vector3(3.6f - i * 0.9f, 1.1f, 3.6f - i * 0.9f), roof, false, "spire", house).transform.localRotation = Quaternion.Euler(0, 45, 0);
+            B(new Vector3(0, 24.4f, -4.8f), new Vector3(0.08f, 1.6f, 0.08f), dark, false, "spike", house);
+            B(new Vector3(0, 15.5f, -6.82f), new Vector3(1.6f, 2.2f, 0.06f), win, false, "tower window", house);
+            // chimneys
+            B(new Vector3(-4.5f, 14f, 1.5f), new Vector3(1.2f, 4f, 1.2f), trim, false, "chimney", house);
+            B(new Vector3(5f, 14.5f, 2f), new Vector3(1f, 5f, 1f), trim, false, "chimney", house);
+            // windows: three rows on the main block, two on each wing; some lit, some dark, some boarded
+            var rngH = new System.Random(77);
+            void Window(Vector3 c)
+            {
+                int k = rngH.Next(5);
+                B(c, new Vector3(1.1f, 1.6f, 0.06f), k < 2 ? win : k == 2 ? winDim : dark, false, "window", house);
+                B(c + new Vector3(0, 0.9f, -0.02f), new Vector3(1.4f, 0.18f, 0.12f), trim, false, "lintel", house);
+                B(c + new Vector3(0, -0.9f, -0.02f), new Vector3(1.4f, 0.12f, 0.18f), trim, false, "sill", house);
+                if (k == 4) { B(c + new Vector3(0, 0.2f, -0.05f), new Vector3(1.3f, 0.15f, 0.04f), planks, false, "board", house).transform.localRotation = Quaternion.Euler(0, 0, 20); B(c + new Vector3(0, -0.3f, -0.05f), new Vector3(1.3f, 0.15f, 0.04f), planks, false, "board", house).transform.localRotation = Quaternion.Euler(0, 0, -15); }
+            }
+            for (int row = 0; row < 3; row++) for (int col = 0; col < 5; col++) if (!(row == 0 && col == 2)) Window(new Vector3(-5.6f + col * 2.8f, 2f + row * 3.4f, -4.53f));
+            for (int w2 = -1; w2 <= 1; w2 += 2) for (int row = 0; row < 2; row++) for (int col = 0; col < 2; col++) Window(new Vector3(w2 * 11f - 2f + col * 4f, 2f + row * 3.4f, -3.03f));
+            // big double door, porch with columns, stairs, balcony above
+            B(new Vector3(0, 1.7f, -6.85f), new Vector3(2.2f, 3.4f, 0.1f), Mats.Lit(new Color(0.12f, 0.05f, 0.03f), 0.3f), false, "door", house);
+            B(new Vector3(0, 3.6f, -6.86f), new Vector3(2.4f, 0.4f, 0.12f), trim, false, "door arch", house);
+            B(new Vector3(0, 0.3f, -8f), new Vector3(8f, 0.6f, 2.4f), trim, true, "porch", house);
+            for (int i = 0; i < 4; i++) B(new Vector3(0, 0.1f + i * 0.15f - 0.3f, -9.4f - i * 0.3f + 0.9f), new Vector3(4f, 0.3f, 0.3f), trim, true, "stair", house);
+            for (int i = 0; i < 4; i++) P(PrimitiveType.Cylinder, new Vector3(-3.4f + i * 2.27f, 2.6f, -8.9f), new Vector3(0.35f, 2.3f, 0.35f), Quaternion.identity, trim, true, house);
+            B(new Vector3(0, 5f, -8.4f), new Vector3(8.4f, 0.3f, 3.2f), trim, true, "balcony", house);
+            for (float x = -4f; x <= 4f; x += 0.4f) B(new Vector3(x, 5.55f, -9.9f), new Vector3(0.06f, 0.8f, 0.06f), dark, false, "baluster", house);
+            B(new Vector3(0, 5.95f, -9.9f), new Vector3(8.4f, 0.08f, 0.1f), dark, false, "rail", house);
+            var hl = new GameObject("porch light").AddComponent<Light>(); hl.type = LightType.Point; hl.range = 14f; hl.intensity = 1.8f; hl.color = new Color(1f, 0.55f, 0.15f);
+            hl.transform.position = house.position + new Vector3(0, 3.5f, -9f); hl.gameObject.AddComponent<Flicker>();
+            var tl = new GameObject("tower light").AddComponent<Light>(); tl.type = LightType.Point; tl.range = 10f; tl.intensity = 1.2f; tl.color = new Color(0.7f, 0.3f, 1f);
+            tl.transform.position = house.position + new Vector3(0, 15.5f, -7.5f); tl.gameObject.AddComponent<Flicker>();
+            AddCover(house.position + new Vector3(-8f, 0, -5.2f), Vector3.back, Vector3.right);
+            AddCover(house.position + new Vector3(8f, 0, -5.2f), Vector3.back, Vector3.right);
+            Text("ENTER IF YOU DARE", house.position + new Vector3(0, 4.1f, -6.95f), Quaternion.identity, 0.28f, new Color(0.9f, 0.2f, 0.1f));
+            // tall iron fence and gate in front of the mansion
+            var ironF = Mats.Lit(new Color(0.05f, 0.05f, 0.06f), 0.6f);
+            for (float x = -16f; x <= 18f; x += 0.45f)
+            {
+                if (Mathf.Abs(x - 2f) < 2f) continue;   // gate opening
+                P(PrimitiveType.Cylinder, new Vector3(x, 1.1f, 9.5f), new Vector3(0.05f, 1.1f, 0.05f), Quaternion.identity, ironF);
+                P(PrimitiveType.Cube, new Vector3(x, 2.25f, 9.5f), new Vector3(0.08f, 0.12f, 0.08f), Quaternion.Euler(0, 0, 45), ironF);
+            }
+            B(new Vector3(1f, 2f, 9.5f), new Vector3(34f, 0.05f, 0.05f), ironF, false, "fence rail");
+            B(new Vector3(1f, 0.5f, 9.5f), new Vector3(34f, 0.05f, 0.05f), ironF, false, "fence rail");
+            for (int g = -1; g <= 1; g += 2)
+            {
+                B(new Vector3(2f + g * 2.2f, 1.6f, 9.5f), new Vector3(0.6f, 3.2f, 0.6f), trim, true, "gate pillar");
+                P(PrimitiveType.Sphere, new Vector3(2f + g * 2.2f, 3.45f, 9.5f), Vector3.one * 0.55f, Quaternion.identity, trim);
+                B(new Vector3(2f + g * 1.4f, 1.3f, 9.2f), new Vector3(1.6f, 2.4f, 0.05f), ironF, false, "gate").transform.localRotation = Quaternion.Euler(0, g * 35f, 0);
+            }
+            B(new Vector3(-7f, 1.1f, 9.5f), new Vector3(18f, 2.2f, 0.1f), Mats.Decal(Texture2D.whiteTexture, new Color(0, 0, 0, 0), 3000), true, "fence collider").GetComponent<Renderer>().enabled = false;
+            B(new Vector3(11f, 1.1f, 9.5f), new Vector3(14f, 2.2f, 0.1f), Mats.Decal(Texture2D.whiteTexture, new Color(0, 0, 0, 0), 3000), true, "fence collider").GetComponent<Renderer>().enabled = false;
             // graveyard: tombstones (cover), crosses, an open grave, iron fence
             var stone = Mats.Lit(new Color(0.42f, 0.42f, 0.45f), 0.1f);
             var moss = Mats.Lit(new Color(0.25f, 0.3f, 0.2f), 0.05f);
@@ -272,22 +328,84 @@ namespace VITS
             B(new Vector3(-14.5f, 1.2f, -8.5f), new Vector3(15f, 0.06f, 0.06f), iron, false, "rail");
             B(new Vector3(-14.5f, 1.2f, 11f), new Vector3(15f, 0.06f, 0.06f), iron, false, "rail");
             B(new Vector3(-14.5f, 0.7f, -8.5f), new Vector3(15f, 1.4f, 0.1f), Mats.Decal(Texture2D.whiteTexture, new Color(0, 0, 0, 0), 3000), true, "fence collider").GetComponent<Renderer>().enabled = false;
-            // dead trees
+            // a creepy forest: gnarled trees with many forking branches and a few clumps of dark, dying leaves
             var bark = Mats.Lit(new Color(0.1f, 0.08f, 0.07f), 0.05f);
-            Vector3[] trees = { new Vector3(-24f, 0, -18f), new Vector3(-5f, 0, 14f), new Vector3(18f, 0, -15f), new Vector3(22f, 0, 8f), new Vector3(-24f, 0, 20f), new Vector3(12f, 0, -24f), new Vector3(-12f, 0, -22f), new Vector3(24f, 0, 24f) };
-            foreach (var t in trees)
+            var leafM = new[] { Mats.Lit(new Color(0.12f, 0.1f, 0.05f), 0.05f), Mats.Lit(new Color(0.25f, 0.12f, 0.04f), 0.05f), Mats.Lit(new Color(0.08f, 0.1f, 0.05f), 0.05f) };
+            int leafCount = 0;
+            void Branch(Transform root, Vector3 from, Vector3 dir, float len, float rad, int depth)
+            {
+                Vector3 to = from + dir * len;
+                var q = Quaternion.FromToRotation(Vector3.up, dir);
+                P(PrimitiveType.Cylinder, (from + to) / 2f, new Vector3(rad * 2f, len / 2f, rad * 2f), q, bark, false, root);
+                if (depth <= 0)
+                {
+                    if (leafCount < 500 && rng.NextDouble() < 0.55)
+                    {
+                        leafCount++;
+                        float ls = 0.4f + (float)rng.NextDouble() * 0.6f;
+                        P(PrimitiveType.Sphere, to, new Vector3(ls, ls * 0.55f, ls), Random.rotation, leafM[rng.Next(leafM.Length)], false, root);
+                    }
+                    return;
+                }
+                int n = 2 + rng.Next(2);
+                for (int i = 0; i < n; i++)
+                {
+                    // gnarled: random twist, droop with depth
+                    var d = Quaternion.AngleAxis((float)rng.NextDouble() * 360f, dir) * Quaternion.AngleAxis(25f + (float)rng.NextDouble() * 35f, Vector3.Cross(dir, Vector3.right).normalized + Vector3.forward * 0.01f) * dir;
+                    d = (d + Vector3.down * 0.1f * (3 - depth)).normalized;
+                    Branch(root, to, d, len * (0.6f + (float)rng.NextDouble() * 0.15f), rad * 0.62f, depth - 1);
+                }
+            }
+            var forest = new System.Collections.Generic.List<Vector3>
+            { new Vector3(-24f, 0, -18f), new Vector3(-5f, 0, 14f), new Vector3(18f, 0, -15f), new Vector3(22f, 0, 8f), new Vector3(-24f, 0, 20f), new Vector3(12f, 0, -24f),
+              new Vector3(-12f, 0, -22f), new Vector3(24f, 0, 24f), new Vector3(-26f, 0, 0f), new Vector3(-27f, 0, 10f), new Vector3(26f, 0, -2f), new Vector3(27f, 0, 15f),
+              new Vector3(-18f, 0, 26f), new Vector3(-10f, 0, 29f), new Vector3(20f, 0, 29f), new Vector3(-26f, 0, -26f), new Vector3(26f, 0, -26f), new Vector3(6f, 0, -27f),
+              new Vector3(-4f, 0, -27f), new Vector3(20f, 0, -8f), new Vector3(-20f, 0, 15f), new Vector3(9f, 0, 12f), new Vector3(-8f, 0, -15f), new Vector3(15f, 0, 18f) };
+            foreach (var t in forest)
             {
                 var tr = new GameObject("COVER TREE").transform; tr.position = t;
-                float h = 4f + (float)rng.NextDouble() * 3f;
-                var trunk = P(PrimitiveType.Cylinder, new Vector3(0, h / 2f, 0), new Vector3(0.45f, h / 2f, 0.45f), Quaternion.Euler(0, 0, (float)rng.NextDouble() * 8f - 4f), bark, true, tr);
+                float h = 3.5f + (float)rng.NextDouble() * 2.5f, rad = 0.22f + (float)rng.NextDouble() * 0.12f;
+                var trunk = P(PrimitiveType.Cylinder, new Vector3(0, h / 2f, 0), new Vector3(rad * 2f, h / 2f, rad * 2f), Quaternion.Euler((float)rng.NextDouble() * 6f - 3f, 0, (float)rng.NextDouble() * 8f - 4f), bark, true, tr);
                 trunk.name = "COVER TREE";
-                for (int b = 0; b < 6; b++)
+                // roots
+                for (int r = 0; r < 4; r++) { var rq = Quaternion.Euler(0, r * 90f + (float)rng.NextDouble() * 40f, 0) * Quaternion.Euler(70f, 0, 0); P(PrimitiveType.Cylinder, rq * new Vector3(0, 0.45f, 0) + Vector3.up * 0.1f, new Vector3(rad, 0.45f, rad), rq, bark, false, tr); }
+                for (int b2 = 0; b2 < 4; b2++)
                 {
-                    float y = h * (0.45f + 0.5f * (float)rng.NextDouble()), ang = (float)rng.NextDouble() * 360f, len = 1f + (float)rng.NextDouble() * 1.6f;
-                    var q = Quaternion.Euler(0, ang, 0) * Quaternion.Euler(0, 0, -50f - (float)rng.NextDouble() * 30f);
-                    P(PrimitiveType.Cylinder, new Vector3(0, y, 0) + q * new Vector3(0, len / 2f, 0), new Vector3(0.12f, len / 2f, 0.12f), q, bark, false, tr);
+                    var d = Quaternion.Euler(0, b2 * 90f + (float)rng.NextDouble() * 50f, 0) * Quaternion.Euler(0, 0, -(35f + (float)rng.NextDouble() * 25f)) * Vector3.up;
+                    Branch(tr, new Vector3(0, h * (0.65f + 0.3f * (float)rng.NextDouble()), 0), d, 1.4f + (float)rng.NextDouble() * 0.8f, rad * 0.55f, 3);
                 }
+                Branch(tr, new Vector3(0, h, 0), Vector3.up, 1.2f, rad * 0.5f, 2);
                 AddCover(t, Vector3.forward, Vector3.right);
+            }
+            // low ground fog drifting between the graves and trees
+            var fogM = Mats.Decal(Texture2D.whiteTexture, new Color(0.55f, 0.5f, 0.7f, 0.06f), 3010);
+            for (int i = 0; i < 40; i++)
+            {
+                var fp = new Vector3((float)rng.NextDouble() * 56f - 28f, 0.15f + (float)rng.NextDouble() * 0.5f, (float)rng.NextDouble() * 56f - 28f);
+                B(fp, new Vector3(6f + (float)rng.NextDouble() * 6f, 0.01f, 6f + (float)rng.NextDouble() * 6f), fogM, false, "fog").transform.rotation = Quaternion.Euler(0, rng.Next(360), 0);
+            }
+            // crows on the fence and graves, candles on the graves, cobwebs on the porch
+            var crow = Mats.Lit(new Color(0.02f, 0.02f, 0.03f), 0.3f);
+            Vector3[] crows = { new Vector3(-12f, 1.3f, -8.5f), new Vector3(-18f, 1.3f, -8.5f), new Vector3(-17f, 0.95f, -2.8f), new Vector3(6f, 2.3f, 9.5f), new Vector3(-0.2f, 3.8f, 9.5f) };
+            foreach (var c in crows)
+            {
+                var cr = new GameObject("crow").transform; cr.position = c; cr.rotation = Quaternion.Euler(0, rng.Next(360), 0);
+                P(PrimitiveType.Sphere, new Vector3(0, 0.1f, 0), new Vector3(0.16f, 0.16f, 0.26f), Quaternion.identity, crow, false, cr);
+                P(PrimitiveType.Sphere, new Vector3(0, 0.2f, 0.12f), Vector3.one * 0.1f, Quaternion.identity, crow, false, cr);
+                P(PrimitiveType.Cube, new Vector3(0, 0.19f, 0.19f), new Vector3(0.02f, 0.02f, 0.07f), Quaternion.identity, Mats.Lit(new Color(0.3f, 0.25f, 0.1f), 0.2f), false, cr);
+            }
+            var wax = Mats.Lit(new Color(0.9f, 0.88f, 0.8f), 0.2f); var flame = Glow(new Color(1f, 0.8f, 0.3f, 1f));
+            for (int i = 0; i < 10; i++)
+            {
+                var cp = new Vector3(-20f + (i % 5) * 2.6f + 0.3f, 0, -6.4f + (i / 5) * 6.4f);
+                P(PrimitiveType.Cylinder, cp + new Vector3(0, 0.08f, 0), new Vector3(0.05f, 0.08f, 0.05f), Quaternion.identity, wax);
+                P(PrimitiveType.Sphere, cp + new Vector3(0, 0.19f, 0), new Vector3(0.025f, 0.05f, 0.025f), Quaternion.identity, flame);
+            }
+            var web = Mats.Decal(Texture2D.whiteTexture, new Color(0.85f, 0.85f, 0.9f, 0.35f), 3011);
+            for (int i = 0; i < 6; i++)
+            {
+                var wp = house.position + new Vector3(-3.4f + (i % 3) * 3.4f, 4.2f, -8.9f);
+                for (int k = 0; k < 5; k++) B(wp + new Vector3(0.3f, -0.3f, 0), new Vector3(0.9f, 0.01f, 0.01f), web, false, "web").transform.rotation = Quaternion.Euler(0, 0, k * 36f);
             }
             // jack-o'-lanterns: squashed orange balls, stem, carved glowing face; some with a flickering candle light
             var pump = Mats.Lit(new Color(0.95f, 0.42f, 0.05f), 0.3f);
@@ -347,7 +465,7 @@ namespace VITS
                 P(PrimitiveType.Sphere, Vector3.zero, new Vector3(0.12f, 0.1f, 0.18f), Quaternion.identity, batM, false, bat);
                 P(PrimitiveType.Cube, new Vector3(-0.17f, 0, 0), new Vector3(0.3f, 0.01f, 0.14f), Quaternion.identity, batM, false, bat).name = "wingL";
                 P(PrimitiveType.Cube, new Vector3(0.17f, 0, 0), new Vector3(0.3f, 0.01f, 0.14f), Quaternion.identity, batM, false, bat).name = "wingR";
-                var b = bat.gameObject.AddComponent<Bat>(); b.center = new Vector3(4f, 9f, 20f); b.radius = 5f + i * 1.3f; b.phase = i * 0.9f;
+                var b = bat.gameObject.AddComponent<Bat>(); b.center = new Vector3(2f, 15f, 20f); b.radius = 8f + i * 1.5f; b.phase = i * 0.9f;
             }
             Text("HAPPY HALLOWEEN", new Vector3(0, 0.02f, -21f), Quaternion.Euler(90, 0, 0), 0.9f, new Color(1f, 0.5f, 0.1f, 0.9f));
         }
