@@ -51,6 +51,14 @@ namespace VITS
             pgo.transform.SetPositionAndRotation(new Vector3(0, 0.05f, -14f), Quaternion.identity);
             player = pgo.AddComponent<Player>();
             try { Level.Build(); } catch (System.Exception e) { Debug.LogException(e); }
+            pgo.transform.position = Level.PlayerStart;
+            // supermarket: a cashier behind every till
+            foreach (var c in Level.Cashiers)
+            {
+                var cg = new GameObject("Mannequin");
+                cg.transform.SetPositionAndRotation(c, Quaternion.LookRotation(Vector3.left));
+                cg.AddComponent<Mannequin>().SetCashier(c, Vector3.left);
+            }
             try { new GameObject("Blood").AddComponent<Blood>(); } catch (System.Exception e) { Debug.LogException(e); }
             for (int i = 0; i < 10; i++) { try { Spawn(); } catch (System.Exception e) { Debug.LogException(e); } }
         }
@@ -185,9 +193,10 @@ namespace VITS
                 var q = new Vector3(Random.Range(s.plat.xMin + 1f, s.plat.xMax - 1f), s.h, Random.Range(s.plat.yMin + 1.5f, s.plat.yMax - 1f));
                 if (!Physics.CheckSphere(q + Vector3.up * 1f, 0.6f, ~0, QueryTriggerInteraction.Ignore)) return q;
             }
+            var A = Level.SpawnArea;
             for (int i = 0; i < 40; i++)
             {
-                var p = new Vector3(Random.Range(-11f, 11f), 0, Random.Range(-8f, 8f));
+                var p = new Vector3(Random.Range(A.xMin, A.xMax), 0, Random.Range(A.yMin, A.yMax));
                 if (!Physics.CheckSphere(p + Vector3.up * 1f, 0.6f, ~0, QueryTriggerInteraction.Ignore)) return p;
             }
             return Vector3.zero;
@@ -367,7 +376,12 @@ namespace VITS
                     Player.SaveSens();
                 }
                 if (GUI.Button(new Rect(bx, sy + 160 * s, bw, bh), "RESUME  (Esc)", bs)) player.SetMenu(false);
-                if (GUI.Button(new Rect(bx, sy + 210 * s, bw, bh), "RESET  (everything)", bs)) { player.SetMenu(false); ResetAll(); }
+                if (GUI.Button(new Rect(bx, sy + 210 * s, bw * 0.48f, bh), "RESET", bs)) { player.SetMenu(false); ResetAll(); }
+                if (GUI.Button(new Rect(bx + bw * 0.52f, sy + 210 * s, bw * 0.48f, bh), "MAP: " + Level.MapNames[Mathf.Clamp(PlayerPrefs.GetInt("vits_map", 0), 0, 2)], bs))
+                {
+                    PlayerPrefs.SetInt("vits_map", (PlayerPrefs.GetInt("vits_map", 0) + 1) % Level.MapNames.Length); PlayerPrefs.Save();
+                    player.SetMenu(false); ResetAll(); return;
+                }
                 // video
                 string fpsTxt = FpsSteps[FpsIdx] == 0 ? "UNLIMITED" : FpsSteps[FpsIdx] + " FPS";
                 if (GUI.Button(new Rect(bx, sy + 290 * s, bw * 0.48f, bh), "LIMIT: " + fpsTxt, bs)) { FpsIdx = (FpsIdx + 1) % FpsSteps.Length; PlayerPrefs.SetInt("vits_fps", FpsIdx); PlayerPrefs.Save(); ApplyVideo(); }

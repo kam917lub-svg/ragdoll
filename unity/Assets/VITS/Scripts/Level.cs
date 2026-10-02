@@ -5,10 +5,16 @@ namespace VITS
 {
     // "Vertical Impact Testsite": open light-blue test area, white grid floor,
     // pale platforms with orange edges, stairs, low cover walls.
-    public static class Level
+    public static partial class Level
     {
-        public static readonly Color Sky = new Color(0.92f, 0.92f, 0.9f);   // crash test hall: white, yellow, black
-        public const float HX = 36f, HZ = 36f;
+        public static Color Sky = new Color(0.92f, 0.92f, 0.9f);   // crash test hall: white, yellow, black
+        public static float HX = 36f, HZ = 36f;
+        // which map: 0 test site, 1 supermarket, 2 halloween night (Esc menu, restarts)
+        public static int Map;
+        public static readonly string[] MapNames = { "TEST SITE", "SUPERMARKET", "HALLOWEEN NIGHT" };
+        public static Rect SpawnArea = new Rect(-11f, -8f, 22f, 16f);
+        public static Vector3 PlayerStart = new Vector3(0, 0.05f, -14f);
+        public static readonly System.Collections.Generic.List<Vector3> Cashiers = new System.Collections.Generic.List<Vector3>();
         // four pits in the floor (x, z, half size): two with stairs down, two with a meat grinder at the bottom
         public static readonly Rect[] Pits = { new Rect(-29f, -12f, 5f, 5f), new Rect(24f, -12f, 5f, 5f), new Rect(-29f, 22f, 5f, 5f), new Rect(24f, 22f, 5f, 5f) };
         public const float PitDepth = 3.5f;
@@ -46,6 +52,17 @@ namespace VITS
         static Material plat, orange, wall, hazard;
 
         public static void Build()
+        {
+            Map = PlayerPrefs.GetInt("vits_map", 0);
+            Covers.Clear(); Stairs.Clear(); Cashiers.Clear();
+            if (Map == 1) { BuildMarket(); return; }
+            if (Map == 2) { BuildHalloween(); return; }
+            Sky = new Color(0.92f, 0.92f, 0.9f); HX = 36f; HZ = 36f;
+            SpawnArea = new Rect(-11f, -8f, 22f, 16f); PlayerStart = new Vector3(0, 0.05f, -14f);
+            BuildLab();
+        }
+
+        static void BuildLab()
         {
             RenderSettings.ambientMode = AmbientMode.Flat;
             RenderSettings.ambientLight = new Color(0.58f, 0.62f, 0.68f);

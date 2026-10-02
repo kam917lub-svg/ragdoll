@@ -594,6 +594,14 @@ namespace VITS
             {
                 case S.Idle:
                     status = hurt > 0.3f ? "HURT / STANDING" : "IDLE";
+                    if (cashier && !provoked)
+                    {
+                        // at the till: stays put, faces the counter, glances around
+                        status = "CASHIER";
+                        if (Flat(post - pos).magnitude > 0.4f) { NewGoal(S.Walk, post, 10f); break; }
+                        transform.rotation = Quaternion.RotateTowards(transform.rotation, Quaternion.LookRotation(postFace), dt * 90f);
+                        stateT = 1f; break;
+                    }
                     if (!Game.Brains && !provoked) { stateT = 1f; break; }
                     if (stateT <= 0) NewGoal(S.Walk, Game.RandomPoint(), Random.Range(8f, 14f));
                     break;
@@ -1425,6 +1433,8 @@ namespace VITS
 
         // run AWAY from the shooter: a cover farther from him, or just away
         // ---------- fear: what a person hears and sees makes them panic, freeze, cower or run
+        public bool cashier; Vector3 post, postFace;
+        public void SetCashier(Vector3 at, Vector3 face) { cashier = true; post = at; postFace = face; state = S.Idle; stateT = 1f; }
         public float fear; Vector3 threat; float senseT, fearSaid;
         // something frightening from 'src' (a shot, a scream, someone being hit): fear climbs, and past a point they run from it
         public void Scare(Vector3 src, float amount, string why)
