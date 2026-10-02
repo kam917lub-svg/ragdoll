@@ -575,3 +575,10 @@ Nota: il file (sorgente di un altro gioco) non serve e non viene usato; meglio u
 Modifiche (Mannequin.cs):
 - Watchdog in Locomotion: se vuole muoversi (want > 0.3) ma in 1,3 s non si è spostato di 0,5 m -> si sposta nel primo punto libero (0,4-1,6 m, 12 direzioni) e sceglie una nuova meta.
 - Watchdog in ActiveBrain: in piedi in modalità fisica (HURT / STANDING) senza essere tenuto, con gambe ok e nessun colpo da 2 s, per più di 3 s -> Recover() e torna a camminare/scappare (prima poteva restare congelato in piedi se OnGround() falliva, es. sopra un'auto o un oggetto).
+
+==================== PROMPT 79 ====================
+Richiesta: "they still freeze while running and also sometimes they dive on the ground even fif they arent trying to get bejind a wall"
+Modifiche (Mannequin.cs):
+- Tuffo solo se la meta è davvero dietro un muro di copertura (BehindCover: entro 3,5 m da una COVER e a meno di 1,2 m dal suo piano), non più verso punti casuali di fuga.
+- Watchdog più aggressivo: fermo da 0,8 s (meno di 0,35 m) mentre vuole muoversi -> esce nel punto libero più vicino, velocità minima 0,6 e nuova meta raggiungibile in linea retta (ClearPoint: SphereCast libero fino a 6 m).
+- In piedi in modalità fisica: torna a camminare dopo 1,5 s (prima 3) se nessun colpo da 1,2 s e non in aria.

@@ -741,7 +741,7 @@ namespace VITS
                     if (provoked) status = "PANIC / SPRINTING TO COVER";
                     float td = Flat(target - pos).magnitude;
                     // dive only onto open floor: never over or into the wall (that left them draped across it)
-                    if (provoked && !Hopping && speed > 2.5f && td < 1.8f && td > 0.9f && Time.time > diveT
+                    if (provoked && !Hopping && speed > 2.5f && td < 1.8f && td > 0.9f && Time.time > diveT && BehindCover(target)
                         && !Physics.SphereCast(pos + Vector3.up * 0.5f, 0.3f, Flat(target - pos).normalized, out _, td + 0.6f, ~((1 << 2) | (1 << LayerWalk) | (1 << LayerRag)), QueryTriggerInteraction.Ignore))
                     { diveT = Time.time + 15f; Dive(); return; }
                     if (td < 0.6f)
@@ -841,8 +841,8 @@ namespace VITS
             // watchdog: wants to move but has not really gone anywhere for a while -> unstick and pick a new way
             if (want > 0.3f && mode == M.Anim)
             {
-                if (Flat(transform.position - watchPos).magnitude > 0.5f) { watchPos = transform.position; watchT = 0f; }
-                else if ((watchT += dt) > 1.3f)
+                if (Flat(transform.position - watchPos).magnitude > 0.35f) { watchPos = transform.position; watchT = 0f; }
+                else if ((watchT += dt) > 0.8f)
                 {
                     watchT = 0f; watchPos = transform.position;
                     Vector3 p0 = transform.position;
@@ -853,7 +853,8 @@ namespace VITS
                         if (ok) break;
                     }
                     detourT = 0f;
-                    if (state == S.Flee) NewGoal(S.Flee, Game.RandomPoint(), 8f); else NewGoal(S.Walk, Game.RandomPoint(), 10f);
+                    speed = Mathf.Max(speed, 0.6f);
+                    if (state == S.Flee) NewGoal(S.Flee, ClearPoint(), 8f); else NewGoal(S.Walk, ClearPoint(), 10f);
                 }
             }
             else { watchPos = transform.position; watchT = 0f; }
@@ -927,6 +928,23 @@ namespace VITS
             parts["pelvis"].rb.AddForce(-push * parts["pelvis"].rb.mass * 0.2f, ForceMode.Impulse);
         }
 
+        // is this spot right behind a cover wall (the only place worth diving for)
+        static bool BehindCover(Vector3 t)
+        {
+            foreach (var c in Level.Covers) if (Flat(c.pos - t).magnitude < 3.5f && Mathf.Abs(Vector3.Dot(t - c.pos, c.normal)) < 1.2f) return true;
+            return false;
+        }
+        // a random spot that can be walked to in a straight line (used to get unstuck)
+        Vector3 ClearPoint()
+        {
+            Vector3 pos = transform.position;
+            for (int i = 0; i < 12; i++)
+            {
+                Vector3 t = Game.RandomPoint();
+                if (Flat(t - pos).magnitude > 2f && !Physics.SphereCast(pos + Vector3.up * 0.9f, 0.3f, Flat(t - pos).normalized, out _, Mathf.Min(6f, Flat(t - pos).magnitude), ~((1 << 2) | (1 << LayerWalk) | (1 << LayerRag)), QueryTriggerInteraction.Ignore)) return t;
+            }
+            return Game.RandomPoint();
+        }
         void NewGoal(S s, Vector3 t, float time)
         {
             state = s; target = t; stateT = time; stuckT = 0; detourT = 0; bestDist = Flat(t - transform.position).magnitude;
@@ -1266,8 +1284,8 @@ namespace VITS
                 }
             }
             // standing in the physical mode for too long with nothing holding him: back to walking (never frozen upright)
-            if (!down && conscious && !Held && getUp <= 0f && Mathf.Min(legFn[0], legFn[1]) > 0.3f && Time.time - lastHitTime > 2f) standStuckT += dt; else standStuckT = 0f;
-            if (standStuckT > 3f) { standStuckT = 0f; support = 1f; shock = 0f; Recover(); return; }
+            if (!down && conscious && !Held && getUp <= 0f && Mathf.Min(legFn[0], legFn[1]) > 0.3f && Time.time - lastHitTime > 1.2f && Time.time - airT > 0.8f) standStuckT += dt; else standStuckT = 0f;
+            if (standStuckT > 1.5f) { standStuckT = 0f; support = 1f; shock = 0f; Recover(); return; }
             // light wounds only, standing and steady for a while: walk (or hop) away
             if (!Injured && !Held && Time.time - heldT > 1.2f && !crawling && Time.time - lastHitTime > 1.2f && Time.time - airT > 1.2f && OnGround())
             {
