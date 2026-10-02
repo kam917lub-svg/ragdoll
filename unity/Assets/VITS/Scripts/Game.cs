@@ -419,7 +419,8 @@ namespace VITS
                 if (GUI.Button(new Rect(bx, y0, bw, bh), (Player.Weapon == 0 ? "▶ " : "  ") + "PISTOL  (9 mm, semi-auto)", bs)) player.SetWeapon(0);
                 if (GUI.Button(new Rect(bx, y0 + 52 * s, bw, bh), (Player.Weapon == 1 ? "▶ " : "  ") + "AK-47  (7.62, full auto)", bs)) player.SetWeapon(1);
                 if (GUI.Button(new Rect(bx, y0 + 104 * s, bw, bh), (Player.Weapon == 2 ? "▶ " : "  ") + "AWP  (.338, bolt, scope)", bs)) player.SetWeapon(2);
-                if (GUI.Button(new Rect(bx, y0 + 156 * s, bw, bh), (Player.Weapon == 3 ? "▶ " : "  ") + "KNIFE  (slash & cut)", bs)) player.SetWeapon(3);
+                if (GUI.Button(new Rect(bx, y0 + 156 * s, bw * 0.49f, bh), (Player.Weapon == 3 ? "▶ " : "  ") + "KNIFE", bs)) player.SetWeapon(3);
+                if (GUI.Button(new Rect(bx + bw * 0.51f, y0 + 156 * s, bw * 0.49f, bh), (Player.Weapon == 4 ? "▶ " : "  ") + "GRENADE", bs)) player.SetWeapon(4);
                 if (GUI.Button(new Rect(bx, y0 + 260 * s, bw, bh), "MODEL: " + (BodyMesh.Model == 1 ? "REALISTIC 1.85 M" : "CLASSIC DUMMY") + "  (restarts)", bs))
                 {
                     BodyMesh.Model = 1 - BodyMesh.Model; PlayerPrefs.SetInt("vits_model", BodyMesh.Model); PlayerPrefs.Save();

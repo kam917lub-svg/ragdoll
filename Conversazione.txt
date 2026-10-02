@@ -552,3 +552,12 @@ Modifiche:
 - Nuovo Scripts/Fx.cs: effetti d'impatto in pool (400 segni, 160 particelle): foro di proiettile (centro scuro, anello, crepe), graffio del coltello, scintille (molte sul metallo), schegge del colore della superficie, polvere che si allarga, suono (clink metallico / tonfo). I segni restano attaccati agli oggetti fisici che si muovono.
 - Player.cs: i colpi sul mondo usano Fx.Bullet (calibro: pistola 12 mm, AK 16, AWP 22) e spingono anche gli oggetti fisici; coltello: raggio contro il mondo (graffio/foro + spinta + contraccolpo); nuova animazione fendente (caricamento sopra la spalla, taglio diagonale veloce, follow-through, ritorno); tasto destro con il coltello = Stab() (affondo dritto 1,4 m, niente mira/zoom).
 - Mannequin.cs: fendente più profondo (9 aperture più larghe + seconda fila più interna); nuovo Stab(): canale profondo lungo la lama, testa = morte, gola = carotide (4-9 s), cuore = 2-5 s, busto = ferita profonda che sanguina molto.
+
+==================== PROMPT 76 ====================
+Richiesta: "default knife pisition hold is weird it should be upright not pointed no? also add granades full immersibe reaòistic and sound anf effects etc"
+Modifiche:
+- Player.cs: coltello a riposo tenuto dritto (Euler -62, 8, -6). Nuova arma 4 "M67 FRAG GRENADE" (4 a disposizione, poi si ricarica da sola): tieni sinistro = togli la spoletta (suono), rilascia = lancio sopra la spalla 17 m/s; destro = lancio basso 7 m/s; la miccia (4,2 s) parte quando lasci la leva: se la tieni troppo esplode in mano. Animazioni di carica/lancio. Shake della camera, sordità temporanea (volume abbassato), spinta del giocatore (Push).
+- Nuovo Grenade.cs: modello M67 (corpo, testa, leva, anello), oggetto fisico che rimbalza e rotola con clink, leva che vola via; esplosione: suono generato (crack, boato, sub, rimbombo, eco) che arriva in ritardo con la distanza, fischio nelle orecchie da vicino, luce lampo bianco->arancio, onda d'urto sugli oggetti, ~320 schegge (colpi veri sui Kekko, fori sui muri), paura per tutti fino a 120 m. Classi Fade, Shake, Deafen.
+- Fx.cs: Blast() (palla di fuoco, scintille, terra, colonna di fumo che sale e resta 5-10 s, bruciatura a terra), Frag() (foro scheggia).
+- Mannequin.cs: Blast(c,d): <1,2 m fatto a pezzi (tutti gli arti + testa), <2,2 m 1-3 arti strappati, <3,5 m possibile arto; morte/ferite; tutti scaraventati con impulso.
+- Game.cs: menu Esc: KNIFE e GRENADE affiancati.

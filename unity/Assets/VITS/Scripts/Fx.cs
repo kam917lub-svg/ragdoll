@@ -6,11 +6,11 @@ namespace VITS
     public class Fx : MonoBehaviour
     {
         static Fx I;
-        const int DEC = 400, BITS = 160;
+        const int DEC = 400, BITS = 320;
         Transform[] dec = new Transform[DEC]; int decHead;
         struct Bit { public Transform t; public Renderer r; public Vector3 v; public float life, max, size, grow; public bool spark; }
         Bit[] bits = new Bit[BITS]; int bitHead;
-        Material holeM, gougeM; MaterialPropertyBlock mpb;
+        Material holeM, gougeM, scorchM; MaterialPropertyBlock mpb;
         AudioSource au; AudioClip clink, thud;
 
         static Fx Get()
@@ -25,6 +25,7 @@ namespace VITS
             holeM = Mats.Decal(HoleTex(), Color.white, 2460);
             gougeM = Mats.Decal(GougeTex(), Color.white, 2460);
             var puff = Mats.Decal(PuffTex(), Color.white, 3050);
+            scorchM = Mats.Decal(ScorchTex(), new Color(0.03f, 0.03f, 0.03f, 0.9f), 2455);
             for (int i = 0; i < DEC; i++)
             {
                 var g = Mats.Vis(PrimitiveType.Quad, transform, Vector3.zero, Vector3.zero, holeM, false);
@@ -66,6 +67,29 @@ namespace VITS
             f.Play(h.point, metal ? f.clink : f.thud, metal ? 0.8f : 0.6f);
         }
 
+        // a grenade going off: fireball, sparks, chips, a smoke column that hangs and drifts, a scorch mark
+        public static void Blast(Vector3 c, Vector3 up)
+        {
+            var f = Get();
+            for (int i = 0; i < 14; i++)   // fireball: bright, quick, swelling
+                f.Spawn(c + Random.insideUnitSphere * 0.3f + up * 0.2f, (up * 0.6f + Random.insideUnitSphere) * Random.Range(2f, 5f), false, Random.Range(0.4f, 0.8f), Random.Range(0.15f, 0.35f), 6f, new Color(1f, Random.Range(0.55f, 0.85f), 0.25f, 1f));
+            for (int i = 0; i < 45; i++)
+                f.Spawn(c + up * 0.1f, (Random.onUnitSphere + up * 0.6f).normalized * Random.Range(8f, 25f), true, 0.02f, Random.Range(0.1f, 0.4f), 0f, new Color(1f, 0.8f, 0.4f, 1f));
+            for (int i = 0; i < 30; i++)   // dirt and gravel thrown up
+                f.Spawn(c + up * 0.05f, (up * 1.2f + Random.insideUnitSphere).normalized * Random.Range(3f, 9f), false, Random.Range(0.01f, 0.035f), Random.Range(1f, 2f), 0f, new Color(0.25f, 0.22f, 0.18f, 1f));
+            for (int i = 0; i < 30; i++)   // the smoke column: grey-brown, slow, lasting
+                f.Spawn(c + Random.insideUnitSphere * 0.5f + up * Random.Range(0.2f, 1.2f), (up * Random.Range(0.4f, 1.6f) + Random.insideUnitSphere * 1.2f), false, Random.Range(0.4f, 0.9f), Random.Range(5f, 10f), Random.Range(0.25f, 0.6f), new Color(0.3f, 0.28f, 0.26f, 1f));
+            if (Physics.Raycast(c + up * 0.3f, -up, out RaycastHit h, 1.2f, ~((1 << 2) | (1 << Mannequin.LayerWalk) | (1 << Mannequin.LayerRag)), QueryTriggerInteraction.Ignore))
+                f.Mark(h, f.scorchM, Random.Range(1.6f, 2.2f), Random.onUnitSphere, 1f);
+        }
+        // a steel fragment striking a wall
+        public static void Frag(RaycastHit h, Vector3 dir)
+        {
+            var f = Get();
+            f.Mark(h, f.holeM, Random.Range(0.006f, 0.012f), dir, 1f);
+            if (Random.value < 0.4f) f.Spawn(h.point + h.normal * 0.01f, (Vector3.Reflect(dir, h.normal) + Random.insideUnitSphere * 0.5f).normalized * 5f, true, 0.01f, 0.12f, 0f, new Color(1f, 0.8f, 0.4f, 1f));
+        }
+
         // ---------- internals
         void Mark(RaycastHit h, Material m, float size, Vector3 along, float stretch)
         {
@@ -101,7 +125,7 @@ namespace VITS
                 if (b.life <= 0) continue;
                 b.life -= dt;
                 if (b.life <= 0) { b.t.gameObject.SetActive(false); continue; }
-                if (b.grow > 0) { b.v *= 1f - dt * 2.5f; b.v.y += dt * 0.15f; b.size += b.grow * dt; }   // dust drifts and spreads
+                if (b.grow > 0) { b.v *= 1f - dt * 2.5f; b.v.y += dt * (b.max > 3f ? 0.6f : 0.15f); b.size += b.grow * dt; }   // dust drifts and spreads
                 else b.v += Physics.gravity * dt;
                 Vector3 np = b.t.position + b.v * dt;
                 if (b.grow <= 0 && Physics.Linecast(b.t.position, np, out RaycastHit hh, ~((1 << 2) | (1 << Mannequin.LayerWalk) | (1 << Mannequin.LayerRag)), QueryTriggerInteraction.Ignore))
@@ -119,7 +143,7 @@ namespace VITS
                     }
                     else { b.t.rotation = Quaternion.LookRotation(-toCam); b.t.localScale = Vector3.one * b.size * (b.grow > 0 ? 1f : Mathf.Clamp01(k * 3f)); }
                 }
-                if (b.grow > 0) { mpb.Clear(); b.r.GetPropertyBlock(mpb); var c = mpb.GetColor("_Color"); c.a = 0.55f * k; mpb.SetColor("_Color", c); b.r.SetPropertyBlock(mpb); }
+                if (b.grow > 0) { mpb.Clear(); b.r.GetPropertyBlock(mpb); var c = mpb.GetColor("_Color"); c.a = (b.max > 3f ? 0.7f : b.max < 0.5f ? 1f : 0.55f) * Mathf.Min(1f, k * (b.max > 3f ? 1.6f : 1f)); mpb.SetColor("_Color", c); b.r.SetPropertyBlock(mpb); }
             }
         }
 
@@ -170,6 +194,19 @@ namespace VITS
                 float core = Mathf.Clamp01((w * 0.5f - Mathf.Abs(u)) * 30f);
                 float edge = Mathf.Clamp01(1f - Mathf.Abs(Mathf.Abs(u) - w * 0.8f) * 12f) * taper;
                 px[y * W + x] = core > 0.01f ? new Color(0.05f, 0.05f, 0.05f, core) : new Color(0.85f, 0.85f, 0.82f, edge * 0.7f);
+            }
+            t.SetPixels(px); t.Apply(); return t;
+        }
+        static Texture2D ScorchTex()
+        {
+            int N = 64; var t = new Texture2D(N, N, TextureFormat.RGBA32, true) { wrapMode = TextureWrapMode.Clamp };
+            var px = new Color[N * N];
+            for (int y = 0; y < N; y++) for (int x = 0; x < N; x++)
+            {
+                float dx = (x + 0.5f) / N * 2 - 1, dy = (y + 0.5f) / N * 2 - 1, r = Mathf.Sqrt(dx * dx + dy * dy), a = Mathf.Atan2(dy, dx);
+                float rays = 0.75f + 0.25f * Mathf.PerlinNoise(a * 3f + 10f, r * 4f);
+                float al = Mathf.Clamp01((rays - r) * 2.5f) * (0.6f + 0.4f * Mathf.PerlinNoise(x * 0.2f, y * 0.2f));
+                px[y * N + x] = new Color(1, 1, 1, al);
             }
             t.SetPixels(px); t.Apply(); return t;
         }

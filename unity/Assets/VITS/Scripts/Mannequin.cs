@@ -2384,6 +2384,44 @@ namespace VITS
             catch (System.Exception e) { Debug.LogException(e); Game.LastShot = "SLASH ERROR: " + e.Message; }
         }
 
+        // grenade blast at distance d: very close = torn apart, close = limbs torn off and thrown, further = knocked flat
+        public void Blast(Vector3 c, float d)
+        {
+            try
+            {
+                provoked = true; lastHitTime = Time.time; fear = 1f; shock = 1f;
+                Vector3 dir = (transform.position + Vector3.up * 0.9f - c); dir.y = Mathf.Max(dir.y, 0.3f); dir.Normalize();
+                lastDir = dir; lastHit = "BLAST " + d.ToString("0.0") + " M";
+                var B = Blood.I;
+                if (d < 3.5f)
+                {
+                    var limbs = new List<Part>();
+                    foreach (var q in parts.Values) if ((q.isArm || q.isLeg) && !q.severed && q.parentPart != null) limbs.Add(q);
+                    int tear = d < 1.2f ? limbs.Count : d < 2.2f ? Random.Range(1, 4) : Random.value < 0.4f ? 1 : 0;
+                    for (int i = 0; i < tear && limbs.Count > 0; i++)
+                    {
+                        // the limbs nearest the blast go first
+                        Part best = null; float bd = 1e9f;
+                        foreach (var q in limbs) { float dd = (q.transform.position - c).sqrMagnitude; if (dd < bd && !q.severed) { bd = dd; best = q; } }
+                        if (best == null) break;
+                        limbs.Remove(best); SeverJoint(best, dir);
+                        B.Spray(best.transform.position, dir + Vector3.up * 0.3f, 60, 4f, 0.6f, 0.1f, 0.6f);
+                    }
+                    if (d < 1.2f && parts.TryGetValue("head", out var hd) && !headMashed) MashHead(hd);
+                    injuries.Add(d < 1.2f ? "TORN APART BY THE BLAST" : "BLAST INJURIES");
+                    if (d < 2.5f || Random.value < 0.5f) Die("EXPLOSION"); else { GoActive(); pain = 1f; hurt = 1f; }
+                    B.Spray(transform.position + Vector3.up * 0.9f, dir, 160, 5f, 0.8f, 0.1f, 0.8f);
+                }
+                else { injuries.Add("THROWN BY A BLAST"); GoActive(); pain = Mathf.Min(1f, pain + 0.5f); }
+                float force = Mathf.Lerp(28f, 5f, Mathf.Clamp01(d / 7f));
+                foreach (var q in parts.Values)
+                    if (q.rb != null && !q.rb.isKinematic)
+                        q.rb.AddForce((dir + Random.insideUnitSphere * 0.3f) * force * q.rb.mass / 4f + Vector3.up * force * 0.4f * q.rb.mass / 4f, ForceMode.Impulse);
+                Game.LastShot = displayName + " · " + lastHit;
+            }
+            catch (System.Exception e) { Debug.LogException(e); Game.LastShot = "BLAST ERROR: " + e.Message; }
+        }
+
         // knife thrust: a narrow, deep wound channel along the blade; organs behind it are hit
         public void Stab(Part p, Vector3 pt, Vector3 dir)
         {

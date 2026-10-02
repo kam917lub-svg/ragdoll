@@ -24,9 +24,10 @@ namespace VITS
             PlayerPrefs.SetFloat("vits_sens", Sens); PlayerPrefs.SetFloat("vits_ads", AdsSens); PlayerPrefs.SetFloat("vits_vol", Volume); PlayerPrefs.Save();
             AudioListener.volume = Volume;
         }
-        public static readonly string[] Names = { "PISTOL / 9MM", "AK-47 / 7.62", "AWP / .338 LAPUA", "KNIFE" };
+        public static readonly string[] Names = { "PISTOL / 9MM", "AK-47 / 7.62", "AWP / .338 LAPUA", "KNIFE", "M67 FRAG GRENADE" };
+        public static bool Nade => Weapon == 4;
         public static bool Knife => Weapon == 3;
-        static readonly int[] MAG = { 15, 30, 10, 1 };
+        static readonly int[] MAG = { 15, 30, 10, 1, 4 };
         public int ammo = 15; public int MaxAmmo => MAG[Weapon];
         // aiming down the sights (0 = hip, 1 = sights on the crosshair); the HUD crosshair hides once the sights are up
         float aimT;
@@ -34,12 +35,14 @@ namespace VITS
         // where the gun sits when aiming: the sight line (rear notch bottom = front post top) exactly on the camera axis
         //  pistol: sights at y 0.057 on the slide;  AK: rear leaf + hooded front post at y 0.09 in the AK model (model at x 0.02);
         //  AWP: aimed through the scope, the gun is only seen for a moment while the bolt cycles
-        static readonly Vector3[] ADS = { new Vector3(0f, -0.057f, 0.30f), new Vector3(-0.02f, -0.09f, 0.20f), new Vector3(-0.02f, -0.14f, 0.20f), new Vector3(0.12f, -0.14f, 0.34f) };
+        static readonly Vector3[] ADS = { new Vector3(0f, -0.057f, 0.30f), new Vector3(-0.02f, -0.09f, 0.20f), new Vector3(-0.02f, -0.14f, 0.20f), new Vector3(0.12f, -0.14f, 0.34f), new Vector3(0.12f, -0.14f, 0.34f) };
         public bool Scoped => AWP && GI.AimHeld() && reloadT <= 0 && locked && !menu;   // stays in the scope while the bolt cycles
         float zoom = 8f, boltT;              // AWP magnification (4x / 8x / 12x, mouse wheel) and bolt cycling
         public bool menu;
         Transform pistolModel, akModel, awpModel, bolt;
-        readonly int[] mags = { 15, 30, 10, 1 };
+        readonly int[] mags = { 15, 30, 10, 1, 4 };
+        Transform nadeModel, nadeRing; float cookT = -1f, throwT; bool under; Vector3 pushV;
+        public void Push(Vector3 v) { pushV += v; }
         Transform knifeModel; float slashT, stabT; int slashSide = 1; bool stabHeld; AudioClip swishClip;
         public float reloadT;
         public bool locked;
@@ -129,6 +132,11 @@ namespace VITS
             Mats.Vis(PrimitiveType.Cube, knifeModel, new Vector3(0, -0.002f, -0.045f), new Vector3(0.022f, 0.03f, 0.11f), gripM, false);
             Mats.Vis(PrimitiveType.Capsule, knifeModel, new Vector3(0.0f, -0.03f, -0.05f), new Vector3(0.06f, 0.07f, 0.06f), hand, false).transform.localRotation = Quaternion.Euler(-80, 0, 0);
             knifeModel.gameObject.SetActive(false);
+            nadeModel = new GameObject("NadeHold").transform; nadeModel.SetParent(gun, false);
+            var gm = Grenade.Model(nadeModel, true); gm.localPosition = new Vector3(0, 0.02f, 0.03f);
+            nadeRing = gm.Find("PinRing");
+            Mats.Vis(PrimitiveType.Capsule, nadeModel, new Vector3(0.01f, -0.025f, 0.02f), new Vector3(0.075f, 0.06f, 0.075f), hand, false).transform.localRotation = Quaternion.Euler(-20, 0, 0);
+            nadeModel.gameObject.SetActive(false);
             var fgo = new GameObject("Flash"); fgo.transform.SetParent(gun, false); fgo.transform.localPosition = new Vector3(0, 0.03f, 0.17f);
             flash = fgo.AddComponent<Light>(); flash.type = LightType.Point; flash.range = 8f; flash.intensity = 0; flash.color = new Color(1f, 0.85f, 0.6f);
 
@@ -209,7 +217,8 @@ namespace VITS
                 yaw += md.x * k; pitch = Mathf.Clamp(pitch - md.y * k, -88f, 88f);
             }
             transform.rotation = Quaternion.Euler(0, yaw, 0);
-            cam.transform.localRotation = Quaternion.Euler(pitch - recoil * 2.5f, 0, 0);
+            cam.transform.localRotation = Quaternion.Euler(new Vector3(pitch - recoil * 2.5f, 0, 0) + Shake.Offset(dt));
+            AudioListener.volume = Volume * Deafen.Factor();
 
             // movement (unscaled: you move normally even in slow motion)
             Vector3 mv = Vector3.zero;
@@ -224,7 +233,9 @@ namespace VITS
             cam.transform.localPosition = new Vector3(0, Mathf.Lerp(1.65f, 0.95f, crouch), 0);
             float sp = crouch > 0.5f ? 1.7f : GI.Held(K.Shift) ? 6f : 3.4f;
             if (cc.isGrounded) { vy = -1f; if (GI.Down(K.Space)) vy = 5.2f; } else vy -= 14f * dt;
-            cc.Move((mv * sp + Vector3.up * vy) * dt);
+            if (pushV.y > 0.5f) { vy = Mathf.Max(vy, pushV.y); pushV.y = 0; }
+            cc.Move((mv * sp + Vector3.up * vy + new Vector3(pushV.x, 0, pushV.z)) * dt);
+            pushV = Vector3.MoveTowards(pushV, Vector3.zero, dt * 18f);
             moveVel = mv * sp;
             if (transform.position.y < -8f) { cc.enabled = false; transform.position = Level.PlayerStart + Vector3.up * 0.5f; cc.enabled = true; vy = 0f; }   // fell through: back to the start
             if (Blood.I != null) Blood.I.Step(feetTr, transform.position, cc.isGrounded, crouch > 0.5f ? 0.45f : GI.Held(K.Shift) ? 0.9f : 0.68f);
@@ -251,12 +262,13 @@ namespace VITS
                 else if (locked && GI.FireDown() && cool <= 0) Slash();
                 stabHeld = rb;
             }
-            else if (locked && (AK ? GI.FireHeld() : GI.FireDown())) Shoot();
+            else if (Nade) NadeUpdate(dt);
+            else if (locked && !Nade && (AK ? GI.FireHeld() : GI.FireDown())) Shoot();
             // knife swing: sweeps across the view, alternating sides
             slashT = Mathf.Max(0f, slashT - dt * 2.2f); stabT = Mathf.Max(0f, stabT - dt * 2.0f);
             if (knifeModel != null && Knife)
             {
-                Vector3 pos = Vector3.zero, eul = new Vector3(4f, 0, 0);
+                Vector3 pos = Vector3.zero, eul = new Vector3(-62f, 8f, -6f);   // held upright, edge forward, like a real grip
                 if (slashT > 0)
                 {
                     // wind-up (blade cocked back over the shoulder), a fast diagonal cut across the view, follow-through, recover
@@ -293,10 +305,10 @@ namespace VITS
                 if (Scoped) zoom = Mathf.Clamp(zoom + GI.Scroll() * 4f, 4f, 12f);
             }
             if (!Knife && GI.Down(K.R) && ammo < MaxAmmo && reloadT <= 0) reloadT = 1.4f;
-            float wantFov = Scoped ? 2f * Mathf.Atan(Mathf.Tan(35f * Mathf.Deg2Rad) / zoom) * Mathf.Rad2Deg : GI.AimHeld() && !Knife ? (AWP ? 55f : 45f) : 70f;
+            float wantFov = Scoped ? 2f * Mathf.Atan(Mathf.Tan(35f * Mathf.Deg2Rad) / zoom) * Mathf.Rad2Deg : GI.AimHeld() && !Knife && !Nade ? (AWP ? 55f : 45f) : 70f;
             cam.fieldOfView = Scoped ? wantFov : Mathf.Lerp(cam.fieldOfView, wantFov, 1 - Mathf.Exp(-dt * 12f));
             gun.gameObject.SetActive(!Scoped);
-            aimT = Mathf.MoveTowards(aimT, GI.AimHeld() && !Knife && reloadT <= 0 && locked ? 1f : 0f, dt * 7f);
+            aimT = Mathf.MoveTowards(aimT, GI.AimHeld() && !Knife && !Nade && reloadT <= 0 && locked ? 1f : 0f, dt * 7f);
             float aim = aimT * aimT * (3f - 2f * aimT), still = 1f - aim;   // no weapon bob with the sights up
             float rl = reloadT > 0 ? Mathf.Sin(Mathf.Clamp01(1 - reloadT / 1.4f) * Mathf.PI) : 0;
             gun.localPosition = Vector3.Lerp(new Vector3(0.17f, -0.16f, 0.36f), ADS[Weapon], aim)
@@ -394,7 +406,7 @@ namespace VITS
         {
             mags[Weapon] = ammo;
             Weapon = w; ammo = mags[w]; reloadT = 0; boltT = 0;
-            pistolModel.gameObject.SetActive(w == 0); akModel.gameObject.SetActive(w == 1); awpModel.gameObject.SetActive(w == 2); knifeModel.gameObject.SetActive(w == 3);
+            pistolModel.gameObject.SetActive(w == 0); akModel.gameObject.SetActive(w == 1); awpModel.gameObject.SetActive(w == 2); knifeModel.gameObject.SetActive(w == 3); nadeModel.gameObject.SetActive(w == 4); cookT = -1f;
             flash.transform.localPosition = w == 1 ? new Vector3(0, 0.04f, 0.64f) : w == 2 ? new Vector3(0, 0.022f, 0.84f) : new Vector3(0, 0.03f, 0.17f);
         }
 
@@ -527,6 +539,52 @@ namespace VITS
             Vector3 sweep = Vector3.ProjectOnPlane(-r, bn).normalized;   // the blade travels across the surface
             best.owner.Slash(best, pt, sweep, bd);
             hitMarkT = 0.2f;
+        }
+
+        // grenade: hold a button = pin pulled, spoon held; release = throw (left overhand and far, right underhand lob).
+        // The fuse burns from when you let the spoon go; cook it too long and it goes off in your hand.
+        void NadeUpdate(float dt)
+        {
+            if (reloadT > 0) return;
+            bool lb = GI.FireHeld(), rb = GI.AimHeld();
+            if (cookT < 0f)
+            {
+                if (locked && cool <= 0 && ammo > 0 && throwT <= 0 && (GI.FireDown() || (rb && !stabHeld)))
+                {
+                    cookT = 0f; under = !GI.FireDown(); au.PlayOneShot(Grenade.Pin, 0.8f);
+                    if (nadeRing != null) nadeRing.gameObject.SetActive(false);
+                }
+            }
+            else
+            {
+                cookT += dt;
+                // spoon is let go after a moment of holding: from then the fuse runs
+                if (cookT > 4.7f) { cookT = -1f; ammo--; Grenade.Explode(cam.transform.position + cam.transform.forward * 0.4f); if (nadeRing != null) nadeRing.gameObject.SetActive(true); }
+                else if (!(under ? rb : lb))
+                {
+                    Vector3 f = cam.transform.forward;
+                    Vector3 v = under ? (f * 7f + Vector3.up * 2.5f) : (f * 17f + Vector3.up * 3.5f);
+                    Grenade.Throw(cam.transform.position + f * 0.45f + cam.transform.right * 0.12f + Vector3.down * (under ? 0.35f : 0.05f), v + cc.velocity, 4.2f - Mathf.Max(0f, cookT - 0.5f));
+                    cookT = -1f; throwT = 1f; cool = 0.8f; ammo--;
+                    if (swishClip == null) swishClip = MakeSwish();
+                    au.PlayOneShot(swishClip, 0.5f);
+                }
+            }
+            stabHeld = rb;
+            throwT = Mathf.Max(0f, throwT - dt * 2.2f);
+            if (throwT <= 0f && cookT < 0 && nadeRing != null && !nadeRing.gameObject.activeSelf) nadeRing.gameObject.SetActive(true);
+            if (ammo <= 0 && reloadT <= 0 && cookT < 0) reloadT = 1.4f;   // grab the next ones off the belt
+            // arm: wound back behind the head while held, whips over, then a new one comes up from below
+            Vector3 p = Vector3.zero, e = Vector3.zero;
+            if (cookT >= 0f) { float k = Mathf.SmoothStep(0, 1, Mathf.Clamp01(cookT * 4f)); p = under ? new Vector3(0, -0.2f, -0.05f) * k : new Vector3(0.05f, 0.14f, -0.22f) * k; e = under ? new Vector3(30f, 0, 0) * k : new Vector3(-40f, 0, -15f) * k; }
+            else if (throwT > 0f)
+            {
+                float u = 1f - throwT, sw = Mathf.Clamp01(u / 0.35f);
+                p = Vector3.Lerp(new Vector3(-0.1f, -0.1f, 0.35f), new Vector3(0, -0.45f, 0.1f), Mathf.Clamp01((u - 0.3f) / 0.4f)) * sw;
+                p = Vector3.Lerp(p, Vector3.zero, Mathf.Clamp01((u - 0.7f) / 0.3f));
+            }
+            nadeModel.localPosition = p; nadeModel.localRotation = Quaternion.Euler(e);
+            nadeModel.gameObject.SetActive(throwT < 0.6f || throwT <= 0f);
         }
 
         void KnifeWorld(RaycastHit h, Vector3 sweep, bool stab)
