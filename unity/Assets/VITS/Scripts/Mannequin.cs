@@ -405,6 +405,17 @@ namespace VITS
                         seg.transform.localRotation = Quaternion.Euler(-k * 25f, 0, k * 30f);
                     }
                     Mats.Vis(PrimitiveType.Cylinder, head, new Vector3(0, 0.3f, 0), new Vector3(0.225f, 0.02f, 0.225f), M(new Color(0.45f, 0.1f, 0.6f)), false);
+                    Mats.Vis(PrimitiveType.Cube, head, new Vector3(0, 0.3f, 0.115f), new Vector3(0.05f, 0.04f, 0.01f), M(new Color(0.85f, 0.7f, 0.2f), 0.8f), false);   // gold buckle
+                    var hair = M(new Color(0.12f, 0.1f, 0.1f), 0.1f);
+                    for (int i = 0; i < 9; i++)
+                    {
+                        float ang = Mathf.Lerp(100f, 260f, i / 8f) * Mathf.Deg2Rad;
+                        Mats.Vis(PrimitiveType.Cube, head, new Vector3(Mathf.Sin(ang) * 0.12f, 0.15f, Mathf.Cos(ang) * 0.12f), new Vector3(0.025f, 0.22f, 0.012f), hair, false).transform.localRotation = Quaternion.Euler(Random.Range(-8f, 8f), ang * Mathf.Rad2Deg, Random.Range(-8f, 8f));
+                    }
+                    var robe = M(new Color(0.08f, 0.06f, 0.1f), 0.15f);
+                    Mats.Vis(PrimitiveType.Cylinder, parts["pelvis"].transform, new Vector3(0, -0.22f, 0), new Vector3(0.42f, 0.25f, 0.34f), robe, false);   // skirt of the robe
+                    Mats.Vis(PrimitiveType.Sphere, head, Front(parts["head"], 0f, 0.15f, 0.03f), new Vector3(0.035f, 0.07f, 0.05f), M(new Color(0.5f, 0.68f, 0.4f), 0.3f), false).transform.localRotation = Quaternion.Euler(25f, 0, 0);   // long nose
+                    Mats.Vis(PrimitiveType.Sphere, head, Front(parts["head"], 0.015f, 0.13f, 0.06f), new Vector3(0.012f, 0.012f, 0.012f), M(new Color(0.35f, 0.3f, 0.2f)), false);   // wart
                     sk.r.sharedMaterials = new[] { M(new Color(0.55f, 0.75f, 0.45f), 0.3f), sk.mats[1] };   // green witch skin
                     sk.mats = sk.r.sharedMaterials;
                     break;
@@ -418,6 +429,15 @@ namespace VITS
                     Mats.Vis(PrimitiveType.Cube, head, new Vector3(-0.05f, 0.21f, 0.15f), new Vector3(0.05f, 0.045f, 0.01f), glow, false).transform.localRotation = Quaternion.Euler(0, 0, 45);
                     Mats.Vis(PrimitiveType.Cube, head, new Vector3(0.05f, 0.21f, 0.15f), new Vector3(0.05f, 0.045f, 0.01f), glow, false).transform.localRotation = Quaternion.Euler(0, 0, 45);
                     Mats.Vis(PrimitiveType.Cube, head, new Vector3(0, 0.13f, 0.15f), new Vector3(0.14f, 0.025f, 0.01f), glow, false);
+                    var rib = M(new Color(0.85f, 0.35f, 0.03f), 0.35f);
+                    for (int i = 0; i < 6; i++)
+                    {
+                        var rb = Mats.Vis(PrimitiveType.Sphere, head, new Vector3(0, 0.18f, 0.005f), new Vector3(0.12f, 0.27f, 0.31f), rib, false);
+                        rb.transform.localRotation = Quaternion.Euler(0, i * 30f, 0);
+                    }
+                    Mats.Vis(PrimitiveType.Cube, head, new Vector3(0.04f, 0.33f, 0), new Vector3(0.07f, 0.004f, 0.04f), M(new Color(0.15f, 0.35f, 0.1f)), false).transform.localRotation = Quaternion.Euler(0, 30f, -20f);
+                    var lg = new GameObject("PumpkinGlow"); lg.transform.SetParent(head, false); lg.transform.localPosition = new Vector3(0, 0.18f, 0.2f);
+                    var pl = lg.AddComponent<Light>(); pl.type = LightType.Point; pl.color = new Color(1f, 0.6f, 0.2f); pl.range = 2.2f; pl.intensity = 1.2f; pl.shadows = LightShadows.None;
                     _ = pump;
                     break;
                 }
@@ -433,6 +453,11 @@ namespace VITS
                     Mats.Vis(PrimitiveType.Sphere, head, Front(parts["head"], -0.035f, 0.19f, 0.004f), new Vector3(0.016f, 0.016f, 0.01f), red, false);
                     Mats.Vis(PrimitiveType.Sphere, head, Front(parts["head"], 0.035f, 0.19f, 0.004f), new Vector3(0.016f, 0.016f, 0.01f), red, false);
                     Mats.Vis(PrimitiveType.Cube, head, Front(parts["head"], 0f, 0.1f, 0.003f), new Vector3(0.06f, 0.012f, 0.01f), M(new Color(0.15f, 0.02f, 0.02f)), false);
+                    var gore = M(new Color(0.35f, 0.04f, 0.04f), 0.6f);
+                    Mats.Vis(PrimitiveType.Sphere, head, Front(parts["head"], 0.07f, 0.24f, 0.002f), new Vector3(0.06f, 0.04f, 0.01f), gore, false);
+                    Mats.Vis(PrimitiveType.Sphere, chest, Front(parts["chest"], 0.07f, 0.25f, 0.004f), new Vector3(0.07f, 0.05f, 0.012f), gore, false);
+                    Mats.Vis(PrimitiveType.Cube, chest, Front(parts["chest"], 0.07f, 0.25f, 0.01f), new Vector3(0.05f, 0.006f, 0.006f), M(new Color(0.9f, 0.86f, 0.75f), 0.4f), false);   // ribs showing
+                    Mats.Vis(PrimitiveType.Cube, chest, Front(parts["chest"], 0.07f, 0.22f, 0.01f), new Vector3(0.05f, 0.006f, 0.006f), M(new Color(0.9f, 0.86f, 0.75f), 0.4f), false);
                     break;
                 }
                 case 3:   // vampire: black cape with a stiff red-lined collar, slicked hair, fangs
@@ -446,6 +471,10 @@ namespace VITS
                     var fang = M(Color.white, 0.6f);
                     Mats.Vis(PrimitiveType.Cube, head, Front(parts["head"], -0.015f, 0.09f, 0.004f), new Vector3(0.008f, 0.02f, 0.006f), fang, false);
                     Mats.Vis(PrimitiveType.Cube, head, Front(parts["head"], 0.015f, 0.09f, 0.004f), new Vector3(0.008f, 0.02f, 0.006f), fang, false);
+                    Mats.Vis(PrimitiveType.Cylinder, chest, Front(parts["chest"], 0f, 0.3f, 0.01f), new Vector3(0.05f, 0.004f, 0.05f), M(new Color(0.85f, 0.7f, 0.2f), 0.9f), false).transform.localRotation = Quaternion.Euler(90f, 0, 0);
+                    Mats.Vis(PrimitiveType.Sphere, chest, Front(parts["chest"], 0f, 0.3f, 0.016f), new Vector3(0.02f, 0.02f, 0.008f), M(new Color(0.7f, 0f, 0.05f), 0.95f), false);   // ruby
+                    Mats.Vis(PrimitiveType.Cube, chest, Front(parts["chest"], 0f, 0.15f, 0.004f), new Vector3(0.16f, 0.22f, 0.01f), M(new Color(0.3f, 0.02f, 0.05f), 0.5f), false);   // waistcoat
+                    Mats.Vis(PrimitiveType.Sphere, head, Front(parts["head"], 0f, 0.075f, 0.003f), new Vector3(0.01f, 0.03f, 0.005f), M(new Color(0.5f, 0f, 0f), 0.9f), false);   // blood dribble
                     sk.r.sharedMaterials = new[] { M(new Color(0.88f, 0.86f, 0.84f), 0.3f), sk.mats[1] };   // deathly pale
                     sk.mats = sk.r.sharedMaterials;
                     break;
@@ -462,6 +491,10 @@ namespace VITS
                     var pel = parts["pelvis"].transform; var red = M(new Color(0.6f, 0.08f, 0.06f), 0.4f);
                     for (int i = 0; i < 5; i++)
                         Mats.Vis(PrimitiveType.Cylinder, pel, new Vector3(0, -0.08f - i * 0.02f, -0.14f - i * 0.07f), new Vector3(0.02f, 0.04f, 0.02f), red, false).transform.localRotation = Quaternion.Euler(60f - i * 10f, 0, 0);
+                    Mats.Vis(PrimitiveType.Cube, head, Front(parts["head"], 0f, 0.05f, 0.01f), new Vector3(0.03f, 0.06f, 0.02f), M(new Color(0.08f, 0.04f, 0.03f), 0.2f), false);   // goatee
+                    var yel = G(new Color(1f, 0.85f, 0.1f, 1f));
+                    Mats.Vis(PrimitiveType.Sphere, head, Front(parts["head"], -0.035f, 0.19f, 0.005f), new Vector3(0.018f, 0.012f, 0.01f), yel, false);
+                    Mats.Vis(PrimitiveType.Sphere, head, Front(parts["head"], 0.035f, 0.19f, 0.005f), new Vector3(0.018f, 0.012f, 0.01f), yel, false);
                     Mats.Vis(PrimitiveType.Cube, pel, new Vector3(0, -0.2f, -0.5f), new Vector3(0.05f, 0.05f, 0.01f), red, false).transform.localRotation = Quaternion.Euler(0, 0, 45);
                     break;
                 }
@@ -690,6 +723,9 @@ namespace VITS
                         transform.rotation = Quaternion.RotateTowards(transform.rotation, Quaternion.LookRotation(postFace), dt * 90f);
                         stateT = 1f; break;
                     }
+                    if (seated && !provoked) { status = "SITTING IN CAR"; transform.rotation = seatRot; stateT = 1f; break; }
+                    if (home.sqrMagnitude > 0 && !provoked && Game.Brains && stateT <= 0)
+                    { NewGoal(S.Walk, home + new Vector3(Random.Range(-3f, 3f), 0, Random.Range(-3f, 3f)), Random.Range(8f, 14f)); break; }
                     if (!Game.Brains && !provoked) { stateT = 1f; break; }
                     if (stateT <= 0) NewGoal(S.Walk, Game.RandomPoint(), Random.Range(8f, 14f));
                     break;
@@ -788,7 +824,7 @@ namespace VITS
                 phase += Hopping ? dt * 2.2f : cadence * dt / Stride();   // the animation runs at the wanted speed; the feet then carry the body
                 _ = moved;
             }
-            Gravity(dt);
+            if (!(seated && !provoked)) Gravity(dt);
             vel = Vector3.ClampMagnitude((transform.position - lastPos) / dt, 2.5f); lastPos = transform.position;
             Bumps(dt);
         }
@@ -920,6 +956,7 @@ namespace VITS
             // crouch in cover: knees bent, back fairly straight, hands resting forward
             // crouch in cover: a real squat, head below the top of a 1.3 m wall
             pelvisY -= crouch * 0.46f;
+            if (seated && !provoked) { thL = thR = -88f; kneeL = kneeR = 88f; pelvisY = 0.45f; a = 0f; }
             Set("thighL", Quaternion.Euler(thL - crouch * 100f, 0, -crouch * 10f), k); Set("thighR", Quaternion.Euler(thR - crouch * 100f, 0, crouch * 10f), k);
             Set("shinL", Quaternion.Euler(kneeL + crouch * 125f, 0, 0), k); Set("shinR", Quaternion.Euler(kneeR + crouch * 125f, 0, 0), k);
             float armOut = Hopping ? 35f : 0f;
@@ -938,6 +975,13 @@ namespace VITS
             Set("chest", Quaternion.Euler(lean + trm, headYaw * 0.25f + s * a * 0.2f + jerkK * jerkDir.y, -sway * 0.6f + tr2 + jerkK * jerkDir.z), jerkK > 0f ? 0.6f : k);
             // in pain the head keeps dropping toward the wound
             float look = clutch != null && pain > 0.2f && Mathf.Sin(Time.time * 0.8f + gSeed) > 0.3f ? 25f : 0f;
+            if (seated && !provoked)
+            {
+                // behind the wheel: hands up on the rim, back against the seat
+                Set("uarmL", Quaternion.Euler(-55f, 0, -8f), k); Set("uarmR", Quaternion.Euler(-55f, 0, 8f), k);
+                Set("farmL", Quaternion.Euler(-35f, 0, 0), k); Set("farmR", Quaternion.Euler(-35f, 0, 0), k);
+                Set("chest", Quaternion.Euler(-8f + breath, headYaw * 0.25f, 0), k);
+            }
             Set("head", Quaternion.Euler(-lean * 0.5f + (state == S.Idle ? 4f : 0f) + look + tr2, headYaw * 0.75f * (1f - look / 30f), 0), k);
             // root motion: how far back the stance foot (the straighter leg) moved relative to the hips this frame
             {
@@ -1523,6 +1567,11 @@ namespace VITS
         // ---------- fear: what a person hears and sees makes them panic, freeze, cower or run
         public bool cashier; Vector3 post, postFace;
         public void SetCashier(Vector3 at, Vector3 face) { cashier = true; post = at; postFace = face; state = S.Idle; stateT = 1f; }
+        public bool seated; Quaternion seatRot; Vector3 home;
+        // in a parked car: sits until something happens to them, then gets out / ragdolls like anyone else
+        public void SetSeated(Quaternion rot) { seated = true; seatRot = rot; state = S.Idle; stateT = 1f; }
+        // loiters around one spot (by the cars) instead of wandering the whole map
+        public void SetHome(Vector3 at) { home = at; }
         public float fear; Vector3 threat; float senseT, fearSaid;
         // something frightening from 'src' (a shot, a scream, someone being hit): fear climbs, and past a point they run from it
         public void Scare(Vector3 src, float amount, string why)

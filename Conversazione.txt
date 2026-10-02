@@ -536,3 +536,12 @@ Fatto: su HALLOWEEN NIGHT niente cravatta/papillon; ogni Kekko riceve a caso un 
 --- PROMPT 73 ---
 Utente: ottimizzare gli fps come un gioco professionale; contatore fps e ms per frame.
 Fatto: HUD sotto SPECIMENS: FPS (verde >=144, giallo >=60, rosso sotto), ms medi e frame peggiore dell ultimo secondo. Ottimizzazioni: tutta la geometria fissa delle mappe unita in static batch (StaticBatchingUtility, migliaia di oggetti -> poche chiamate di disegno), oggetti piccoli (<60 cm: prodotti, foglie, decorazioni) non proiettano ombre, fisica a 75 Hz invece di 90.
+
+==================== PROMPT 74 ====================
+Richiesta: "sometimes supermarket map spawns me under the map, also add shaders like proper, also fix smoke in halloween map and make costumes a lil better. also add parking lot in the supermarket and a road and parked cars with npcs near and inside, pretty realistic formula and ligting"
+Modifiche:
+- Game.cs: post-processing (Tonemapping ACES, Bloom, ColorAdjustments, Vignette), HDR; player spawn +0.3 m; Kekko vicino alle auto (SetHome) e autisti seduti (SetSeated).
+- Player.cs: se y < -8 il giocatore viene riportato a Level.PlayerStart.
+- Maps.cs: Outside() = prato, marciapiede, parcheggio con strisce, strada con strisce e attraversamento, lampioni, pensilina carrelli, 8 auto (Car()). Nebbia Halloween = quad morbidi che derivano (Drift).
+- Level.cs: CarPeople/Drivers/DriverRot azzerati a ogni Build.
+- Mannequin.cs: modalità seduto (cosce -88, ginocchia 88, mani al volante, niente gravità finché non provocato); home per gironzolare vicino alle auto; costumi migliorati (strega: capelli, naso, porro, fibbia, veste; zucca: spicchi, foglia, luce interna; zombie: ferite e costole; vampiro: medaglione, gilet, sangue; diavolo: pizzetto, occhi gialli).

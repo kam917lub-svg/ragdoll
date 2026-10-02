@@ -57,40 +57,42 @@ namespace VITS
         // ================= SUPERMARKET =================
         static void BuildMarket()
         {
-            HX = 22f; HZ = 16f;
-            Sky = new Color(0.82f, 0.84f, 0.86f);
-            SpawnArea = new Rect(-18f, -7f, 32f, 20f);
-            PlayerStart = new Vector3(4f, 0.05f, -13.5f);
+            const float IX = 22f, IZ = 16f;   // the store itself; the map (HX/HZ) also covers the car park and road
+            HX = 44f; HZ = 48f;
+            Sky = new Color(0.55f, 0.7f, 0.9f);   // daylight outside
+            SpawnArea = new Rect(-18f, -7f, 32f, 20f);   // customers wander inside the store
+            PlayerStart = new Vector3(2f, 0.15f, -21f);   // on the pavement outside the doors
             RenderSettings.ambientMode = AmbientMode.Flat;
             RenderSettings.ambientLight = new Color(0.72f, 0.74f, 0.76f);
-            RenderSettings.fog = false;
-            var sun = new GameObject("Ceiling light").AddComponent<Light>();
-            sun.type = LightType.Directional; sun.intensity = 0.55f; sun.color = new Color(1f, 0.99f, 0.95f);
-            sun.shadows = LightShadows.Soft; sun.shadowStrength = 0.45f; sun.shadowBias = 0.08f; sun.shadowNormalBias = 0.6f;
-            sun.transform.rotation = Quaternion.Euler(80f, 20f, 0);
-            QualitySettings.shadowDistance = 35f;
+            var sun = new GameObject("Sun").AddComponent<Light>();
+            sun.type = LightType.Directional; sun.intensity = 1.25f; sun.color = new Color(1f, 0.96f, 0.88f);
+            sun.shadows = LightShadows.Soft; sun.shadowStrength = 0.85f; sun.shadowBias = 0.08f; sun.shadowNormalBias = 0.6f;
+            sun.transform.rotation = Quaternion.Euler(48f, 30f, 0);
+            QualitySettings.shadowDistance = 60f;
+            RenderSettings.fog = true; RenderSettings.fogMode = FogMode.Linear; RenderSettings.fogColor = new Color(0.7f, 0.78f, 0.88f);
+            RenderSettings.fogStartDistance = 60f; RenderSettings.fogEndDistance = 220f;
 
             plat = Mats.Lit(new Color(0.9f, 0.9f, 0.88f), 0.1f); orange = Mats.Lit(new Color(1f, 0.8f, 0.03f), 0.2f);
             wall = Mats.Lit(new Color(0.93f, 0.9f, 0.82f), 0.1f);
             hazard = Mats.Lit(Color.white, 0.2f); hazard.mainTexture = HazardTex();
             var floor = Mats.Lit(Color.white, 0.55f); floor.mainTexture = Tiles(new Color(0.94f, 0.94f, 0.92f), new Color(0.82f, 0.83f, 0.84f), 2);
-            floor.mainTextureScale = new Vector2(HX * 2f / 1.2f, HZ * 2f / 1.2f);
-            B(new Vector3(0, -0.5f, 0), new Vector3(HX * 2f, 1f, HZ * 2f), floor, true, "Floor");
+            floor.mainTextureScale = new Vector2(IX * 2f / 1.2f, IZ * 2f / 1.2f);
+            B(new Vector3(0, -0.5f, 0), new Vector3(IX * 2f, 1f, IZ * 2f), floor, true, "Floor");
             // walls, ceiling with light panels
             float H = 5f;
-            B(new Vector3(0, H / 2f, HZ + 0.25f), new Vector3(HX * 2f + 1f, H, 0.5f), wall);
-            B(new Vector3(HX + 0.25f, H / 2f, 0), new Vector3(0.5f, H, HZ * 2f), wall);
-            B(new Vector3(-HX - 0.25f, H / 2f, 0), new Vector3(0.5f, H, HZ * 2f), wall);
+            B(new Vector3(0, H / 2f, IZ + 0.25f), new Vector3(IX * 2f + 1f, H, 0.5f), wall);
+            B(new Vector3(IX + 0.25f, H / 2f, 0), new Vector3(0.5f, H, IZ * 2f), wall);
+            B(new Vector3(-IX - 0.25f, H / 2f, 0), new Vector3(0.5f, H, IZ * 2f), wall);
             // front: glass wall with the sliding door
             var glass = Mats.Decal(Texture2D.whiteTexture, new Color(0.7f, 0.85f, 0.95f, 0.25f), 3005);
-            B(new Vector3(-12f, H / 2f, -HZ - 0.05f), new Vector3(20f, H, 0.1f), glass);
-            B(new Vector3(13f, H / 2f, -HZ - 0.05f), new Vector3(18f, H, 0.1f), glass);
-            B(new Vector3(2f, 4.3f, -HZ - 0.05f), new Vector3(4f, 1.4f, 0.1f), wall);
+            B(new Vector3(-12f, H / 2f, -IZ - 0.05f), new Vector3(20f, H, 0.1f), glass);
+            B(new Vector3(13f, H / 2f, -IZ - 0.05f), new Vector3(18f, H, 0.1f), glass);
+            B(new Vector3(2f, 4.3f, -IZ - 0.05f), new Vector3(4f, 1.4f, 0.1f), wall);
             var green = Mats.Lit(new Color(0.1f, 0.55f, 0.25f), 0.3f);
-            B(new Vector3(0, H - 0.6f, -HZ + 0.3f), new Vector3(10f, 0.9f, 0.15f), green, false);
-            Text("FRESH MART", new Vector3(0, H - 0.6f, -HZ + 0.2f), Quaternion.identity, 0.7f, Color.white);
+            B(new Vector3(0, H - 0.6f, -IZ + 0.3f), new Vector3(10f, 0.9f, 0.15f), green, false);
+            Text("FRESH MART", new Vector3(0, H - 0.6f, -IZ + 0.2f), Quaternion.identity, 0.7f, Color.white);
             var ceil = Mats.Lit(new Color(0.85f, 0.85f, 0.83f), 0.05f);
-            B(new Vector3(0, H + 0.1f, 0), new Vector3(HX * 2f, 0.2f, HZ * 2f), ceil, false);
+            B(new Vector3(0, H + 0.1f, 0), new Vector3(IX * 2f, 0.2f, IZ * 2f), ceil, false);
             var panel = Glow(new Color(1f, 1f, 0.95f, 1f));
             for (int x = -16; x <= 16; x += 8) for (int z = -12; z <= 12; z += 6) B(new Vector3(x, H - 0.02f, z), new Vector3(1.2f, 0.04f, 3f), panel, false);
             for (int i = 0; i < 4; i++)
@@ -135,11 +137,11 @@ namespace VITS
             var frzIn = Glow(new Color(0.75f, 0.9f, 1f, 1f));
             for (float x = -18f; x <= 14f; x += 4f)
             {
-                B(new Vector3(x, 1.1f, HZ - 0.6f), new Vector3(3.8f, 2.2f, 1.1f), frz, true, "freezer");
-                B(new Vector3(x, 1.15f, HZ - 1.16f), new Vector3(3.5f, 1.7f, 0.02f), frzIn, false, "freezer glass");
-                for (int k = 0; k < 3; k++) B(new Vector3(x - 1.2f + k * 1.2f, 1.15f, HZ - 1.18f), new Vector3(0.04f, 1.7f, 0.04f), shelfM, false, "door frame");
+                B(new Vector3(x, 1.1f, IZ - 0.6f), new Vector3(3.8f, 2.2f, 1.1f), frz, true, "freezer");
+                B(new Vector3(x, 1.15f, IZ - 1.16f), new Vector3(3.5f, 1.7f, 0.02f), frzIn, false, "freezer glass");
+                for (int k = 0; k < 3; k++) B(new Vector3(x - 1.2f + k * 1.2f, 1.15f, IZ - 1.18f), new Vector3(0.04f, 1.7f, 0.04f), shelfM, false, "door frame");
             }
-            Text("FROZEN", new Vector3(-2f, 2.7f, HZ - 1.12f), Quaternion.Euler(0, 180, 0), 0.5f, new Color(0.1f, 0.3f, 0.6f));
+            Text("FROZEN", new Vector3(-2f, 2.7f, IZ - 1.12f), Quaternion.Euler(0, 180, 0), 0.5f, new Color(0.1f, 0.3f, 0.6f));
             // checkouts near the entrance, each with a cashier spot behind it
             var counter = Mats.Lit(new Color(0.3f, 0.32f, 0.35f), 0.4f);
             var belt = Mats.Lit(new Color(0.08f, 0.08f, 0.08f), 0.2f);
@@ -176,6 +178,111 @@ namespace VITS
                 for (int k = 0; k < 9; k++)
                     P(PrimitiveType.Sphere, new Vector3(14f + (i % 2) * 1.3f + (k % 3 - 1) * 0.3f, 0.88f, 6f + (i / 2) * 1.3f + (k / 3 - 1) * 0.3f), Vector3.one * 0.22f, Quaternion.identity, prod[i == 0 ? 0 : i == 1 ? 1 : i == 2 ? 3 : 6]);
             }
+                    Outside();
+        }
+
+        // car park in front of the store, a pavement, a two-lane road, street lights, parked cars, people around and inside them
+        public static readonly System.Collections.Generic.List<Vector3> CarPeople = new System.Collections.Generic.List<Vector3>();
+        public static readonly System.Collections.Generic.List<Vector3> Drivers = new System.Collections.Generic.List<Vector3>();
+        public static readonly System.Collections.Generic.List<Quaternion> DriverRot = new System.Collections.Generic.List<Quaternion>();
+        static void Outside()
+        {
+            CarPeople.Clear(); Drivers.Clear(); DriverRot.Clear();
+            var asphalt = Mats.Lit(Color.white, 0.15f); asphalt.mainTexture = Noise(new Color(0.16f, 0.16f, 0.17f), new Color(0.24f, 0.24f, 0.25f), 0.3f, 2); asphalt.mainTextureScale = new Vector2(20f, 16f);
+            var paving = Mats.Lit(Color.white, 0.1f); paving.mainTexture = Tiles(new Color(0.7f, 0.7f, 0.68f), new Color(0.64f, 0.64f, 0.62f), 4); paving.mainTextureScale = new Vector2(40f, 2f);
+            var paint = Mats.Lit(new Color(0.95f, 0.95f, 0.92f), 0.2f); var yellow = Mats.Lit(new Color(0.95f, 0.8f, 0.1f), 0.2f);
+            var grassM = Mats.Lit(Color.white, 0.05f); grassM.mainTexture = Noise(new Color(0.25f, 0.42f, 0.15f), new Color(0.35f, 0.5f, 0.2f), 0.08f, 6); grassM.mainTextureScale = new Vector2(10f, 10f);
+            // ground pieces: grass all around, pavement strip, car park, road
+            B(new Vector3(0, -0.5f, -16f), new Vector3(88f, 1f, 64f), grassM, true, "Floor").transform.position = new Vector3(0, -0.52f, -16f);
+            B(new Vector3(0, 0.06f, -18.5f), new Vector3(60f, 0.12f, 5f), paving, true, "Floor pavement");
+            B(new Vector3(0, -0.495f, -28f), new Vector3(60f, 1f, 14f), asphalt, true, "Floor carpark");
+            B(new Vector3(0, -0.495f, -40f), new Vector3(88f, 1f, 9f), asphalt, true, "Floor road");
+            // parking bays, arrows, road markings
+            for (int i = -8; i <= 8; i++)
+            {
+                B(new Vector3(i * 3f, 0.012f, -24f), new Vector3(0.12f, 0.01f, 5f), paint, false, "bay line");
+                B(new Vector3(i * 3f, 0.012f, -32f), new Vector3(0.12f, 0.01f, 5f), paint, false, "bay line");
+            }
+            B(new Vector3(0, 0.012f, -28f), new Vector3(52f, 0.01f, 0.12f), yellow, false, "aisle line");
+            for (int i = -10; i <= 10; i++) B(new Vector3(i * 4f, 0.012f, -40f), new Vector3(2f, 0.01f, 0.15f), paint, false, "lane dash");
+            B(new Vector3(0, 0.012f, -36.2f), new Vector3(88f, 0.01f, 0.12f), paint, false, "road edge");
+            B(new Vector3(0, 0.012f, -43.8f), new Vector3(88f, 0.01f, 0.12f), paint, false, "road edge");
+            B(new Vector3(0, 0.07f, -35.6f), new Vector3(60f, 0.14f, 0.3f), Mats.Lit(new Color(0.6f, 0.6f, 0.58f), 0.1f), true, "curb");
+            for (int i = 0; i < 6; i++) B(new Vector3(-2f + i * 0.7f, 0.012f, -38f), new Vector3(0.4f, 0.01f, 3.5f), paint, false, "crossing");
+            // street lights
+            var pole = Mats.Lit(new Color(0.3f, 0.32f, 0.34f), 0.6f);
+            for (int i = -2; i <= 2; i++)
+            {
+                var lp = new Vector3(i * 12f, 0, -35f);
+                P(PrimitiveType.Cylinder, lp + new Vector3(0, 3.5f, 0), new Vector3(0.18f, 3.5f, 0.18f), Quaternion.identity, pole, true);
+                B(lp + new Vector3(0, 7f, 0.8f), new Vector3(0.12f, 0.12f, 1.8f), pole, false, "arm");
+                B(lp + new Vector3(0, 6.92f, 1.6f), new Vector3(0.5f, 0.1f, 0.8f), Glow(new Color(1f, 0.95f, 0.85f, 1f)), false, "lamp head");
+            }
+            // trolley shelter and a bin
+            B(new Vector3(18f, 1.1f, -20f), new Vector3(4f, 0.08f, 1.6f), pole, false, "shelter roof");
+            for (int i = 0; i < 4; i++) P(PrimitiveType.Cylinder, new Vector3(16.2f + (i % 2) * 3.6f, 0.55f, -20.7f + (i / 2) * 1.4f), new Vector3(0.06f, 0.55f, 0.06f), Quaternion.identity, pole, true);
+            P(PrimitiveType.Cylinder, new Vector3(-6f, 0.5f, -17.5f), new Vector3(0.6f, 0.5f, 0.6f), Quaternion.identity, Mats.Lit(new Color(0.1f, 0.35f, 0.15f), 0.3f), true).name = "bin";
+            // boundary of the map
+            var inv = Mats.Decal(Texture2D.whiteTexture, new Color(0, 0, 0, 0), 3000);
+            void Wall(Vector3 c, Vector3 sz) { var w = B(c, sz, inv, true, "boundary"); w.GetComponent<Renderer>().enabled = false; }
+            Wall(new Vector3(0, 3f, -HZ), new Vector3(HX * 2f, 6f, 0.5f));
+            Wall(new Vector3(HX, 3f, -16f), new Vector3(0.5f, 6f, 64f)); Wall(new Vector3(-HX, 3f, -16f), new Vector3(0.5f, 6f, 64f));
+            Wall(new Vector3(0, 3f, 16.5f), new Vector3(HX * 2f, 6f, 0.5f));
+            // parked cars, a few with people standing by them and one with a driver in the seat
+            Color[] paintC = { new Color(0.7f, 0.08f, 0.08f), new Color(0.1f, 0.2f, 0.5f), new Color(0.85f, 0.85f, 0.85f), new Color(0.08f, 0.08f, 0.09f), new Color(0.45f, 0.47f, 0.5f), new Color(0.15f, 0.35f, 0.2f), new Color(0.85f, 0.65f, 0.15f) };
+            var rngC = new System.Random(5);
+            int[] bays = { -7, -5, -4, -1, 2, 3, 6, 7 };
+            for (int i = 0; i < bays.Length; i++)
+            {
+                bool north = i % 2 == 0;
+                var pos = new Vector3(bays[i] * 3f + 1.5f, 0, north ? -24.2f : -31.8f);
+                var rot = Quaternion.Euler(0, north ? 0f : 180f, 0);
+                Car(pos, rot, paintC[rngC.Next(paintC.Length)]);
+                if (i == 1 || i == 4) { Drivers.Add(pos + rot * new Vector3(-0.38f, 0.32f, 0.1f)); DriverRot.Add(rot * Quaternion.Euler(0, 180f, 0)); }
+                if (i % 3 == 0) CarPeople.Add(pos + rot * new Vector3(1.6f, 0, 0.4f));
+            }
+            CarPeople.Add(new Vector3(10f, 0.12f, -18.5f)); CarPeople.Add(new Vector3(-12f, 0.12f, -19f));
+        }
+
+        // a simple saloon: painted body with bonnet and boot, glass cabin, roof, wheels, lights, mirrors, number plates.
+        // Only the chassis and roof collide, so a person can sit inside and a body can slump in the seat.
+        static void Car(Vector3 pos, Quaternion rot, Color colour)
+        {
+            var car = new GameObject("CAR").transform; car.SetPositionAndRotation(pos, rot);
+            var body = Mats.Lit(colour, 0.85f);
+            var glassC = Mats.Decal(Texture2D.whiteTexture, new Color(0.25f, 0.32f, 0.38f, 0.45f), 3004);
+            var tyre = Mats.Lit(new Color(0.05f, 0.05f, 0.05f), 0.2f); var rim = Mats.Lit(new Color(0.7f, 0.7f, 0.72f), 0.9f);
+            var seat = Mats.Lit(new Color(0.12f, 0.12f, 0.13f), 0.2f);
+            // the car faces +z (front at +z)
+            B(new Vector3(0, 0.45f, 0), new Vector3(1.8f, 0.5f, 4.4f), body, false, "body", car);
+            B(new Vector3(0, 0.3f, 0), new Vector3(1.7f, 0.25f, 4.2f), body, true, "COVER CAR CHASSIS", car);
+            B(new Vector3(0, 0.95f, -0.25f), new Vector3(1.66f, 0.06f, 2.2f), body, false, "beltline", car);
+            B(new Vector3(0, 1.38f, -0.35f), new Vector3(1.55f, 0.06f, 1.7f), body, true, "roof", car);
+            B(new Vector3(0, 1.16f, 0.72f), new Vector3(1.5f, 0.45f, 0.04f), glassC, false, "windscreen", car).transform.localRotation = Quaternion.Euler(-35f, 0, 0);
+            B(new Vector3(0, 1.16f, -1.38f), new Vector3(1.5f, 0.42f, 0.04f), glassC, false, "rear window", car).transform.localRotation = Quaternion.Euler(30f, 0, 0);
+            for (int s2 = -1; s2 <= 1; s2 += 2) B(new Vector3(s2 * 0.78f, 1.16f, -0.35f), new Vector3(0.03f, 0.42f, 1.7f), glassC, false, "side window", car);
+            for (int s2 = -1; s2 <= 1; s2 += 2) for (int f = -1; f <= 1; f += 2)
+            {
+                P(PrimitiveType.Cylinder, new Vector3(s2 * 0.82f, 0.33f, f * 1.35f), new Vector3(0.66f, 0.12f, 0.66f), Quaternion.Euler(0, 0, 90), tyre, false, car);
+                P(PrimitiveType.Cylinder, new Vector3(s2 * 0.9f, 0.33f, f * 1.35f), new Vector3(0.38f, 0.05f, 0.38f), Quaternion.Euler(0, 0, 90), rim, false, car);
+            }
+            B(new Vector3(-0.55f, 0.72f, 2.21f), new Vector3(0.35f, 0.14f, 0.02f), Glow(new Color(1f, 1f, 0.9f, 1f)), false, "headlight", car);
+            B(new Vector3(0.55f, 0.72f, 2.21f), new Vector3(0.35f, 0.14f, 0.02f), Glow(new Color(1f, 1f, 0.9f, 1f)), false, "headlight", car);
+            B(new Vector3(-0.6f, 0.75f, -2.21f), new Vector3(0.3f, 0.12f, 0.02f), Glow(new Color(0.8f, 0.05f, 0.05f, 1f)), false, "taillight", car);
+            B(new Vector3(0.6f, 0.75f, -2.21f), new Vector3(0.3f, 0.12f, 0.02f), Glow(new Color(0.8f, 0.05f, 0.05f, 1f)), false, "taillight", car);
+            B(new Vector3(0, 0.5f, 2.21f), new Vector3(0.5f, 0.11f, 0.02f), Mats.Lit(new Color(0.95f, 0.95f, 0.9f), 0.3f), false, "plate", car);
+            B(new Vector3(0, 0.5f, -2.21f), new Vector3(0.5f, 0.11f, 0.02f), Mats.Lit(new Color(0.95f, 0.95f, 0.9f), 0.3f), false, "plate", car);
+            for (int s2 = -1; s2 <= 1; s2 += 2) B(new Vector3(s2 * 0.98f, 1.0f, 0.6f), new Vector3(0.18f, 0.1f, 0.06f), body, false, "mirror", car);
+            // seats and steering wheel
+            for (int s2 = -1; s2 <= 1; s2 += 2)
+            {
+                B(new Vector3(s2 * 0.38f, 0.62f, 0.1f), new Vector3(0.5f, 0.12f, 0.5f), seat, false, "seat", car);
+                B(new Vector3(s2 * 0.38f, 0.95f, -0.18f), new Vector3(0.5f, 0.6f, 0.1f), seat, false, "seat back", car);
+            }
+            B(new Vector3(0, 0.62f, -0.75f), new Vector3(1.3f, 0.12f, 0.5f), seat, false, "rear seat", car);
+            P(PrimitiveType.Cylinder, new Vector3(-0.38f, 0.98f, 0.5f), new Vector3(0.36f, 0.015f, 0.36f), Quaternion.Euler(60f, 0, 0), seat, false, car);
+            B(new Vector3(0, 0.88f, 0.75f), new Vector3(1.55f, 0.15f, 0.35f), seat, false, "dashboard", car);
+            AddCover(pos, rot * Vector3.right, rot * Vector3.forward);
         }
 
         // ================= HALLOWEEN NIGHT =================
@@ -377,12 +484,25 @@ namespace VITS
                 Branch(tr, new Vector3(0, h, 0), Vector3.up, 1.2f, rad * 0.5f, 2);
                 AddCover(t, Vector3.forward, Vector3.right);
             }
-            // low ground fog drifting between the graves and trees
-            var fogM = Mats.Decal(Texture2D.whiteTexture, new Color(0.55f, 0.5f, 0.7f, 0.06f), 3010);
-            for (int i = 0; i < 40; i++)
+            // low ground fog: soft round wisps lying just above the grass, slowly drifting
+            var fogTex = new Texture2D(64, 64, TextureFormat.RGBA32, true) { wrapMode = TextureWrapMode.Clamp };
+            for (int y = 0; y < 64; y++) for (int x = 0; x < 64; x++)
             {
-                var fp = new Vector3((float)rng.NextDouble() * 56f - 28f, 0.15f + (float)rng.NextDouble() * 0.5f, (float)rng.NextDouble() * 56f - 28f);
-                B(fp, new Vector3(6f + (float)rng.NextDouble() * 6f, 0.01f, 6f + (float)rng.NextDouble() * 6f), fogM, false, "fog").transform.rotation = Quaternion.Euler(0, rng.Next(360), 0);
+                float dx = (x - 31.5f) / 32f, dy = (y - 31.5f) / 32f, d = Mathf.Sqrt(dx * dx + dy * dy);
+                float a2 = Mathf.Clamp01(1f - d); a2 = a2 * a2 * (0.7f + 0.3f * Mathf.PerlinNoise(x * 0.15f, y * 0.15f));
+                fogTex.SetPixel(x, y, new Color(1, 1, 1, a2));
+            }
+            fogTex.Apply(true);
+            var fogM = Mats.Decal(fogTex, new Color(0.6f, 0.55f, 0.75f, 0.22f), 3010);
+            for (int i = 0; i < 45; i++)
+            {
+                var q = GameObject.CreatePrimitive(PrimitiveType.Quad); Object.DestroyImmediate(q.GetComponent<Collider>());
+                q.name = "fog";
+                q.transform.position = new Vector3((float)rng.NextDouble() * 56f - 28f, 0.2f + (float)rng.NextDouble() * 0.6f, (float)rng.NextDouble() * 56f - 28f);
+                q.transform.rotation = Quaternion.Euler(90f, rng.Next(360), 0);
+                float fs = 7f + (float)rng.NextDouble() * 8f; q.transform.localScale = new Vector3(fs, fs, 1f);
+                q.GetComponent<Renderer>().sharedMaterial = fogM; q.GetComponent<Renderer>().shadowCastingMode = ShadowCastingMode.Off;
+                q.AddComponent<Drift>();
             }
             // crows on the fence and graves, candles on the graves, cobwebs on the porch
             var crow = Mats.Lit(new Color(0.02f, 0.02f, 0.03f), 0.3f);
@@ -496,5 +616,13 @@ namespace VITS
             if (wl != null) wl.localRotation = Quaternion.Euler(0, 0, f);
             if (wr != null) wr.localRotation = Quaternion.Euler(0, 0, -f);
         }
+    }
+
+    // slow drifting of ground fog wisps
+    public class Drift : MonoBehaviour
+    {
+        Vector3 o; float sd;
+        void Start() { o = transform.position; sd = Random.value * 100f; }
+        void Update() { transform.position = o + new Vector3(Mathf.Sin(Time.time * 0.05f + sd) * 2f, 0, Mathf.Cos(Time.time * 0.04f + sd) * 2f); }
     }
 }

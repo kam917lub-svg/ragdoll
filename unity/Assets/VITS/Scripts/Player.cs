@@ -226,6 +226,7 @@ namespace VITS
             if (cc.isGrounded) { vy = -1f; if (GI.Down(K.Space)) vy = 5.2f; } else vy -= 14f * dt;
             cc.Move((mv * sp + Vector3.up * vy) * dt);
             moveVel = mv * sp;
+            if (transform.position.y < -8f) { cc.enabled = false; transform.position = Level.PlayerStart + Vector3.up * 0.5f; cc.enabled = true; vy = 0f; }   // fell through: back to the start
             if (Blood.I != null) Blood.I.Step(feetTr, transform.position, cc.isGrounded, crouch > 0.5f ? 0.45f : GI.Held(K.Shift) ? 0.9f : 0.68f);
             // shoving a body that is down / hurt: push its parts out of the way
             if (moveVel.sqrMagnitude > 1f)

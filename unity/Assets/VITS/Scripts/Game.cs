@@ -52,13 +52,26 @@ namespace VITS
             player = pgo.AddComponent<Player>();
             try { Level.Build(); } catch (System.Exception e) { Debug.LogException(e); }
             try { OptimizeStatic(); } catch (System.Exception e) { Debug.LogException(e); }
-            pgo.transform.position = Level.PlayerStart;
+            pgo.transform.position = Level.PlayerStart + Vector3.up * 0.3f;   // a little above the ground: never start inside it
             // supermarket: a cashier behind every till
             foreach (var c in Level.Cashiers)
             {
                 var cg = new GameObject("Mannequin");
                 cg.transform.SetPositionAndRotation(c, Quaternion.LookRotation(Vector3.left));
                 cg.AddComponent<Mannequin>().SetCashier(c, Vector3.left);
+            }
+            // car park: people by the cars and drivers sitting behind the wheel
+            foreach (var c in Level.CarPeople)
+            {
+                var cg = new GameObject("Mannequin");
+                cg.transform.SetPositionAndRotation(c, Quaternion.Euler(0, Random.Range(0f, 360f), 0));
+                cg.AddComponent<Mannequin>().SetHome(c);
+            }
+            for (int i = 0; i < Level.Drivers.Count; i++)
+            {
+                var cg = new GameObject("Mannequin");
+                cg.transform.SetPositionAndRotation(Level.Drivers[i], Level.DriverRot[i]);
+                cg.AddComponent<Mannequin>().SetSeated(Level.DriverRot[i]);
             }
             try { new GameObject("Blood").AddComponent<Blood>(); } catch (System.Exception e) { Debug.LogException(e); }
             for (int i = 0; i < 10; i++) { try { Spawn(); } catch (System.Exception e) { Debug.LogException(e); } }
@@ -92,6 +105,24 @@ namespace VITS
                     var prof = ScriptableObject.CreateInstance(profT);
                     blurComp = profT.GetMethod("Add", new[] { typeof(System.Type), typeof(bool) }).Invoke(prof, new object[] { mbT, true });
                     volT.GetProperty("profile")?.SetValue(blurVol, prof);
+                    // the rest of a proper look: filmic tonemapping, soft bloom on lights, a touch of contrast, light vignette
+                    object Add(string type)
+                    {
+                        var t = System.Type.GetType("UnityEngine.Rendering.Universal." + type + ", Unity.RenderPipelines.Universal.Runtime");
+                        return t == null ? null : profT.GetMethod("Add", new[] { typeof(System.Type), typeof(bool) }).Invoke(prof, new object[] { t, true });
+                    }
+                    void Set(object comp, string field, object val)
+                    {
+                        if (comp == null) return;
+                        var p = comp.GetType().GetField(field)?.GetValue(comp); if (p == null) return;
+                        var vt = p.GetType().GetProperty("value")?.PropertyType; if (vt == null) return;
+                        object v2 = vt.IsEnum ? System.Enum.ToObject(vt, val) : System.Convert.ChangeType(val, vt);
+                        p.GetType().GetMethod("Override", new[] { vt })?.Invoke(p, new[] { v2 });
+                    }
+                    var tm = Add("Tonemapping"); Set(tm, "mode", 2);                 // ACES
+                    var bl = Add("Bloom"); Set(bl, "intensity", 0.35f); Set(bl, "threshold", 1.05f); Set(bl, "scatter", 0.6f);
+                    var ca = Add("ColorAdjustments"); Set(ca, "postExposure", Level.Map == 2 ? 0.35f : 0.15f); Set(ca, "contrast", 12f); Set(ca, "saturation", 6f);
+                    var vg = Add("Vignette"); Set(vg, "intensity", Level.Map == 2 ? 0.38f : 0.22f); Set(vg, "smoothness", 0.45f);
                 }
                 var inten = mbT.GetField("intensity").GetValue(blurComp);
                 inten.GetType().GetMethod("Override", new[] { typeof(float) })?.Invoke(inten, new object[] { v });
@@ -102,7 +133,8 @@ namespace VITS
                 if (camT != null && cam != null)
                 {
                     var data = cam.GetComponent(camT) ?? cam.gameObject.AddComponent(camT);
-                    camT.GetProperty("renderPostProcessing")?.SetValue(data, v > 0.001f);
+                    camT.GetProperty("renderPostProcessing")?.SetValue(data, true);
+                cam.allowHDR = true;
                 }
             }
             catch (System.Exception e) { Debug.LogWarning("motion blur: " + e.Message); }

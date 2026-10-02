@@ -54,7 +54,7 @@ namespace VITS
         public static void Build()
         {
             Map = PlayerPrefs.GetInt("vits_map", 0);
-            Covers.Clear(); Stairs.Clear(); Cashiers.Clear();
+            Covers.Clear(); Stairs.Clear(); Cashiers.Clear(); CarPeople.Clear(); Drivers.Clear(); DriverRot.Clear();
             if (Map == 1) { BuildMarket(); return; }
             if (Map == 2) { BuildHalloween(); return; }
             Sky = new Color(0.92f, 0.92f, 0.9f); HX = 36f; HZ = 36f;
