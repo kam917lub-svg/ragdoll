@@ -532,3 +532,7 @@ Fatto: 24 alberi nodosi generati in modo ricorsivo (4 rami principali + cima, 3 
 --- PROMPT 72 ---
 Utente: nella mappa Halloween i Kekko devono avere un costume invece di cravatta/papillon (cappello da strega, testa di zucca, zombie...).
 Fatto: su HALLOWEEN NIGHT niente cravatta/papillon; ogni Kekko riceve a caso un costume: STREGA (cappello nero alto piegato a punta con tesa larga e fascia viola, pelle verde), TESTA DI ZUCCA (zucca arancione sulla testa con picciolo e faccia intagliata luminosa), ZOMBIE (pelle grigio-verde, stracci scuri sul petto, occhi rossi, bocca scura), VAMPIRO (mantello nero, colletto alto foderato di rosso, capelli neri lucidi, canini, pelle pallida), DIAVOLO (pelle rossa, corna curve, coda a punta). Il colore della pelle del costume resta anche sui pezzi tagliati; il costume compare nell elenco del monitor.
+
+--- PROMPT 73 ---
+Utente: ottimizzare gli fps come un gioco professionale; contatore fps e ms per frame.
+Fatto: HUD sotto SPECIMENS: FPS (verde >=144, giallo >=60, rosso sotto), ms medi e frame peggiore dell ultimo secondo. Ottimizzazioni: tutta la geometria fissa delle mappe unita in static batch (StaticBatchingUtility, migliaia di oggetti -> poche chiamate di disegno), oggetti piccoli (<60 cm: prodotti, foglie, decorazioni) non proiettano ombre, fisica a 75 Hz invece di 90.

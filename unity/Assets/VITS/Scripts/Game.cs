@@ -51,6 +51,7 @@ namespace VITS
             pgo.transform.SetPositionAndRotation(new Vector3(0, 0.05f, -14f), Quaternion.identity);
             player = pgo.AddComponent<Player>();
             try { Level.Build(); } catch (System.Exception e) { Debug.LogException(e); }
+            try { OptimizeStatic(); } catch (System.Exception e) { Debug.LogException(e); }
             pgo.transform.position = Level.PlayerStart;
             // supermarket: a cashier behind every till
             foreach (var c in Level.Cashiers)
@@ -184,6 +185,26 @@ namespace VITS
             SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
         }
 
+        // professional-game style scene prep: everything that never moves is merged into static batches (far fewer draw calls),
+        // and small props stop casting shadows (shadow passes are the most expensive part of the frame)
+        static void OptimizeStatic()
+        {
+            var list = new System.Collections.Generic.List<GameObject>();
+            foreach (var root in SceneManager.GetActiveScene().GetRootGameObjects())
+            {
+                if (root.GetComponentInChildren<Rigidbody>() != null || root.GetComponentInChildren<Lift>() != null || root.GetComponentInChildren<Grinder>() != null
+                    || root.GetComponentInChildren<Bat>() != null || root.GetComponentInChildren<Mannequin>() != null || root.GetComponentInChildren<Player>() != null) continue;
+                foreach (var mr in root.GetComponentsInChildren<MeshRenderer>())
+                {
+                    if (mr.GetComponent<TextMesh>() != null) continue;
+                    var b = mr.bounds.size;
+                    if (Mathf.Max(b.x, Mathf.Max(b.y, b.z)) < 0.6f) mr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+                    list.Add(mr.gameObject);
+                }
+            }
+            if (list.Count > 0) StaticBatchingUtility.Combine(list.ToArray(), new GameObject("Static Batch Root"));
+        }
+
         public static Vector3 RandomPoint()
         {
             // now and then somewhere up on a platform (they take the stairs to get there)
@@ -252,11 +273,19 @@ namespace VITS
         void ApplyTime()
         {
             Time.timeScale = (paused || menuPause) ? 0f : TS[tsi];
-            Time.fixedDeltaTime = (1f / 90f) * Mathf.Max(0.25f, TS[tsi]);
+            Time.fixedDeltaTime = (1f / 75f) * Mathf.Max(0.25f, TS[tsi]);   // 75 Hz physics: stable ragdolls, a sixth cheaper than 90
         }
 
+        float fpsSmooth = 60f, msSmooth = 16f, msWorst, msWorstAcc, worstT;
         void Update()
         {
+            float fdt = Time.unscaledDeltaTime;
+            if (fdt > 0f)
+            {
+                msSmooth = Mathf.Lerp(msSmooth, fdt * 1000f, 0.08f); fpsSmooth = 1000f / Mathf.Max(0.01f, msSmooth);
+                msWorstAcc = Mathf.Max(msWorstAcc, fdt * 1000f); worstT += fdt;
+                if (worstT >= 1f) { msWorst = msWorstAcc; msWorstAcc = 0f; worstT = 0f; }
+            }
             if (GI.Down(K.N)) Spawn();
             if (GI.Down(K.Y)) SpawnAtCrosshair();
             if (GI.Down(K.T)) XRay.Toggle();
@@ -309,7 +338,10 @@ namespace VITS
             float s = Screen.height / 1080f; int W = Screen.width, H = Screen.height;
             int alive = 0; foreach (var m in Mannequin.All) if (!m.dead) alive++;
 
-            Label(new Rect(0, 14 * s, W, 30 * s), $"SPECIMENS  {alive:00} / 100   <size={(int)(14 * s)}>· 90 HZ</size>", (int)(20 * s), TextAnchor.UpperCenter);
+            Label(new Rect(0, 14 * s, W, 30 * s), $"SPECIMENS  {alive:00} / 100   <size={(int)(14 * s)}>· 75 HZ</size>", (int)(20 * s), TextAnchor.UpperCenter);
+            // performance: smoothed fps and frame time, worst frame of the last second
+            string fc = fpsSmooth >= 144f ? "#5cd08f" : fpsSmooth >= 60f ? "#f0c040" : "#ff5a50";
+            Label(new Rect(0, 42 * s, W, 22 * s), $"<color={fc}>{fpsSmooth:0} FPS</color>  ·  {msSmooth:0.0} MS  ·  WORST {msWorst:0.0} MS", (int)(13 * s), TextAnchor.UpperCenter, 0.85f);
             Label(new Rect(W - 330 * s, 14 * s, 300 * s, 34 * s), paused ? "TIME  PAUSED" : $"TIME  {TS[tsi]:0.0}x", (int)(26 * s), TextAnchor.UpperRight);
             Label(new Rect(W - 330 * s, 48 * s, 300 * s, 22 * s), XRay.On ? "X-RAY  ·  FREE MOVEMENT" : "FREE MOVEMENT", (int)(14 * s), TextAnchor.UpperRight, 0.7f);
 
