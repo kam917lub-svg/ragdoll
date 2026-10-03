@@ -635,3 +635,9 @@ Modifiche app.py:
 - _sisal_base(): campionati + partite + quote principali condivisi fra tutti i giorni (Domani non riscarica i campionati); cache 20 min.
 - Schede partita a blocchi da 40 (16 in parallelo) con barra che avanza ("campionati 40/191", "quote partite 80/240"); prima i campionati importanti; limite 90 s (le partite restanti tengono le quote principali); saltate le partite già iniziate.
 - sisal_raw: copie grezze di alberatura, campionato_esempio, partita_esempio.
+
+==================== PROMPT 85 ====================
+Richiesta: "aspetto prima di premere genera schedina? non mi sono ancora apparsi i campionati nell'algo builder"
+Log: Brave ok, 192 campionati, 1270 partite in 24 s.
+Causa: /api/algo-leagues aspettava tutto il palinsesto, comprese le schede di ogni partita (fino a 90 s).
+Modifica app.py: nuova get_sisal_leghe(giorno) usa solo _sisal_base() (campionati del giorno, ~24 s la prima volta, poi subito dalla cache); /api/algo-leagues usa quella.
