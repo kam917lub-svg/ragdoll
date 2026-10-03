@@ -590,3 +590,13 @@ Modifiche:
 - Grenade.cs: nuova BlastWork (coroutine): un corpo dilaniato per frame, schegge 240 raggi a blocchi di 40 per frame, max 14 colpi totali, max 4 per corpo, max ~2 colpi per frame; niente raggi sui corpi se nessuno è entro 25 m. Luce dell'esplosione senza ombre.
 - Fx.cs: Warm() crea i pool al caricamento.
 - Player.cs: Start chiama Fx.Warm() e prepara i suoni della granata.
+
+==================== PROMPT 81 ====================
+Richiesta: (progetto quote Sisal, app.py) "you bypassed akamai using brave ... use that so you can use all the odds from there, matches and leagues" / "can you continue?"
+Nota: la sessione cloud non può raggiungere sisal.it (la policy di rete nega www.sisal.it, betting.sisal.it e tipster.sisal.it; e comunque un IP di datacenter non italiano verrebbe bloccato da Akamai/geo). Lo script quindi va eseguito sul PC dell'utente.
+Nuovo file (fuori dal repo ragdoll, consegnato a parte): sisal_browser.py
+- Avvia Brave con --remote-debugging-port=9222 (profilo separato BraveSisalProfile) e ci si collega con Playwright connect_over_cdp: browser vero, IP italiano, cookie Akamai veri (niente headless, niente "playwright install").
+- Registra tutte le risposte JSON delle API sisal mentre si naviga; fetch_json(url) esegue fetch() dentro la pagina sisal.it, così le chiamate passano Akamai.
+- "python sisal_browser.py scopri": dump delle risposte API in sisal_dump\ + _indice.json (da mandare per scrivere il parser esatto di partite/campionati/quote).
+- "python sisal_browser.py quote": parser euristico -> sisal_quote.json.
+- Prossimo passo: dal dump individuare gli endpoint palinsesto/quote e sostituire get_sisal_events + le quote stimate Poisson in app.py con le quote vere Sisal.
