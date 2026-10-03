@@ -13,6 +13,7 @@ namespace VITS
         Material holeM, gougeM, scorchM; MaterialPropertyBlock mpb;
         AudioSource au; AudioClip clink, thud;
 
+        public static void Warm() { Get(); }   // create the pools at load, not on the first impact
         static Fx Get()
         {
             if (I == null) I = new GameObject("Fx").AddComponent<Fx>();

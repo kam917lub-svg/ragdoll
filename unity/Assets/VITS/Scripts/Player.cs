@@ -63,6 +63,7 @@ namespace VITS
         void Start()
         {
             Weapon = 0; LoadSens();
+            Fx.Warm(); _ = Grenade.Pin;   // build the explosion sounds now, not on the first throw
             cc = gameObject.AddComponent<CharacterController>();
             cc.height = 1.8f; cc.radius = 0.3f; cc.center = new Vector3(0, 0.9f, 0); cc.stepOffset = 0.45f; cc.slopeLimit = 50f;
 

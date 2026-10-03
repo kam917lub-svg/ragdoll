@@ -87,31 +87,13 @@ namespace VITS
 
             // light: a white flash that turns orange and dies
             var lg = new GameObject("BlastLight"); lg.transform.position = c + up * 0.4f;
-            var L = lg.AddComponent<Light>(); L.type = LightType.Point; L.range = 18f; L.color = new Color(1f, 0.75f, 0.45f); L.intensity = 40f; L.shadows = LightShadows.Hard;
+            var L = lg.AddComponent<Light>(); L.type = LightType.Point; L.range = 18f; L.color = new Color(1f, 0.75f, 0.45f); L.intensity = 40f; L.shadows = LightShadows.None;   // a shadowed point light renders 6 extra shadow maps: a big hitch
             lg.AddComponent<Fade>().Set(0.35f, 40f);
 
             Fx.Blast(c, up);
 
-            // everyone hears it; anyone near enough is thrown, torn or killed; fragments fly in every direction
-            foreach (var m in Mannequin.All.ToArray())
-            {
-                if (m == null) continue;
-                float d = Vector3.Distance(m.transform.position + Vector3.up * 0.9f, c);
-                if (d < 7f && !Physics.Linecast(c + up * 0.15f, m.transform.position + Vector3.up * 0.9f, WORLD, QueryTriggerInteraction.Ignore)) m.Blast(c, d);
-                else if (!m.dead && d < 120f) m.Scare(c, Mathf.Lerp(1f, 0.35f, d / 120f), "EXPLOSION");
-            }
-            int frags = 0;
-            for (int i = 0; i < 320 && frags < 22; i++)
-            {
-                Vector3 dir = Random.onUnitSphere; if (Vector3.Dot(dir, up) < -0.1f) dir = Vector3.Reflect(dir, up);
-                Vector3 o = c + up * 0.08f; float max = 25f;
-                if (Physics.Raycast(o, dir, out RaycastHit wh, max, WORLD, QueryTriggerInteraction.Ignore)) max = wh.distance;
-                if (Mannequin.PickSkin(o, dir, max, out Part p, out float t, out Vector3 n))
-                {
-                    if (Random.value < Mathf.Lerp(1f, 0.25f, t / 25f)) { p.owner.Hit(p, null, o + dir * t, dir, n); frags++; }
-                }
-                else if (max < 25f && i % 4 == 0 && Mannequin.Nearest(wh.point, 0.45f) == null) Fx.Frag(wh, dir);
-            }
+            // the heavy work (tearing bodies, fragments) is spread over a few frames so the game never hitches
+            new GameObject("BlastWork").AddComponent<BlastWork>().Run(c, up);
             // shock wave pushes loose things
             foreach (var col in Physics.OverlapSphere(c, 8f, ~0, QueryTriggerInteraction.Ignore))
                 if (col.attachedRigidbody != null && !col.attachedRigidbody.isKinematic && col.attachedRigidbody.GetComponent<Part>() == null)
@@ -147,6 +129,41 @@ namespace VITS
                 d[i] = Mathf.Clamp((crack + body + sub + rumble) * Mathf.Min(1f, t * 3000f) + echo, -1f, 1f) * 0.95f;
             }
             var c = AudioClip.Create("boom", n, 1, sr, false); c.SetData(d, 0); return c;
+        }
+    }
+
+    // blast damage, a slice per frame: one body torn per frame, fragments cast 40 rays and land at most 2 hits per frame
+    public class BlastWork : MonoBehaviour
+    {
+        public void Run(Vector3 c, Vector3 up) { StartCoroutine(Work(c, up)); }
+        System.Collections.IEnumerator Work(Vector3 c, Vector3 up)
+        {
+            const int WORLD = ~((1 << 2) | (1 << Mannequin.LayerWalk) | (1 << Mannequin.LayerRag));
+            var near = new System.Collections.Generic.List<Mannequin>();
+            foreach (var m in Mannequin.All.ToArray())
+            {
+                if (m == null) continue;
+                float d = Vector3.Distance(m.transform.position + Vector3.up * 0.9f, c);
+                if (d < 25f) near.Add(m);
+                if (d < 7f && !Physics.Linecast(c + up * 0.15f, m.transform.position + Vector3.up * 0.9f, WORLD, QueryTriggerInteraction.Ignore)) { m.Blast(c, d); yield return null; }
+                else if (!m.dead && d < 120f) m.Scare(c, Mathf.Lerp(1f, 0.35f, d / 120f), "EXPLOSION");
+            }
+            if (near.Count == 0) { Destroy(gameObject); yield break; }   // nobody in range: no fragment rays needed on bodies
+            int frags = 0, frame = 0; var perBody = new System.Collections.Generic.Dictionary<Mannequin, int>();
+            for (int i = 0; i < 240 && frags < 14; i++)
+            {
+                Vector3 dir = Random.onUnitSphere; if (Vector3.Dot(dir, up) < -0.1f) dir = Vector3.Reflect(dir, up);
+                Vector3 o = c + up * 0.08f; float max = 25f;
+                bool wall = Physics.Raycast(o, dir, out RaycastHit wh, max, WORLD, QueryTriggerInteraction.Ignore); if (wall) max = wh.distance;
+                if (Mannequin.PickSkin(o, dir, max, out Part p, out float t, out Vector3 n))
+                {
+                    perBody.TryGetValue(p.owner, out int k);
+                    if (k < 4 && Random.value < Mathf.Lerp(1f, 0.25f, t / 25f)) { perBody[p.owner] = k + 1; p.owner.Hit(p, null, o + dir * t, dir, n); frags++; frame += 20; }
+                }
+                else if (wall && i % 4 == 0 && Mannequin.Nearest(wh.point, 0.45f) == null) Fx.Frag(wh, dir);
+                if (++frame >= 40) { frame = 0; yield return null; }
+            }
+            Destroy(gameObject);
         }
     }
 

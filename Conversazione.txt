@@ -582,3 +582,11 @@ Modifiche (Mannequin.cs):
 - Tuffo solo se la meta è davvero dietro un muro di copertura (BehindCover: entro 3,5 m da una COVER e a meno di 1,2 m dal suo piano), non più verso punti casuali di fuga.
 - Watchdog più aggressivo: fermo da 0,8 s (meno di 0,35 m) mentre vuole muoversi -> esce nel punto libero più vicino, velocità minima 0,6 e nuova meta raggiungibile in linea retta (ClearPoint: SphereCast libero fino a 6 m).
 - In piedi in modalità fisica: torna a camminare dopo 1,5 s (prima 3) se nessun colpo da 1,2 s e non in aria.
+
+==================== PROMPT 80 ====================
+Richiesta: "granades on eplosion make the game lag like stutter to 1 fps for a sec"
+Cause: tutto in un frame (Blast su ogni corpo con tagli di arti e ricostruzione mesh, 320 raggi di schegge con skinning CPU e fino a 22 Hit), luce puntiforme con ombre (6 shadow map), pool Fx (720 oggetti) e suoni creati al primo uso.
+Modifiche:
+- Grenade.cs: nuova BlastWork (coroutine): un corpo dilaniato per frame, schegge 240 raggi a blocchi di 40 per frame, max 14 colpi totali, max 4 per corpo, max ~2 colpi per frame; niente raggi sui corpi se nessuno è entro 25 m. Luce dell'esplosione senza ombre.
+- Fx.cs: Warm() crea i pool al caricamento.
+- Player.cs: Start chiama Fx.Warm() e prepara i suoni della granata.
