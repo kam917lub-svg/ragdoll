@@ -600,3 +600,13 @@ Nuovo file (fuori dal repo ragdoll, consegnato a parte): sisal_browser.py
 - "python sisal_browser.py scopri": dump delle risposte API in sisal_dump\ + _indice.json (da mandare per scrivere il parser esatto di partite/campionati/quote).
 - "python sisal_browser.py quote": parser euristico -> sisal_quote.json.
 - Prossimo passo: dal dump individuare gli endpoint palinsesto/quote e sostituire get_sisal_events + le quote stimate Poisson in app.py con le quote vere Sisal.
+
+==================== PROMPT 82 ====================
+Richiesta: dump di "sisal_browser.py scopri" (14 risposte); caricati solo _indice.json e 000-003 (piccoli, inutili: token csrf, sensor Akamai, IP, config biglietto).
+Esito: Akamai superato (le API betting.sisal.it rispondono dal Brave reale). Endpoint trovati:
+- /api/lettura-palinsesto-sport/palinsesto/prematch/alberaturaPrematch (1,1 MB: albero sport/campionati)
+- /api/lettura-palinsesto-sport/palinsesto/prematch/init (19 KB)
+- /api/lettura-palinsesto-sport/monoquota?offerId=0 (1 MB: probabile elenco eventi+quote)
+- /api/lettura-palinsesto-sport/palinsesto/live/alberatura (3 MB, live)
+Mancano: i file grandi (006, 007, 013) e la chiamata della pagina di una singola partita (Multigol, Casa Segna, ecc.).
+Modifica sisal_browser.py: cattura le risposte di tutte le schede (anche partite aperte in nuova scheda).
