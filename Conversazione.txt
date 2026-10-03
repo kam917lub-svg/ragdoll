@@ -610,3 +610,15 @@ Esito: Akamai superato (le API betting.sisal.it rispondono dal Brave reale). End
 - /api/lettura-palinsesto-sport/palinsesto/live/alberatura (3 MB, live)
 Mancano: i file grandi (006, 007, 013) e la chiamata della pagina di una singola partita (Multigol, Casa Segna, ecc.).
 Modifica sisal_browser.py: cattura le risposte di tutte le schede (anche partite aperte in nuova scheda).
+
+==================== PROMPT 83 ====================
+Richiesta: "just take app.py and fix it to use sisal's stuff with brave because of akamai"
+Modifiche app.py (consegnato a parte, non nel repo ragdoll):
+- Nuova sezione "3e. Sisal palinsesto + QUOTE VERE via Brave": classe _SisalBrave (un thread dedicato a Playwright, collegato via CDP porta 9222 al Brave vero, profilo BraveSisalProfile, avvio automatico); fetch_many() esegue fetch() dentro la pagina sisal.it, 12 richieste in parallelo -> passa Akamai.
+- get_sisal_palinsesto(giorno): alberaturaPrematch (campionati calcio) + monoquota + top-match + scheda di ogni campionato + scheda di ogni partita del giorno. Parser tollerante (codicePalinsesto/codiceAvvenimento, esitoList, quota in centesimi). Mappa mercati: 1X2, DC, GG/NG, U/O 0.5-4.5, Multigol, Multigol casa/ospite, Casa/Ospite segna (esclusi 1° tempo, handicap, combo, corner...).
+- Gli endpoint scheda campionato/partita vengono provati fra più modelli di URL e si tiene quello che funziona; copie grezze in sisal_raw\ per sistemare il parser.
+- get_sisal_events: prima Brave/Sisal, se fallisce ripiega sul vecchio metodo Tipster.
+- compute_algo: ogni partita porta "sq" (quote Sisal); se manca Odds API le probabilità vengono dalle quote Sisal (_od_da_sisal, senza aggio).
+- _build_algo_slips: _cand usa la quota VERA Sisal quando esiste (campo quota_sisal=true), altrimenti la stima di prima.
+- REQUIREMENTS: aggiunto playwright.
+Test: solo con dati finti in formato Sisal (sisal.it non raggiungibile da qui): parser, mappa mercati e schedine OK.
