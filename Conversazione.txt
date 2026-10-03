@@ -641,3 +641,12 @@ Richiesta: "aspetto prima di premere genera schedina? non mi sono ancora apparsi
 Log: Brave ok, 192 campionati, 1270 partite in 24 s.
 Causa: /api/algo-leagues aspettava tutto il palinsesto, comprese le schede di ogni partita (fino a 90 s).
 Modifica app.py: nuova get_sisal_leghe(giorno) usa solo _sisal_base() (campionati del giorno, ~24 s la prima volta, poi subito dalla cache); /api/algo-leagues usa quella.
+
+==================== PROMPT 86 ====================
+Richiesta: "siamo sicuri abbia usato solo sisal? UEFA non c'è nei campionati" + log + schedina generata.
+Log: Sisal ok (421 partite di oggi, tutte con quote, 102 campionati; schede partita 33 s). Ma il builder aggiungeva anche partite/campionati di Odds API, Forebet e Football-Data ("La Liga 2 - Spain", "Es2", "BeW"...), e cercava la forma FotMob per 921 squadre (~1 min).
+UEFA: oggi (sabato 3/10) è sosta nazionali, niente Champions/Europa League; "INT Nations League" è la UEFA Nations League.
+Modifiche app.py:
+- compute_algo: con palinsesto Sisal via Brave aggiunge SOLO partite Sisal; le altre fonti servono solo per probabilità e forma.
+- compute_algo(giorno, n_matches, leghe): filtra subito i campionati scelti, così FotMob cerca solo quelle squadre (es. 8 invece di 921).
+- _json: ignora anche ConnectionAbortedError (WinError 10053 quando la pagina viene ricaricata).
