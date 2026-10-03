@@ -622,3 +622,16 @@ Modifiche app.py (consegnato a parte, non nel repo ragdoll):
 - _build_algo_slips: _cand usa la quota VERA Sisal quando esiste (campo quota_sisal=true), altrimenti la stima di prima.
 - REQUIREMENTS: aggiunto playwright.
 Test: solo con dati finti in formato Sisal (sisal.it non raggiungibile da qui): parser, mappa mercati e schedine OK.
+
+==================== PROMPT 84 ====================
+Richiesta: "sta ancora qua (Sisal 8%), è lentissimo" + log del server.
+Cause dal log:
+1) Ogni ricarica della pagina faceva ripartire tutto in parallelo: 3x scansione tipster (4550 tip), 3x FotMob (694 squadre), 4x palinsesto Sisal, tutti in coda sull'unico Brave.
+2) Le risposte Sisal (MB ciascuna) passavano da Brave a Python come oggetti CDP: ~15 s ogni 30 MB (191 campionati = ~4 min).
+3) Le schede di tutte le partite in un'unica richiesta gigante, senza avanzamento (barra ferma all'8%).
+Modifiche app.py:
+- _una_volta(chiave): lock per chiave su compute, compute_algo, get_sisal_palinsesto e base Sisal -> richieste uguali in parallelo = 1 solo calcolo, le altre aspettano il risultato.
+- Potatura dentro Brave (JS): restano solo i campi che il parser legge (_CAMPI_UTILI), poi JSON come testo. Test con Chromium: 20 risposte da 1,5 MB 14,7 s -> 0,4 s; 60 risposte 1,6 s.
+- _sisal_base(): campionati + partite + quote principali condivisi fra tutti i giorni (Domani non riscarica i campionati); cache 20 min.
+- Schede partita a blocchi da 40 (16 in parallelo) con barra che avanza ("campionati 40/191", "quote partite 80/240"); prima i campionati importanti; limite 90 s (le partite restanti tengono le quote principali); saltate le partite già iniziate.
+- sisal_raw: copie grezze di alberatura, campionato_esempio, partita_esempio.
